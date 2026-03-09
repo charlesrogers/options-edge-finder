@@ -1,10 +1,9 @@
 import streamlit as st
-import yfinance as yf
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
-import time
 import plotly.graph_objects as go
+import yf_proxy
 from analytics import (
     calc_realized_vol,
     calc_vrp_signal,
@@ -206,57 +205,30 @@ tickers = [t.strip().upper() for t in ticker_input.split(",") if t.strip()]
 
 
 # ============================================================
-# DATA LOADERS
+# DATA LOADERS — all routed through Cloudflare Worker proxy
 # ============================================================
-def _yf_retry(func, retries=3, delay=2):
-    """Retry a yfinance call with backoff to handle rate limits."""
-    for attempt in range(retries):
-        try:
-            return func()
-        except Exception as e:
-            if attempt < retries - 1 and ("RateLimit" in type(e).__name__ or "429" in str(e)):
-                time.sleep(delay * (attempt + 1))
-            else:
-                raise
-    return None
-
-
 @st.cache_data(ttl=600)
 def load_stock_data(ticker, period="1y"):
-    stock = yf.Ticker(ticker)
-    hist = _yf_retry(lambda: stock.history(period=period))
-    if hist is None or hist.empty:
+    hist = yf_proxy.get_stock_history(ticker, period=period)
+    if hist.empty:
         return pd.DataFrame(), {}
-    # info call is separate and often rate-limited — make it optional
-    time.sleep(1)  # delay to avoid back-to-back rate limits
-    try:
-        info = _yf_retry(lambda: stock.info, retries=2, delay=5)
-        if info is None:
-            info = {}
-    except Exception:
-        info = {}
+    info = yf_proxy.get_stock_info(ticker)
     return hist, info
 
 
 @st.cache_data(ttl=600)
 def load_expirations(ticker):
     """Get all available expiration dates for a ticker."""
-    try:
-        stock = yf.Ticker(ticker)
-        expirations = _yf_retry(lambda: stock.options, retries=2)
-        return list(expirations) if expirations else []
-    except Exception:
-        return []
+    return yf_proxy.get_expirations(ticker)
 
 
-@st.cache_resource(ttl=300)
+@st.cache_data(ttl=300)
 def load_chain(ticker, expiration):
     """Load a single expiration's option chain (lazy — only when needed)."""
-    stock = yf.Ticker(ticker)
-    try:
-        return _yf_retry(lambda: stock.option_chain(expiration), retries=2)
-    except Exception:
+    chain = yf_proxy.get_option_chain(ticker, expiration)
+    if chain.calls.empty and chain.puts.empty:
         return None
+    return chain
 
 
 def load_options_data(ticker):
@@ -265,8 +237,7 @@ def load_options_data(ticker):
     if not expirations:
         return None, []
     chains = {}
-    for exp in expirations[:2]:  # only first 2 to reduce API calls
-        time.sleep(0.5)  # small delay to avoid rate limits
+    for exp in expirations[:2]:
         chain = load_chain(ticker, exp)
         if chain is not None:
             chains[exp] = chain
@@ -275,41 +246,9 @@ def load_options_data(ticker):
 
 @st.cache_data(ttl=900)
 def load_vix_data():
-    vix_hist = pd.DataFrame()
-    for period in ["1y", "6mo", "3mo"]:
-        try:
-            df = yf.download("^VIX", period=period, progress=False)
-            if not df.empty:
-                if isinstance(df.columns, pd.MultiIndex):
-                    df.columns = df.columns.get_level_values(0)
-                vix_hist = df
-                break
-        except Exception:
-            continue
-    if vix_hist.empty:
-        for period in ["6mo", "3mo", "1mo"]:
-            try:
-                vix_hist = yf.Ticker("^VIX").history(period=period)
-                if not vix_hist.empty:
-                    break
-            except Exception:
-                continue
-
-    vix3m_hist = None
-    try:
-        df3m = yf.download("^VIX3M", period="1y", progress=False)
-        if not df3m.empty:
-            if isinstance(df3m.columns, pd.MultiIndex):
-                df3m.columns = df3m.columns.get_level_values(0)
-            vix3m_hist = df3m
-    except Exception:
-        pass
-    if vix3m_hist is None:
-        try:
-            vix3m_hist = yf.Ticker("^VIX3M").history(period="6mo")
-        except Exception:
-            pass
-    return vix_hist, vix3m_hist
+    vix_hist = yf_proxy.get_stock_history("^VIX", period="6mo")
+    vix3m_hist = yf_proxy.get_stock_history("^VIX3M", period="6mo")
+    return vix_hist, vix3m_hist if not vix3m_hist.empty else None
 
 
 def compute_analytics(ticker):

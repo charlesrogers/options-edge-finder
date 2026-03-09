@@ -1109,7 +1109,7 @@ def calc_portfolio_correlation(tickers: list, period: str = "1y"):
     Calculate return correlations between holdings.
     Shows how exposed you are to a simultaneous drawdown.
     """
-    import yfinance as yf
+    import yf_proxy
 
     if len(tickers) < 2:
         return None
@@ -1117,7 +1117,7 @@ def calc_portfolio_correlation(tickers: list, period: str = "1y"):
     prices = pd.DataFrame()
     for t in tickers:
         try:
-            hist = yf.Ticker(t).history(period=period)
+            hist = yf_proxy.get_stock_history(t, period=period)
             if not hist.empty:
                 prices[t] = hist["Close"]
         except Exception:
