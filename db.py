@@ -1,5 +1,6 @@
 """
 Database layer. Uses Supabase (Postgres) when configured, falls back to local SQLite.
+Includes prediction logging for scorecard verification.
 Environment variables:
   SUPABASE_URL - your Supabase project URL
   SUPABASE_KEY - your Supabase anon/service key
