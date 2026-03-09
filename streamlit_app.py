@@ -228,8 +228,9 @@ def load_stock_data(ticker, period="1y"):
     if hist is None or hist.empty:
         return pd.DataFrame(), {}
     # info call is separate and often rate-limited — make it optional
+    time.sleep(1)  # delay to avoid back-to-back rate limits
     try:
-        info = _yf_retry(lambda: stock.info, retries=2, delay=3)
+        info = _yf_retry(lambda: stock.info, retries=2, delay=5)
         if info is None:
             info = {}
     except Exception:
@@ -259,12 +260,13 @@ def load_chain(ticker, expiration):
 
 
 def load_options_data(ticker):
-    """Load first 4 expirations for dashboard/term structure. Returns chains dict + all expiration list."""
+    """Load first 2 expirations for dashboard/term structure. Returns chains dict + all expiration list."""
     expirations = load_expirations(ticker)
     if not expirations:
         return None, []
     chains = {}
-    for exp in expirations[:4]:  # only first 4 for dashboard overview
+    for exp in expirations[:2]:  # only first 2 to reduce API calls
+        time.sleep(0.5)  # small delay to avoid rate limits
         chain = load_chain(ticker, exp)
         if chain is not None:
             chains[exp] = chain
@@ -418,7 +420,6 @@ with tab_dashboard:
         try:
             with st.spinner(f"Loading {ticker}..."):
                 data = compute_analytics(ticker)
-                vix_hist, vix3m_hist = load_vix_data()
         except Exception as e:
             err_name = type(e).__name__
             if "RateLimit" in err_name:
@@ -664,6 +665,10 @@ with tab_dashboard:
 
         # --- VIX Context ---
         with st.expander("Market Context (VIX)", expanded=False):
+            try:
+                vix_hist, vix3m_hist = load_vix_data()
+            except Exception:
+                vix_hist, vix3m_hist = pd.DataFrame(), None
             if vix_hist is None or vix_hist.empty:
                 st.warning("VIX data unavailable — Yahoo Finance may be throttling index data. Try refreshing.")
             else:
@@ -755,13 +760,24 @@ with tab_analyzer:
         # Use first ticker or let user pick
         analyze_ticker = st.selectbox("Analyze", tickers, key="analyzer_ticker")
 
-        with st.spinner(f"Loading {analyze_ticker}..."):
-            data = compute_analytics(analyze_ticker)
+        try:
+            with st.spinner(f"Loading {analyze_ticker}..."):
+                data = compute_analytics(analyze_ticker)
+        except Exception as e:
+            err_name = type(e).__name__
+            if "RateLimit" in err_name:
+                st.error(f"Yahoo Finance rate limit hit. Please wait 30-60 seconds and refresh the page.")
+            else:
+                st.error(f"Error loading {analyze_ticker}: {err_name} — {e}")
+            data = None
 
         if data is None:
             st.error(f"No data for {analyze_ticker}")
         elif not data["chains"] or not data["expirations"]:
-            st.error(f"No options data for {analyze_ticker}")
+            st.warning(
+                f"No options data loaded for {analyze_ticker}. This usually means Yahoo Finance is rate-limiting requests. "
+                f"Wait 30-60 seconds and refresh. The Dashboard tab may still work since its data is cached."
+            )
         else:
             current_price = data["current_price"]
             current_iv = data["current_iv"]
