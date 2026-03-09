@@ -4,6 +4,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import plotly.graph_objects as go
 import yf_proxy
+import traceback
 from analytics import (
     calc_realized_vol,
     calc_vrp_signal,
@@ -36,6 +37,13 @@ st.set_page_config(
     page_icon="$",
     layout="wide",
 )
+
+# Version marker — increment to bust Streamlit caches on deploy
+_APP_VERSION = "2.0-proxy"
+if "app_version" not in st.session_state or st.session_state.app_version != _APP_VERSION:
+    st.cache_data.clear()
+    st.cache_resource.clear()
+    st.session_state.app_version = _APP_VERSION
 
 # ============================================================
 # TOOLTIP DEFINITIONS — hover help for every metric
@@ -255,6 +263,7 @@ def compute_analytics(ticker):
     """Load and compute all analytics for a ticker. Returns a dict."""
     hist, info = load_stock_data(ticker)
     chains, expirations = load_options_data(ticker)
+    print(f"[compute_analytics] {ticker}: hist={len(hist)} rows, chains={len(chains) if chains else 0}, expirations={len(expirations)}")
     if hist.empty:
         return None
 
@@ -265,8 +274,8 @@ def compute_analytics(ticker):
     rv_30 = calc_realized_vol(hist, window=30)
 
     current_iv = None
-    if chains and expirations:
-        first_exp = expirations[0]
+    if chains:
+        first_exp = list(chains.keys())[0]
         calls = chains[first_exp].calls
         if not calls.empty and "impliedVolatility" in calls.columns:
             calls_sorted = calls.copy()
@@ -1363,3 +1372,19 @@ st.caption(
     "This tool does NOT auto-trade. Not financial advice. "
     "Hover over any metric for an explanation."
 )
+
+# Diagnostics (temporary — remove once working)
+with st.expander("Debug Info", expanded=False):
+    st.text(f"App version: {_APP_VERSION}")
+    st.text(f"Proxy URL: {yf_proxy.PROXY_URL}")
+    try:
+        import requests as _req
+        r = _req.get(f"{yf_proxy.PROXY_URL}/health", timeout=5)
+        st.text(f"Proxy health: {r.status_code} — {r.text[:100]}")
+    except Exception as _e:
+        st.text(f"Proxy health: FAILED — {_e}")
+    try:
+        test_exps = yf_proxy.get_expirations("AAPL")
+        st.text(f"AAPL expirations: {len(test_exps)} — {test_exps[:3]}")
+    except Exception as _e:
+        st.text(f"AAPL expirations: FAILED — {_e}")
