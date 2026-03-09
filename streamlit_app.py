@@ -34,6 +34,8 @@ from analytics import (
 )
 from db import add_trade, close_trade, get_open_trades, get_all_trades, delete_trade
 from db import record_iv, get_iv_history, get_real_iv_rank, using_supabase
+from db import log_prediction, score_pending_predictions, get_prediction_scorecard
+from db import get_pending_predictions_count, get_all_predictions
 
 st.set_page_config(
     page_title="Options Edge Finder",
@@ -42,7 +44,7 @@ st.set_page_config(
 )
 
 # Version marker — increment to bust Streamlit caches on deploy
-_APP_VERSION = "3.0-models"
+_APP_VERSION = "3.1-scorecard"
 if "app_version" not in st.session_state or st.session_state.app_version != _APP_VERSION:
     st.cache_data.clear()
     st.cache_resource.clear()
@@ -199,11 +201,12 @@ TIPS = {
 st.title("Options Edge Finder")
 st.caption("Know when to sell. Know when to fold.")
 
-tab_guide, tab_dashboard, tab_analyzer, tab_positions = st.tabs([
+tab_guide, tab_dashboard, tab_analyzer, tab_positions, tab_scorecard = st.tabs([
     "Getting Started",
     "Dashboard",
     "Trade Analyzer",
     "My Positions",
+    "Scorecard",
 ])
 
 # Ticker input — persistent across tabs via session state
@@ -364,6 +367,17 @@ def compute_analytics(ticker):
                       put_25d_iv=p25, call_25d_iv=c25)
         except Exception:
             pass
+
+    # Log prediction for scoring later
+    try:
+        log_prediction(
+            ticker=ticker, signal=signal, spot_price=current_price,
+            atm_iv=current_iv, rv_forecast=rv_forecast, vrp=vrp,
+            iv_rank=iv_rank, term_label=term_label, regime=regime,
+            skew=skew_value, garch_vol=garch_vol, forecast_method=forecast_method,
+        )
+    except Exception:
+        pass
 
     # Empirical tail probabilities
     empirical = calc_empirical_probabilities(hist, move_pct=0.05, holding_days=20)
@@ -1678,6 +1692,173 @@ with tab_positions:
             win_count = sum(1 for t in closed_trades if t["premium_received"] > (t.get("close_price") or 0))
             st.metric("Total Realized P&L", f"${total_pnl:+,.0f}")
             st.metric("Win Rate", f"{win_count}/{len(closed_trades)} ({win_count/len(closed_trades)*100:.0f}%)")
+
+
+# ============================================================
+# TAB: SCORECARD
+# ============================================================
+with tab_scorecard:
+    st.header("Prediction Scorecard")
+    st.caption(
+        "Every time you load a ticker, the tool logs its signal (GREEN/YELLOW/RED) along with all inputs. "
+        "After 20 trading days, it checks what actually happened and scores whether the prediction was correct. "
+        "This is the only honest way to know if the tool works."
+    )
+
+    # Score any pending predictions
+    try:
+        pending = get_pending_predictions_count()
+        if pending > 0:
+            with st.spinner(f"Scoring {pending} pending predictions..."):
+                scored = score_pending_predictions()
+            if scored > 0:
+                st.success(f"Scored {scored} predictions that have matured.")
+    except Exception as e:
+        st.warning(f"Could not score predictions: {e}")
+
+    # Show scorecard
+    scorecard = get_prediction_scorecard()
+
+    if scorecard is None:
+        st.info(
+            "No scored predictions yet. The tool logs a prediction every time you load a ticker. "
+            "After 20 trading days, it automatically checks the outcome. "
+            "Come back in a few weeks to see how accurate the signals are."
+        )
+
+        # Show pending
+        try:
+            all_preds = get_all_predictions()
+            if not all_preds.empty:
+                pending_df = all_preds[all_preds["scored"] == 0]
+                st.metric("Predictions Logged (Pending)", len(pending_df))
+                if not pending_df.empty:
+                    st.dataframe(
+                        pending_df[["date", "ticker", "signal", "spot_price", "vrp", "regime"]].head(20),
+                        use_container_width=True,
+                    )
+        except Exception:
+            pass
+    else:
+        # Overall stats
+        st.subheader("Overall Accuracy")
+        oc1, oc2, oc3 = st.columns(3)
+        with oc1:
+            st.metric("Total Predictions Scored", scorecard["total_predictions"])
+        with oc2:
+            st.metric("Correct (Seller Won)", scorecard["total_correct"])
+        with oc3:
+            acc = scorecard["overall_accuracy"]
+            acc_color = "normal"
+            st.metric("Accuracy", f"{acc:.1f}%",
+                      help="% of times the expected move was larger than the actual move. "
+                           ">60% = tool has edge. >70% = strong. <50% = tool is wrong more than right.")
+
+        if acc >= 65:
+            st.success(f"The tool's signals are performing well ({acc:.1f}% accuracy). Signals have predictive value.")
+        elif acc >= 50:
+            st.info(f"Accuracy is moderate ({acc:.1f}%). Signals are slightly better than random. More data needed.")
+        else:
+            st.error(f"Accuracy is below 50% ({acc:.1f}%). The tool's signals are not working — do NOT rely on them.")
+
+        # By signal type
+        st.subheader("Accuracy by Signal")
+        st.markdown("Does GREEN actually outperform RED? This is the key test.")
+
+        by_signal = scorecard.get("by_signal", {})
+        if by_signal:
+            sig_cols = st.columns(len(by_signal))
+            for i, (sig, stats) in enumerate(by_signal.items()):
+                color_map = {"GREEN": "green", "YELLOW": "orange", "RED": "red"}
+                with sig_cols[i]:
+                    st.markdown(f"**{sig}** ({stats['count']} predictions)")
+                    st.metric("Accuracy", f"{stats['accuracy']:.1f}%")
+                    st.metric("Avg Stock Return", f"{stats['avg_return']:+.1f}%")
+                    if stats.get("avg_vrp") is not None:
+                        st.metric("Avg VRP at Signal", f"{stats['avg_vrp']:+.1f}")
+                    st.metric("Worst Return", f"{stats['worst_return']:+.1f}%")
+
+            # The critical test: GREEN should have higher accuracy than RED
+            green_acc = by_signal.get("GREEN", {}).get("accuracy", 0)
+            red_acc = by_signal.get("RED", {}).get("accuracy", 0)
+            if green_acc > 0 and red_acc > 0:
+                if green_acc > red_acc + 10:
+                    st.success(
+                        f"GREEN ({green_acc:.0f}%) significantly outperforms RED ({red_acc:.0f}%). "
+                        f"The signal differentiation is working — follow the signals."
+                    )
+                elif green_acc > red_acc:
+                    st.info(
+                        f"GREEN ({green_acc:.0f}%) slightly outperforms RED ({red_acc:.0f}%). "
+                        f"Directionally correct but not enough data for confidence."
+                    )
+                else:
+                    st.error(
+                        f"RED ({red_acc:.0f}%) outperforms GREEN ({green_acc:.0f}%). "
+                        f"The signals are INVERTED — something is broken in the model. "
+                        f"Do NOT trade based on these signals until this is investigated."
+                    )
+
+        # By regime
+        by_regime = scorecard.get("by_regime", {})
+        if by_regime:
+            st.subheader("Accuracy by Regime")
+            reg_cols = st.columns(len(by_regime))
+            for i, (reg, stats) in enumerate(by_regime.items()):
+                with reg_cols[i]:
+                    st.markdown(f"**{reg}** ({stats['count']})")
+                    st.metric("Accuracy", f"{stats['accuracy']:.1f}%")
+                    st.metric("Avg Return", f"{stats['avg_return']:+.1f}%")
+
+        # By ticker
+        by_ticker = scorecard.get("by_ticker", {})
+        if by_ticker:
+            st.subheader("Accuracy by Ticker")
+            st.markdown("Are some tickers more predictable than others?")
+            import pandas as pd
+            ticker_df = pd.DataFrame([
+                {"Ticker": t, "Predictions": s["count"],
+                 "Accuracy": f"{s['accuracy']:.1f}%",
+                 "Avg Return": f"{s['avg_return']:+.1f}%"}
+                for t, s in by_ticker.items()
+            ])
+            st.dataframe(ticker_df, use_container_width=True, hide_index=True)
+
+        # Recent predictions detail
+        st.subheader("Recent Scored Predictions")
+        recent = scorecard.get("recent", [])
+        if recent:
+            import pandas as pd
+            rdf = pd.DataFrame(recent)
+            display_cols = ["date", "ticker", "signal", "regime", "spot_price",
+                           "vrp", "outcome_return", "seller_won"]
+            display_cols = [c for c in display_cols if c in rdf.columns]
+            rdf_display = rdf[display_cols].copy()
+            if "outcome_return" in rdf_display.columns:
+                rdf_display["outcome_return"] = rdf_display["outcome_return"].apply(
+                    lambda x: f"{x:+.1f}%" if pd.notna(x) else "N/A"
+                )
+            if "seller_won" in rdf_display.columns:
+                rdf_display["seller_won"] = rdf_display["seller_won"].map({1: "Yes", 0: "No"})
+            if "vrp" in rdf_display.columns:
+                rdf_display["vrp"] = rdf_display["vrp"].apply(
+                    lambda x: f"{x:+.1f}" if pd.notna(x) else "N/A"
+                )
+            st.dataframe(rdf_display, use_container_width=True, hide_index=True)
+
+    # Show all pending predictions
+    try:
+        all_preds = get_all_predictions()
+        if not all_preds.empty:
+            pending_df = all_preds[all_preds["scored"] == 0]
+            if not pending_df.empty:
+                with st.expander(f"Pending Predictions ({len(pending_df)} awaiting outcome)", expanded=False):
+                    st.caption("These predictions have been logged but not enough time has passed to score them.")
+                    display_cols = ["date", "ticker", "signal", "regime", "spot_price", "vrp", "holding_days"]
+                    display_cols = [c for c in display_cols if c in pending_df.columns]
+                    st.dataframe(pending_df[display_cols].head(50), use_container_width=True, hide_index=True)
+    except Exception:
+        pass
 
 
 # ============================================================

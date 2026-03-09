@@ -80,6 +80,32 @@ def _get_sqlite():
             entry_delta REAL
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS predictions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticker TEXT NOT NULL,
+            date TEXT NOT NULL,
+            signal TEXT NOT NULL,
+            spot_price REAL,
+            atm_iv REAL,
+            rv_forecast REAL,
+            vrp REAL,
+            iv_rank REAL,
+            term_label TEXT,
+            regime TEXT,
+            skew REAL,
+            garch_vol REAL,
+            forecast_method TEXT,
+            holding_days INTEGER DEFAULT 20,
+            outcome_price REAL,
+            outcome_return REAL,
+            outcome_rv REAL,
+            outcome_date TEXT,
+            scored INTEGER DEFAULT 0,
+            seller_won INTEGER,
+            UNIQUE(ticker, date, holding_days)
+        )
+    """)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -226,3 +252,197 @@ def delete_trade(trade_id):
         conn.execute("DELETE FROM trades WHERE id = ?", (trade_id,))
         conn.commit()
         conn.close()
+
+
+# ============================================================
+# PREDICTION LOG — record signals, score them later
+# ============================================================
+
+def log_prediction(ticker, signal, spot_price, atm_iv=None, rv_forecast=None,
+                   vrp=None, iv_rank=None, term_label=None, regime=None,
+                   skew=None, garch_vol=None, forecast_method=None, holding_days=20):
+    """Log today's prediction for a ticker. One prediction per ticker per day per holding period."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    sb = _get_supabase()
+    if sb:
+        sb.table("predictions").upsert({
+            "ticker": ticker, "date": today, "signal": signal,
+            "spot_price": spot_price, "atm_iv": atm_iv, "rv_forecast": rv_forecast,
+            "vrp": vrp, "iv_rank": iv_rank, "term_label": term_label,
+            "regime": regime, "skew": skew, "garch_vol": garch_vol,
+            "forecast_method": forecast_method, "holding_days": holding_days,
+            "scored": 0,
+        }).execute()
+    else:
+        conn = _get_sqlite()
+        conn.execute("""
+            INSERT OR REPLACE INTO predictions
+            (ticker, date, signal, spot_price, atm_iv, rv_forecast, vrp, iv_rank,
+             term_label, regime, skew, garch_vol, forecast_method, holding_days, scored)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+        """, (ticker, today, signal, spot_price, atm_iv, rv_forecast,
+              vrp, iv_rank, term_label, regime, skew, garch_vol,
+              forecast_method, holding_days))
+        conn.commit()
+        conn.close()
+
+
+def score_pending_predictions():
+    """
+    Check all unscored predictions where enough time has passed.
+    Fetches actual stock prices and scores whether the signal was correct.
+    Returns number of predictions scored.
+    """
+    import yf_proxy
+    import pandas as pd
+    import numpy as np
+
+    conn = _get_sqlite()
+    rows = conn.execute(
+        "SELECT * FROM predictions WHERE scored = 0"
+    ).fetchall()
+    predictions = [dict(r) for r in rows]
+    conn.close()
+
+    scored_count = 0
+    for pred in predictions:
+        pred_date = datetime.strptime(pred["date"], "%Y-%m-%d")
+        holding_days = pred.get("holding_days", 20)
+        outcome_date = pred_date + timedelta(days=holding_days)
+
+        # Only score if enough time has passed
+        if datetime.now() < outcome_date + timedelta(days=1):
+            continue
+
+        try:
+            hist = yf_proxy.get_stock_history(pred["ticker"], period="3mo")
+            if hist.empty:
+                continue
+
+            hist.index = pd.to_datetime(hist.index)
+
+            # Find the closest trading day to the outcome date
+            mask = hist.index >= pd.Timestamp(outcome_date.strftime("%Y-%m-%d"))
+            if mask.sum() == 0:
+                # Outcome date hasn't been reached in market data yet
+                continue
+            outcome_row = hist[mask].iloc[0]
+            outcome_price = float(outcome_row["Close"])
+
+            # Calculate return and realized vol over the holding period
+            pred_mask = hist.index >= pd.Timestamp(pred["date"])
+            holding_hist = hist[pred_mask].head(holding_days + 1)
+            outcome_return = (outcome_price - pred["spot_price"]) / pred["spot_price"] * 100
+
+            # Realized vol over the holding period
+            if len(holding_hist) >= 5:
+                log_ret = np.log(holding_hist["Close"] / holding_hist["Close"].shift(1)).dropna()
+                outcome_rv = float(log_ret.std() * np.sqrt(252) * 100)
+            else:
+                outcome_rv = None
+
+            # Did the option seller win?
+            # Seller wins if the stock didn't move more than the expected move (IV/sqrt(252/holding))
+            iv = pred.get("atm_iv") or pred.get("rv_forecast") or 25
+            expected_move_pct = iv / 100 * np.sqrt(holding_days / 252) * 100
+            actual_move_pct = abs(outcome_return)
+            seller_won = 1 if actual_move_pct < expected_move_pct else 0
+
+            # Update the prediction
+            conn = _get_sqlite()
+            conn.execute("""
+                UPDATE predictions SET
+                    outcome_price = ?, outcome_return = ?, outcome_rv = ?,
+                    outcome_date = ?, scored = 1, seller_won = ?
+                WHERE id = ?
+            """, (outcome_price, outcome_return, outcome_rv,
+                  outcome_date.strftime("%Y-%m-%d"), seller_won, pred["id"]))
+            conn.commit()
+            conn.close()
+            scored_count += 1
+
+        except Exception as e:
+            print(f"[predictions] Error scoring {pred['ticker']} {pred['date']}: {e}")
+            continue
+
+    return scored_count
+
+
+def get_prediction_scorecard():
+    """
+    Get scored predictions grouped by signal type.
+    Returns dict with accuracy stats per signal.
+    """
+    import pandas as pd
+    conn = _get_sqlite()
+    df = pd.read_sql_query(
+        "SELECT * FROM predictions WHERE scored = 1 ORDER BY date",
+        conn
+    )
+    conn.close()
+
+    if df.empty:
+        return None
+
+    results = {
+        "total_predictions": len(df),
+        "total_correct": int(df["seller_won"].sum()),
+        "overall_accuracy": float(df["seller_won"].mean() * 100),
+        "by_signal": {},
+        "by_regime": {},
+        "by_ticker": {},
+        "recent": df.tail(20).to_dict("records"),
+    }
+
+    # By signal
+    for sig in ["GREEN", "YELLOW", "RED"]:
+        subset = df[df["signal"] == sig]
+        if subset.empty:
+            continue
+        results["by_signal"][sig] = {
+            "count": len(subset),
+            "accuracy": float(subset["seller_won"].mean() * 100),
+            "avg_return": float(subset["outcome_return"].mean()),
+            "avg_vrp": float(subset["vrp"].mean()) if subset["vrp"].notna().any() else None,
+            "worst_return": float(subset["outcome_return"].min()),
+            "best_return": float(subset["outcome_return"].max()),
+        }
+
+    # By regime
+    for reg in df["regime"].dropna().unique():
+        subset = df[df["regime"] == reg]
+        if len(subset) < 3:
+            continue
+        results["by_regime"][reg] = {
+            "count": len(subset),
+            "accuracy": float(subset["seller_won"].mean() * 100),
+            "avg_return": float(subset["outcome_return"].mean()),
+        }
+
+    # By ticker
+    for tick in df["ticker"].unique():
+        subset = df[df["ticker"] == tick]
+        results["by_ticker"][tick] = {
+            "count": len(subset),
+            "accuracy": float(subset["seller_won"].mean() * 100),
+            "avg_return": float(subset["outcome_return"].mean()),
+        }
+
+    return results
+
+
+def get_pending_predictions_count():
+    """How many predictions are waiting to be scored."""
+    conn = _get_sqlite()
+    row = conn.execute("SELECT COUNT(*) as cnt FROM predictions WHERE scored = 0").fetchone()
+    conn.close()
+    return dict(row)["cnt"]
+
+
+def get_all_predictions():
+    """Get all predictions for display."""
+    import pandas as pd
+    conn = _get_sqlite()
+    df = pd.read_sql_query("SELECT * FROM predictions ORDER BY date DESC", conn)
+    conn.close()
+    return df
