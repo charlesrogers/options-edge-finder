@@ -33,7 +33,7 @@ export default {
       // /stock/{ticker}/history?period=1y
       const historyMatch = path.match(/^\/stock\/([^/]+)\/history$/);
       if (historyMatch) {
-        const ticker = historyMatch[1].toUpperCase();
+        const ticker = decodeURIComponent(historyMatch[1]).toUpperCase();
         const period = url.searchParams.get("period") || "1y";
         return await cachedFetch(
           request,
@@ -47,7 +47,7 @@ export default {
       // /stock/{ticker}/info
       const infoMatch = path.match(/^\/stock\/([^/]+)\/info$/);
       if (infoMatch) {
-        const ticker = infoMatch[1].toUpperCase();
+        const ticker = decodeURIComponent(infoMatch[1]).toUpperCase();
         return await cachedFetch(
           request,
           ctx,
@@ -60,7 +60,7 @@ export default {
       // /stock/{ticker}/options/{expiration}
       const chainMatch = path.match(/^\/stock\/([^/]+)\/options\/(.+)$/);
       if (chainMatch) {
-        const ticker = chainMatch[1].toUpperCase();
+        const ticker = decodeURIComponent(chainMatch[1]).toUpperCase();
         const expiration = chainMatch[2];
         return await cachedFetch(
           request,
@@ -74,7 +74,7 @@ export default {
       // /stock/{ticker}/options (list expirations)
       const optionsMatch = path.match(/^\/stock\/([^/]+)\/options$/);
       if (optionsMatch) {
-        const ticker = optionsMatch[1].toUpperCase();
+        const ticker = decodeURIComponent(optionsMatch[1]).toUpperCase();
         return await cachedFetch(
           request,
           ctx,
@@ -128,16 +128,78 @@ async function cachedFetch(request, ctx, cacheKey, ttlSeconds, fetchFn) {
   return response;
 }
 
-// --- Yahoo Finance fetchers ---
+// --- Yahoo Finance auth (cookie + crumb) ---
 
-async function yahooFetch(url) {
-  const resp = await fetch(url, {
+let cachedAuth = null;
+let authExpiry = 0;
+
+async function getAuth() {
+  // Reuse cached auth for 10 minutes
+  if (cachedAuth && Date.now() < authExpiry) {
+    return cachedAuth;
+  }
+
+  // Step 1: Get cookie from fc.yahoo.com
+  const cookieResp = await fetch("https://fc.yahoo.com/", {
+    headers: { "User-Agent": USER_AGENT },
+    redirect: "manual",
+  });
+  // Extract Set-Cookie header
+  const setCookie = cookieResp.headers.get("set-cookie") || "";
+  // We need the full cookie string to send back
+  const cookies = setCookie.split(",").map(c => c.split(";")[0].trim()).join("; ");
+
+  // Step 2: Get crumb using the cookie
+  const crumbResp = await fetch("https://query2.finance.yahoo.com/v1/test/getcrumb", {
     headers: {
       "User-Agent": USER_AGENT,
-      "Accept": "application/json",
+      "Cookie": cookies,
     },
   });
+  if (!crumbResp.ok) {
+    throw new Error(`Failed to get crumb: ${crumbResp.status}`);
+  }
+  const crumb = await crumbResp.text();
+
+  cachedAuth = { cookies, crumb };
+  authExpiry = Date.now() + 10 * 60 * 1000; // 10 min
+  return cachedAuth;
+}
+
+// --- Yahoo Finance fetchers ---
+
+async function yahooFetch(url, needsAuth = false) {
+  let headers = {
+    "User-Agent": USER_AGENT,
+    "Accept": "application/json",
+  };
+
+  let finalUrl = url;
+  if (needsAuth) {
+    const auth = await getAuth();
+    headers["Cookie"] = auth.cookies;
+    // Append crumb to URL
+    const separator = url.includes("?") ? "&" : "?";
+    finalUrl = `${url}${separator}crumb=${encodeURIComponent(auth.crumb)}`;
+  }
+
+  const resp = await fetch(finalUrl, { headers });
   if (!resp.ok) {
+    // If 401 and we used auth, invalidate cache and retry once
+    if (resp.status === 401 && needsAuth) {
+      cachedAuth = null;
+      authExpiry = 0;
+      const auth = await getAuth();
+      headers["Cookie"] = auth.cookies;
+      const sep = url.includes("?") ? "&" : "?";
+      finalUrl = `${url}${sep}crumb=${encodeURIComponent(auth.crumb)}`;
+      const retryResp = await fetch(finalUrl, { headers });
+      if (!retryResp.ok) {
+        const text = await retryResp.text();
+        throw new Error(`Yahoo returned ${retryResp.status}: ${text.substring(0, 200)}`);
+      }
+      return retryResp.json();
+    }
     const text = await resp.text();
     throw new Error(`Yahoo returned ${resp.status}: ${text.substring(0, 200)}`);
   }
@@ -146,7 +208,7 @@ async function yahooFetch(url) {
 
 async function fetchHistory(ticker, period) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=${encodeURIComponent(period)}&interval=1d&includePrePost=false`;
-  const data = await yahooFetch(url);
+  const data = await yahooFetch(url, true);
 
   const result = data?.chart?.result?.[0];
   if (!result) {
@@ -179,7 +241,7 @@ async function fetchHistory(ticker, period) {
 async function fetchInfo(ticker) {
   const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(ticker)}?modules=price,summaryDetail,calendarEvents,defaultKeyStatistics`;
   try {
-    const data = await yahooFetch(url);
+    const data = await yahooFetch(url, true);
     const result = data?.quoteSummary?.result?.[0] || {};
 
     const price = result.price || {};
@@ -220,7 +282,7 @@ async function fetchInfo(ticker) {
 
 async function fetchExpirations(ticker) {
   const url = `https://query1.finance.yahoo.com/v7/finance/options/${encodeURIComponent(ticker)}`;
-  const data = await yahooFetch(url);
+  const data = await yahooFetch(url, true);
 
   const result = data?.optionChain?.result?.[0];
   if (!result) {
@@ -250,7 +312,7 @@ async function fetchOptionChain(ticker, expiration) {
   }
 
   const url = `https://query1.finance.yahoo.com/v7/finance/options/${encodeURIComponent(ticker)}?date=${unixTs}`;
-  const data = await yahooFetch(url);
+  const data = await yahooFetch(url, true);
 
   const result = data?.optionChain?.result?.[0];
   if (!result) {
