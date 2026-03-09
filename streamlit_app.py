@@ -39,7 +39,7 @@ st.set_page_config(
 )
 
 # Version marker — increment to bust Streamlit caches on deploy
-_APP_VERSION = "2.0-proxy"
+_APP_VERSION = "2.1-guide"
 if "app_version" not in st.session_state or st.session_state.app_version != _APP_VERSION:
     st.cache_data.clear()
     st.cache_resource.clear()
@@ -196,19 +196,25 @@ TIPS = {
 st.title("Options Edge Finder")
 st.caption("Know when to sell. Know when to fold.")
 
-tab_dashboard, tab_analyzer, tab_positions = st.tabs([
+tab_guide, tab_dashboard, tab_analyzer, tab_positions = st.tabs([
+    "Getting Started",
     "Dashboard",
     "Trade Analyzer",
     "My Positions",
 ])
 
-# Ticker input at the top (compact)
+# Ticker input — persistent across tabs via session state
+if "ticker_input" not in st.session_state:
+    st.session_state.ticker_input = ""
+
 ticker_input = st.text_input(
     "Tickers (comma-separated)",
-    value="AAPL",
+    value=st.session_state.ticker_input,
     label_visibility="collapsed",
-    placeholder="Enter tickers: AAPL, MSFT, GOOGL",
+    placeholder="Enter tickers: AAPL, MSFT, GOOGL ...",
+    key="ticker_box",
 )
+st.session_state.ticker_input = ticker_input
 tickers = [t.strip().upper() for t in ticker_input.split(",") if t.strip()]
 
 
@@ -361,9 +367,152 @@ def compute_analytics(ticker):
 
 
 # ============================================================
+# TAB: GETTING STARTED
+# ============================================================
+with tab_guide:
+    st.header("How to Use This Tool")
+    st.markdown("""
+**Enter your tickers in the box above** (comma-separated, e.g. `AAPL, MSFT, GOOGL`) then switch to the Dashboard or Trade Analyzer tab.
+
+---
+
+### The 3 Tabs
+
+| Tab | What it does |
+|---|---|
+| **Dashboard** | Shows whether conditions favor selling options right now. Green = sell, Yellow = be cautious, Red = don't sell. |
+| **Trade Analyzer** | Pick a specific expiration and strike to see full risk breakdown, Monte Carlo simulation, and stress test before you trade. |
+| **My Positions** | Track your open trades, get exit signals (MUST SELL / WARNING), and log your trade history. |
+
+---
+
+### The Core Idea
+
+When you sell options (covered calls, cash-secured puts), you collect premium. The question is: **is the premium worth the risk?**
+
+This tool answers that by measuring the **Variance Risk Premium (VRP)** — the gap between what the market *expects* (implied volatility) and what actually *happens* (realized volatility). When IV is much higher than RV, options are "overpriced" and selling has an edge.
+
+---
+
+### Quick Workflow
+
+1. **Check the Dashboard signal** — Green means IV is elevated relative to RV, options are likely overpriced
+2. **Go to Trade Analyzer** — Pick an expiration (30-45 DTE is the sweet spot), look at the edge checklist and Monte Carlo
+3. **Log your trade in My Positions** — Get automatic exit signals when conditions change
+
+---
+""")
+
+    st.header("Where This Tool Is Strong")
+    st.markdown("""
+- **Volatility forecasting** — GARCH(1,1) + Yang-Zhang give you forward-looking vol estimates, not just backward-looking
+- **Real tail risk** — Shows actual historical drawdown probabilities, not log-normal assumptions
+- **Exit discipline** — 7 automatic triggers (take profit, DTE, delta blowout, VRP flip, etc.) help prevent "one bad trade" scenarios
+- **Transparency** — Every metric has a tooltip explaining what it is, and the "What to Trust" section is brutally honest about limitations
+""")
+
+    st.header("Where This Tool Is Weak")
+    st.markdown("""
+These are real limitations you need to understand. **Ignoring them will cost you money.**
+""")
+
+    weak_col1, weak_col2 = st.columns(2)
+    with weak_col1:
+        st.subheader("Data Quality")
+        st.markdown("""
+**IV Rank is estimated, not real.**
+We don't have historical implied volatility data (that costs $10k+/year from providers like LiveVol).
+Instead, we approximate IV Rank using historical *realized* vol as a proxy. This can be off by 20+ points.
+The tool records real IV daily to build history over time, but until you have 90+ days of recordings,
+IV Rank is a rough guess.
+
+**Options data is delayed.**
+We pull from Yahoo Finance via a caching proxy. Data may be 5-15 minutes behind real-time.
+Never use this for intraday timing — it's for daily/weekly decision-making only.
+
+**Earnings dates may be missing.**
+The earnings calendar comes from Yahoo Finance and is sometimes incomplete or wrong.
+Always verify earnings dates independently before selling options near them.
+""")
+
+        st.subheader("Model Limitations")
+        st.markdown("""
+**Probability of Profit assumes log-normal returns.**
+Real stock returns have fatter tails (crashes happen more often than the model predicts).
+The "Real Tail Risk" section corrects for this using actual historical data, but it's still based
+on one year of history.
+
+**GARCH is good but not magic.**
+GARCH(1,1) is the best simple volatility forecaster, but it assumes volatility is mean-reverting
+and doesn't account for regime changes (e.g., a sudden market crash or Fed policy shift).
+It works well 90% of the time and fails exactly when you need it most.
+
+**Greeks assume Black-Scholes.**
+The Greeks (delta, gamma, theta, vega) use Black-Scholes, which assumes constant volatility
+and log-normal prices. Both are wrong. The numbers are directionally useful but not precise.
+""")
+
+    with weak_col2:
+        st.subheader("Backtesting")
+        st.markdown("""
+**The backtest is partially circular.**
+Our historical backtest uses realized volatility as a *proxy* for implied volatility
+(since we don't have historical IV data). This means we're essentially comparing RV to RV,
+which inflates the apparent win rate. Treat backtest results as a rough sanity check,
+not rigorous evidence.
+
+**One year of data isn't enough.**
+The backtest uses ~250 trading days. A real backtest would need 5-10 years across multiple
+market regimes (bull, bear, crash, recovery). We haven't seen how these signals perform
+in a 2008-style crash or a 2020-style V-recovery.
+
+**No transaction costs.**
+The backtest doesn't account for bid-ask spreads, commissions, or slippage. In practice,
+selling options on a $0.05 wide spread vs. a $0.50 wide spread makes a huge difference.
+""")
+
+        st.subheader("What's Not Covered")
+        st.markdown("""
+**Correlation risk.**
+If you sell covered calls on AAPL, MSFT, and GOOGL, a tech selloff hits all three
+simultaneously. This tool analyzes tickers independently (there's a correlation matrix
+if you enter multiple tickers, but it's basic).
+
+**Dealer positioning / gamma exposure.**
+Market makers' hedging flows can amplify or dampen moves. Tools like SpotGamma track this —
+we don't.
+
+**Skew dynamics.**
+OTM puts are systematically more expensive than the model assumes (volatility smile/skew).
+The Vol Surface chart shows this, but we don't incorporate it into trade scoring.
+
+**Macro events.**
+Fed meetings, geopolitical events, sector rotation — none of this is modeled.
+The earnings warning is the only event-awareness we have.
+""")
+
+    st.divider()
+    st.markdown("""
+    ### Bottom Line
+
+    This tool is **good for disciplined premium sellers** who want a systematic framework
+    for deciding *when* and *whether* to sell options. It's **not a replacement for**
+    professional platforms like TastyTrade, Moontower.ai, or Bloomberg.
+
+    The biggest edge it gives you isn't the analytics — it's **exit discipline**.
+    Most retail option sellers lose money because they hold losers too long or
+    sell into bad conditions. The signal system and exit triggers help prevent that.
+
+    *Based on 'Retail Options Trading' by Sinclair & Mack (2024).*
+    """)
+
+
+# ============================================================
 # TAB: DASHBOARD
 # ============================================================
 with tab_dashboard:
+    if not tickers:
+        st.info("Enter one or more tickers in the box above to get started. Example: `AAPL, MSFT, GOOGL`")
     for ticker in tickers:
         try:
             with st.spinner(f"Loading {ticker}..."):
