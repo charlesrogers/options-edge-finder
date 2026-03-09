@@ -47,7 +47,7 @@ def calc_parkinson_vol(hist: pd.DataFrame, window: int = 20) -> float:
     return parkinson
 
 
-def get_iv_rank_percentile(hist: pd.DataFrame, current_iv: float | None):
+def get_iv_rank_percentile(hist: pd.DataFrame, current_iv=None):
     """
     IV Rank: where current IV sits in 52-week high-low range.
     IV Percentile: % of days IV was below current level.
