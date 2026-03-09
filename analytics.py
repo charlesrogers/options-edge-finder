@@ -7,7 +7,7 @@ based on concepts from "Retail Options Trading" (Sinclair & Mack, 2024).
 import numpy as np
 import pandas as pd
 from datetime import datetime
-from scipy.stats import norm, lognorm
+from scipy.stats import norm, lognorm, t as t_dist
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -192,7 +192,65 @@ def calc_greeks_for_chain(
     return chain_df
 
 
-def calc_vrp_signal(vrp, iv_rank, term_label):
+def classify_vol_regime(vix_level=None, vix_vix3m_ratio=None, rv20=None, rv60=None):
+    """
+    Simple volatility regime classifier.
+    Returns (regime, details_dict).
+    Regimes: 'crash', 'high_vol', 'normal', 'low_vol'.
+    """
+    details = {
+        "vix": vix_level, "vix_ratio": vix_vix3m_ratio,
+        "rv20": rv20, "rv60": rv60,
+    }
+
+    rv_ratio = rv20 / rv60 if rv20 and rv60 and rv60 > 0 else None
+
+    # Crash: VIX > 30 AND backwardation (VIX > VIX3M)
+    if vix_level is not None and vix_level > 30:
+        if vix_vix3m_ratio is not None and vix_vix3m_ratio > 1.0:
+            return "crash", {**details, "rv_ratio": rv_ratio, "reason": "VIX > 30 with backwardation — panic regime"}
+        return "high_vol", {**details, "rv_ratio": rv_ratio, "reason": f"VIX at {vix_level:.0f} — elevated fear"}
+
+    # High vol: VIX > 25 OR short-term vol spiking relative to long-term
+    if vix_level is not None and vix_level > 25:
+        return "high_vol", {**details, "rv_ratio": rv_ratio, "reason": f"VIX at {vix_level:.0f} — elevated vol"}
+    if rv_ratio is not None and rv_ratio > 1.5:
+        return "high_vol", {**details, "rv_ratio": rv_ratio, "reason": f"RV20/RV60 = {rv_ratio:.2f} — vol accelerating"}
+
+    # Low vol: VIX < 15 AND short-term vol compressed
+    if vix_level is not None and vix_level < 15:
+        if rv_ratio is None or rv_ratio < 0.9:
+            return "low_vol", {**details, "rv_ratio": rv_ratio, "reason": f"VIX at {vix_level:.0f} — premiums thin"}
+
+    return "normal", {**details, "rv_ratio": rv_ratio, "reason": "Normal vol environment"}
+
+
+# FOMC meeting dates (announcement days) — hardcoded for 2025-2026
+FOMC_DATES = [
+    # 2025
+    "2025-01-29", "2025-03-19", "2025-05-07", "2025-06-18",
+    "2025-07-30", "2025-09-17", "2025-11-05", "2025-12-17",
+    # 2026
+    "2026-01-28", "2026-03-18", "2026-05-06", "2026-06-17",
+    "2026-07-29", "2026-09-16", "2026-11-04", "2026-12-16",
+]
+
+
+def get_next_fomc_date(as_of=None):
+    """
+    Returns (next_fomc_date, days_until) or (None, None) if beyond known dates.
+    """
+    if as_of is None:
+        as_of = datetime.now()
+    for d in FOMC_DATES:
+        fomc = datetime.strptime(d, "%Y-%m-%d")
+        days = (fomc - as_of).days
+        if days >= -1:  # include today and yesterday (in case of late-day check)
+            return fomc, days
+    return None, None
+
+
+def calc_vrp_signal(vrp, iv_rank, term_label, regime=None):
     """
     VRP-based signal for whether to sell options.
     Based on Chapter 10 logic:
@@ -242,6 +300,19 @@ def calc_vrp_signal(vrp, iv_rank, term_label):
 
     total = vrp_score + rank_score + term_score
 
+    # Regime override: crash regime forces RED, high_vol caps at YELLOW
+    if regime == "crash":
+        reasons.append("REGIME: Crash — halt all new option selling")
+        return "RED", "red", " | ".join(reasons)
+    if regime == "high_vol" and total >= 5:
+        reasons.append("REGIME: High vol — proceed with caution, use wider strikes")
+        # Cap at YELLOW unless VRP is very strong
+        if vrp is not None and vrp > 6:
+            return "GREEN", "green", " | ".join(reasons)
+        return "YELLOW", "yellow", " | ".join(reasons)
+    if regime == "low_vol":
+        reasons.append("REGIME: Low vol — premiums are thin, small edge")
+
     if total >= 5 and term_label != "Backwardation":
         return "GREEN", "green", " | ".join(reasons)
     elif total >= 3 and term_label != "Backwardation":
@@ -250,10 +321,71 @@ def calc_vrp_signal(vrp, iv_rank, term_label):
         return "RED", "red", " | ".join(reasons)
 
 
-def score_trade(row, current_iv, rv_forecast, iv_rank, term_label):
+def calc_skew_score(chain_calls, chain_puts, spot, dte):
+    """
+    Calculate 25-delta put/call IV skew and return a scoring penalty.
+    Steep skew = market pricing tail risk into puts = penalize put selling.
+
+    Returns (skew_value, skew_penalty, details_dict).
+    skew_penalty: 0 = normal, -1 = elevated, -2 = extreme.
+    """
+    try:
+        if chain_puts is None or chain_puts.empty or chain_calls is None or chain_calls.empty:
+            return None, 0, {"error": "no chain data"}
+        if "impliedVolatility" not in chain_puts.columns:
+            return None, 0, {"error": "no IV data"}
+
+        # Approximate 25-delta strikes: ~5% OTM for 30-day options
+        # Scale by sqrt(dte/30) for different tenors
+        otm_pct = 0.05 * np.sqrt(max(dte, 1) / 30)
+        put_25d_strike = spot * (1 - otm_pct)
+        call_25d_strike = spot * (1 + otm_pct)
+
+        # Find nearest strikes
+        puts = chain_puts[chain_puts["impliedVolatility"] > 0].copy()
+        calls = chain_calls[chain_calls["impliedVolatility"] > 0].copy()
+        if puts.empty or calls.empty:
+            return None, 0, {"error": "no valid IV data"}
+
+        puts["dist"] = abs(puts["strike"] - put_25d_strike)
+        calls["dist"] = abs(calls["strike"] - call_25d_strike)
+
+        put_25d_iv = puts.loc[puts["dist"].idxmin(), "impliedVolatility"] * 100
+        call_25d_iv = calls.loc[calls["dist"].idxmin(), "impliedVolatility"] * 100
+
+        # ATM IV
+        calls_atm = calls.copy()
+        calls_atm["dist_atm"] = abs(calls_atm["strike"] - spot)
+        atm_iv = calls_atm.loc[calls_atm["dist_atm"].idxmin(), "impliedVolatility"] * 100
+
+        skew = put_25d_iv - call_25d_iv  # positive = puts more expensive (normal)
+
+        # Penalty for extreme skew
+        if skew > 10:
+            penalty = -2
+        elif skew > 5:
+            penalty = -1
+        else:
+            penalty = 0
+
+        details = {
+            "put_25d_iv": put_25d_iv,
+            "call_25d_iv": call_25d_iv,
+            "atm_iv": atm_iv,
+            "skew": skew,
+            "put_strike": puts.loc[puts["dist"].idxmin(), "strike"],
+            "call_strike": calls.loc[calls["dist"].idxmin(), "strike"],
+        }
+        return skew, penalty, details
+    except Exception:
+        return None, 0, {"error": "skew calculation failed"}
+
+
+def score_trade(row, current_iv, rv_forecast, iv_rank, term_label, skew_penalty=0):
     """
     Score a specific option trade 1-10.
     Higher = more edge.
+    skew_penalty: from calc_skew_score(), penalizes put selling when skew is steep.
     """
     score = 5  # baseline
 
@@ -291,6 +423,9 @@ def score_trade(row, current_iv, rv_forecast, iv_rank, term_label):
     if pd.notna(oi) and oi > 500:
         score += 0.5
 
+    # Skew penalty (steep skew = market pricing tail risk)
+    score += skew_penalty
+
     return max(1, min(10, round(score)))
 
 
@@ -298,10 +433,13 @@ def score_trade(row, current_iv, rv_forecast, iv_rank, term_label):
 # RISK PROTECTION LAYER
 # ========================================
 
-def calc_prob_of_loss(spot, strike, iv, dte, option_type, premium):
+def calc_prob_of_loss(spot, strike, iv, dte, option_type, premium, hist=None):
     """
     Probability that a short option trade loses money at expiration.
-    Uses log-normal distribution (GBM assumption).
+
+    If `hist` is provided with 100+ days of data, uses Student's t-distribution
+    fitted to actual historical returns (captures fat tails).
+    Otherwise falls back to log-normal (GBM assumption).
 
     For short calls: loss if stock > strike + premium
     For short puts: loss if stock < strike - premium
@@ -313,30 +451,58 @@ def calc_prob_of_loss(spot, strike, iv, dte, option_type, premium):
     sigma = iv / 100.0
     r = 0.045
 
-    # Log-normal parameters
-    mu = (r - 0.5 * sigma**2) * t
-    vol_t = sigma * np.sqrt(t)
+    # Try fitting Student's t to historical returns for fat-tail-aware probabilities
+    use_t = False
+    if hist is not None and len(hist) >= 100:
+        try:
+            log_returns = np.log(hist["Close"] / hist["Close"].shift(1)).dropna()
+            # Fit t-distribution to daily log returns
+            df_t, loc_t, scale_t = t_dist.fit(log_returns)
+            if df_t > 2 and df_t < 100:  # sensible fit (2 < df < 100)
+                # Scale to the holding period
+                loc_period = loc_t * dte
+                scale_period = scale_t * np.sqrt(dte)
+                use_t = True
+        except Exception:
+            pass
 
-    if option_type == "call":
-        breakeven = strike + premium
-        # P(S_T > breakeven) = P(loss)
-        d = (np.log(breakeven / spot) - mu) / vol_t
-        prob_loss = 1 - norm.cdf(d)
-        prob_max_loss = 0.0  # uncapped for naked, but for covered call max loss = opportunity cost
-        # P(assignment) = P(S_T > strike)
-        d_assign = (np.log(strike / spot) - mu) / vol_t
-        prob_assignment = 1 - norm.cdf(d_assign)
+    if use_t:
+        # Student's t probabilities (fat tails)
+        if option_type == "call":
+            breakeven = strike + premium
+            z = (np.log(breakeven / spot) - loc_period) / scale_period
+            prob_loss = 1 - t_dist.cdf(z, df_t)
+            prob_max_loss = 0.0
+            z_assign = (np.log(strike / spot) - loc_period) / scale_period
+            prob_assignment = 1 - t_dist.cdf(z_assign, df_t)
+        else:
+            breakeven = strike - premium
+            z = (np.log(breakeven / spot) - loc_period) / scale_period
+            prob_loss = t_dist.cdf(z, df_t)
+            z_cat = (np.log(strike * 0.5 / spot) - loc_period) / scale_period
+            prob_max_loss = t_dist.cdf(z_cat, df_t)
+            z_assign = (np.log(strike / spot) - loc_period) / scale_period
+            prob_assignment = t_dist.cdf(z_assign, df_t)
     else:
-        breakeven = strike - premium
-        # P(S_T < breakeven) = P(loss)
-        d = (np.log(breakeven / spot) - mu) / vol_t
-        prob_loss = norm.cdf(d)
-        # P(stock goes to zero) ~ P(S_T < strike * 0.5) for catastrophic loss
-        d_cat = (np.log(strike * 0.5 / spot) - mu) / vol_t
-        prob_max_loss = norm.cdf(d_cat)
-        # P(assignment) = P(S_T < strike)
-        d_assign = (np.log(strike / spot) - mu) / vol_t
-        prob_assignment = norm.cdf(d_assign)
+        # Fallback: log-normal (GBM)
+        mu = (r - 0.5 * sigma**2) * t
+        vol_t = sigma * np.sqrt(t)
+
+        if option_type == "call":
+            breakeven = strike + premium
+            d = (np.log(breakeven / spot) - mu) / vol_t
+            prob_loss = 1 - norm.cdf(d)
+            prob_max_loss = 0.0
+            d_assign = (np.log(strike / spot) - mu) / vol_t
+            prob_assignment = 1 - norm.cdf(d_assign)
+        else:
+            breakeven = strike - premium
+            d = (np.log(breakeven / spot) - mu) / vol_t
+            prob_loss = norm.cdf(d)
+            d_cat = (np.log(strike * 0.5 / spot) - mu) / vol_t
+            prob_max_loss = norm.cdf(d_cat)
+            d_assign = (np.log(strike / spot) - mu) / vol_t
+            prob_assignment = norm.cdf(d_assign)
 
     return prob_loss, prob_assignment, prob_max_loss
 
@@ -773,31 +939,39 @@ def get_action_playbook(trade, spot, strike, dte, option_type, pct_of_max):
 # HISTORICAL BACKTEST ENGINE
 # ========================================
 
-def backtest_vrp_strategy(hist: pd.DataFrame, window: int = 20, holding_period: int = 20):
+def backtest_vrp_strategy(hist: pd.DataFrame, window: int = 20, holding_period: int = 20,
+                          iv_rv_ratio: float = 1.2,
+                          commission_per_contract: float = 0.65,
+                          slippage_per_contract: float = 0.025):
     """
     Backtest: what would have happened historically if you sold options
     whenever VRP conditions were met?
 
-    Uses realized vol as a proxy for both IV and RV:
-    - 'IV proxy': rolling vol at entry (lagging indicator, approximates what IV was)
-    - 'RV actual': realized vol over the next N days (what actually happened)
-    - VRP proxy: IV proxy - RV actual
+    De-biased approach: IV is estimated as RV * iv_rv_ratio (default 1.2)
+    because historically IV ≈ RV * 1.15-1.25 for equities.
+    This removes the circular bias of using RV as both IV and RV.
+
+    Includes transaction costs: commission + slippage per contract.
 
     Returns a DataFrame of historical 'trades' with outcomes.
     """
     log_ret = np.log(hist["Close"] / hist["Close"].shift(1)).dropna()
 
-    # Rolling realized vol (backward-looking = IV proxy)
+    # Rolling realized vol (backward-looking)
     rv_backward = log_ret.rolling(window).std() * np.sqrt(252) * 100
+
+    # De-biased IV estimate: IV typically runs ~20% above backward RV
+    iv_estimate = rv_backward * iv_rv_ratio
 
     # Forward-looking realized vol (what actually happened)
     rv_forward = log_ret.rolling(window).std().shift(-holding_period) * np.sqrt(252) * 100
 
     # Combine
     df = pd.DataFrame({
-        "date": hist.index[1:],  # skip first NaN
+        "date": hist.index[1:],
         "close": hist["Close"].iloc[1:].values,
-        "iv_proxy": rv_backward.values,
+        "iv_proxy": iv_estimate.values,
+        "rv_backward": rv_backward.values,
         "rv_actual": rv_forward.values,
     }).dropna()
 
@@ -822,8 +996,7 @@ def backtest_vrp_strategy(hist: pd.DataFrame, window: int = 20, holding_period: 
 
     df["signal"] = df.apply(classify, axis=1)
 
-    # For short option simulation: premium ~ iv_proxy/16 * close / 100 * sqrt(holding/252)
-    # Simplified: seller profits if stock doesn't move more than expected
+    # Premium simulation using de-biased IV estimate
     df["expected_move_pct"] = df["iv_proxy"] / 100 * np.sqrt(holding_period / 252)
     df["actual_move_pct"] = df["fwd_return"].abs()
     df["seller_wins"] = df["actual_move_pct"] < df["expected_move_pct"]
@@ -835,6 +1008,11 @@ def backtest_vrp_strategy(hist: pd.DataFrame, window: int = 20, holding_period: 
         df["premium_pct"],
         df["premium_pct"] - (df["actual_move_pct"] * 100 - df["premium_pct"])
     )
+
+    # Transaction costs as % of stock price (open + close = 2 legs)
+    total_cost = (commission_per_contract + slippage_per_contract) * 2
+    df["cost_pct"] = total_cost / df["close"] * 100  # as percentage of stock price
+    df["pnl_pct"] = df["pnl_pct"] - df["cost_pct"]
 
     return df
 
@@ -858,6 +1036,7 @@ def summarize_backtest(bt_df):
             "best_win_pct": subset["pnl_pct"].max(),
             "avg_actual_move": subset["actual_move_pct"].mean() * 100,
             "avg_expected_move": subset["expected_move_pct"].mean() * 100,
+            "avg_cost_pct": subset["cost_pct"].mean() if "cost_pct" in subset.columns else 0,
         }
     return results
 
@@ -954,9 +1133,10 @@ def explain_signal_plain_english(signal, vrp, iv_rank, term_label, current_iv, r
 
 def calc_garch_forecast(hist: pd.DataFrame, horizon: int = 20):
     """
-    GARCH(1,1) volatility forecast.
-    Properly models vol clustering and mean reversion — much better than
-    naive backward-looking RV as a forecast.
+    GJR-GARCH(1,1,1) volatility forecast.
+    Models vol clustering, mean reversion, AND the leverage effect
+    (negative returns cause higher vol than positive returns of same magnitude).
+    Much better than symmetric GARCH(1,1) for equity options.
 
     Returns (forecast_vol_annualized, model_info_dict) or (None, None) on failure.
     """
@@ -973,25 +1153,33 @@ def calc_garch_forecast(hist: pd.DataFrame, horizon: int = 20):
     returns_pct = log_ret * 100
 
     try:
-        model = arch_model(returns_pct, vol="Garch", p=1, q=1, mean="Constant", rescale=False)
+        # GJR-GARCH: o=1 adds asymmetric (leverage) term
+        # gamma[1] captures how much MORE vol increases after negative returns
+        model = arch_model(returns_pct, vol="Garch", p=1, o=1, q=1, mean="Constant", rescale=False)
         result = model.fit(disp="off", show_warning=False)
 
         # Multi-step forecast
         forecast = result.forecast(horizon=horizon)
-        # Average variance over the horizon
         avg_var = forecast.variance.iloc[-1].mean()
-        # Annualize: daily variance (in %^2) -> annual vol (in %)
         annual_vol = np.sqrt(avg_var * 252)
 
         # Extract model parameters for transparency
         params = result.params
+        alpha = float(params.get("alpha[1]", 0))
+        beta = float(params.get("beta[1]", 0))
+        gamma = float(params.get("gamma[1]", 0))
+        omega = float(params.get("omega", 0))
+        # GJR persistence = alpha + gamma/2 + beta
+        persistence = alpha + gamma / 2 + beta
+        denom = 1 - persistence
         info = {
-            "omega": float(params.get("omega", 0)),
-            "alpha": float(params.get("alpha[1]", 0)),
-            "beta": float(params.get("beta[1]", 0)),
-            "persistence": float(params.get("alpha[1]", 0) + params.get("beta[1]", 0)),
-            "long_run_vol": float(np.sqrt(params.get("omega", 0) / (1 - params.get("alpha[1]", 0) - params.get("beta[1]", 0)) * 252))
-            if (1 - params.get("alpha[1]", 0) - params.get("beta[1]", 0)) > 0 else None,
+            "omega": omega,
+            "alpha": alpha,
+            "beta": beta,
+            "gamma": gamma,  # leverage coefficient: >0 means bad news increases vol more
+            "persistence": persistence,
+            "leverage_ratio": (alpha + gamma) / alpha if alpha > 0 else None,  # how much worse downside vol is
+            "long_run_vol": float(np.sqrt(omega / denom * 252)) if denom > 0 else None,
             "current_cond_vol": float(np.sqrt(result.conditional_volatility.iloc[-1]**2 * 252 / 100**2) * 100)
             if len(result.conditional_volatility) > 0 else None,
         }
@@ -1126,25 +1314,48 @@ def calc_portfolio_correlation(tickers: list, period: str = "1y"):
     if prices.shape[1] < 2:
         return None
 
+    # Also fetch SPY for beta calculation
+    try:
+        spy_hist = yf_proxy.get_stock_history("SPY", period=period)
+        if not spy_hist.empty:
+            prices["SPY_beta_ref"] = spy_hist["Close"]
+    except Exception:
+        pass
+
     returns = prices.pct_change().dropna()
-    corr_matrix = returns.corr()
+    corr_matrix = returns[[t for t in tickers if t in returns.columns]].corr()
 
     # Average pairwise correlation
-    n = len(tickers)
+    actual_tickers = [t for t in tickers if t in corr_matrix.columns]
+    n = len(actual_tickers)
     mask = np.triu(np.ones((n, n), dtype=bool), k=1)
     avg_corr = corr_matrix.values[mask].mean() if mask.sum() > 0 else 0
 
-    # Simulated portfolio drawdown (equal weight, simultaneous -10% shock)
-    # Uses correlation to estimate joint probability
-    vols = returns.std() * np.sqrt(252)
+    vols = returns[[t for t in tickers if t in returns.columns]].std() * np.sqrt(252)
+
+    # Beta calculation: cov(ticker, SPY) / var(SPY)
+    betas = {}
+    portfolio_beta = None
+    if "SPY_beta_ref" in returns.columns:
+        spy_ret = returns["SPY_beta_ref"]
+        spy_var = spy_ret.var()
+        if spy_var > 0:
+            for t in actual_tickers:
+                if t in returns.columns and t != "SPY_beta_ref":
+                    cov = returns[t].cov(spy_ret)
+                    betas[t] = float(cov / spy_var)
+            if betas:
+                portfolio_beta = float(np.mean(list(betas.values())))  # equal-weighted
 
     return {
         "correlation_matrix": corr_matrix,
         "avg_pairwise_corr": float(avg_corr),
         "individual_vols": {t: float(v * 100) for t, v in vols.items()},
         "diversification_ratio": float(
-            vols.mean() / (returns.mean(axis=1).std() * np.sqrt(252))
-        ) if returns.mean(axis=1).std() > 0 else 1.0,
+            vols.mean() / (returns[[t for t in tickers if t in returns.columns]].mean(axis=1).std() * np.sqrt(252))
+        ) if returns[[t for t in tickers if t in returns.columns]].mean(axis=1).std() > 0 else 1.0,
+        "betas": betas,
+        "portfolio_beta": portfolio_beta,
     }
 
 

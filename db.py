@@ -44,9 +44,20 @@ def _get_sqlite():
             front_exp TEXT,
             rv_20 REAL,
             term_label TEXT,
+            put_25d_iv REAL,
+            call_25d_iv REAL,
             PRIMARY KEY (ticker, date)
         )
     """)
+    # Migration: add columns if they don't exist yet (for existing DBs)
+    try:
+        conn.execute("ALTER TABLE iv_snapshots ADD COLUMN put_25d_iv REAL")
+    except Exception:
+        pass
+    try:
+        conn.execute("ALTER TABLE iv_snapshots ADD COLUMN call_25d_iv REAL")
+    except Exception:
+        pass
     conn.execute("""
         CREATE TABLE IF NOT EXISTS trades (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,7 +88,8 @@ def _get_sqlite():
 # IV SNAPSHOTS
 # ============================================================
 
-def record_iv(ticker, atm_iv, spot_price, front_exp, rv_20, term_label):
+def record_iv(ticker, atm_iv, spot_price, front_exp, rv_20, term_label,
+              put_25d_iv=None, call_25d_iv=None):
     today = datetime.now().strftime("%Y-%m-%d")
     sb = _get_supabase()
     if sb:
@@ -85,12 +97,13 @@ def record_iv(ticker, atm_iv, spot_price, front_exp, rv_20, term_label):
             "ticker": ticker, "date": today, "atm_iv": atm_iv,
             "spot_price": spot_price, "front_exp": front_exp,
             "rv_20": rv_20, "term_label": term_label,
+            "put_25d_iv": put_25d_iv, "call_25d_iv": call_25d_iv,
         }).execute()
     else:
         conn = _get_sqlite()
         conn.execute(
-            "INSERT OR REPLACE INTO iv_snapshots VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (ticker, today, atm_iv, spot_price, front_exp, rv_20, term_label),
+            "INSERT OR REPLACE INTO iv_snapshots (ticker, date, atm_iv, spot_price, front_exp, rv_20, term_label, put_25d_iv, call_25d_iv) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (ticker, today, atm_iv, spot_price, front_exp, rv_20, term_label, put_25d_iv, call_25d_iv),
         )
         conn.commit()
         conn.close()

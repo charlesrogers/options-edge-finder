@@ -28,6 +28,9 @@ from analytics import (
     build_vol_surface,
     calc_portfolio_correlation,
     calc_yang_zhang_vol,
+    classify_vol_regime,
+    get_next_fomc_date,
+    calc_skew_score,
 )
 from db import add_trade, close_trade, get_open_trades, get_all_trades, delete_trade
 from db import record_iv, get_iv_history, get_real_iv_rank, using_supabase
@@ -39,7 +42,7 @@ st.set_page_config(
 )
 
 # Version marker — increment to bust Streamlit caches on deploy
-_APP_VERSION = "2.1-guide"
+_APP_VERSION = "3.0-models"
 if "app_version" not in st.session_state or st.session_state.app_version != _APP_VERSION:
     st.cache_data.clear()
     st.cache_resource.clear()
@@ -298,7 +301,7 @@ def compute_analytics(ticker):
     # Best available vol forecast: GARCH > Yang-Zhang > Close-to-Close
     if garch_vol is not None and garch_vol > 0:
         rv_forecast = garch_vol
-        forecast_method = "GARCH(1,1)"
+        forecast_method = "GJR-GARCH"
     elif yz_20 > 0:
         rv_forecast = yz_20
         forecast_method = "Yang-Zhang"
@@ -321,14 +324,44 @@ def compute_analytics(ticker):
 
     term_struct, term_label = get_term_structure(chains, expirations, current_price)
 
-    vrp = (current_iv - rv_forecast) if current_iv else None
-    signal, signal_color, signal_reason = calc_vrp_signal(vrp, iv_rank, term_label)
+    # Regime detection (needs VIX data)
+    rv_60 = calc_realized_vol(hist, window=60) if len(hist) >= 60 else None
+    regime = "normal"
+    regime_info = {}
+    try:
+        vix_df = yf_proxy.get_stock_history("^VIX", period="5d")
+        vix3m_df = yf_proxy.get_stock_history("^VIX3M", period="5d")
+        vix_level = float(vix_df["Close"].iloc[-1]) if not vix_df.empty else None
+        vix_ratio = None
+        if not vix_df.empty and not vix3m_df.empty:
+            vix_ratio = float(vix_df["Close"].iloc[-1] / vix3m_df["Close"].iloc[-1])
+        regime, regime_info = classify_vol_regime(vix_level, vix_ratio, rv_20, rv_60)
+    except Exception:
+        pass
 
-    # Record today's IV snapshot (builds history over time)
+    vrp = (current_iv - rv_forecast) if current_iv else None
+    signal, signal_color, signal_reason = calc_vrp_signal(vrp, iv_rank, term_label, regime=regime)
+
+    # Skew scoring from front-month chain
+    skew_value, skew_penalty, skew_details = None, 0, {}
+    if chains:
+        first_exp = list(chains.keys())[0]
+        try:
+            dte_front = max((datetime.strptime(first_exp, "%Y-%m-%d") - datetime.now()).days, 1)
+            skew_value, skew_penalty, skew_details = calc_skew_score(
+                chains[first_exp].calls, chains[first_exp].puts, current_price, dte_front
+            )
+        except Exception:
+            pass
+
+    # Record today's IV snapshot with 25-delta IVs
     if current_iv is not None:
         try:
             first_exp = expirations[0] if expirations else ""
-            record_iv(ticker, current_iv, current_price, first_exp, rv_20, term_label)
+            p25 = skew_details.get("put_25d_iv")
+            c25 = skew_details.get("call_25d_iv")
+            record_iv(ticker, current_iv, current_price, first_exp, rv_20, term_label,
+                      put_25d_iv=p25, call_25d_iv=c25)
         except Exception:
             pass
 
@@ -351,10 +384,13 @@ def compute_analytics(ticker):
     except Exception:
         pass
 
+    # FOMC check
+    fomc_date, fomc_days = get_next_fomc_date()
+
     return {
         "hist": hist, "info": info, "chains": chains, "expirations": expirations,
         "current_price": current_price, "company_name": company_name,
-        "rv_10": rv_10, "rv_20": rv_20, "rv_30": rv_30, "yz_20": yz_20,
+        "rv_10": rv_10, "rv_20": rv_20, "rv_30": rv_30, "rv_60": rv_60, "yz_20": yz_20,
         "garch_vol": garch_vol, "garch_info": garch_info,
         "rv_forecast": rv_forecast, "forecast_method": forecast_method,
         "current_iv": current_iv, "iv_rank": iv_rank, "iv_pctl": iv_pctl,
@@ -362,6 +398,9 @@ def compute_analytics(ticker):
         "term_struct": term_struct, "term_label": term_label,
         "vrp": vrp, "signal": signal, "signal_color": signal_color, "signal_reason": signal_reason,
         "earnings_date": earnings_date, "earnings_days": earnings_days,
+        "fomc_date": fomc_date, "fomc_days": fomc_days,
+        "regime": regime, "regime_info": regime_info,
+        "skew_value": skew_value, "skew_penalty": skew_penalty, "skew_details": skew_details,
         "empirical": empirical,
     }
 
@@ -405,10 +444,15 @@ This tool answers that by measuring the **Variance Risk Premium (VRP)** — the 
 
     st.header("Where This Tool Is Strong")
     st.markdown("""
-- **Volatility forecasting** — GARCH(1,1) + Yang-Zhang give you forward-looking vol estimates, not just backward-looking
-- **Real tail risk** — Shows actual historical drawdown probabilities, not log-normal assumptions
-- **Exit discipline** — 7 automatic triggers (take profit, DTE, delta blowout, VRP flip, etc.) help prevent "one bad trade" scenarios
-- **Transparency** — Every metric has a tooltip explaining what it is, and the "What to Trust" section is brutally honest about limitations
+- **GJR-GARCH volatility forecasting** — Asymmetric GARCH models the leverage effect (bad news spikes vol more than good news calms it). Better than symmetric GARCH(1,1) for equities.
+- **Student's t-distribution probabilities** — Probability of Profit uses fat-tailed distribution fitted to actual returns, not log-normal. More realistic crash probability estimates.
+- **Volatility regime detection** — Classifies market as crash/high_vol/normal/low_vol using VIX level, term structure, and RV acceleration. Automatically adjusts signals per regime.
+- **De-biased backtesting** — Uses IV = RV x 1.2 to remove circular bias, includes transaction costs ($0.65 + slippage).
+- **Skew-aware scoring** — Measures 25-delta put/call skew and penalizes trades when the market is pricing tail risk.
+- **FOMC calendar** — Warns before Fed meetings, flags expirations that span FOMC dates.
+- **Portfolio beta-weighting** — Shows SPY beta per holding and warns when portfolio beta exceeds thresholds.
+- **Exit discipline** — 7 automatic triggers (take profit, DTE, delta blowout, VRP flip, etc.) help prevent "one bad trade" scenarios.
+- **Transparency** — Every metric has a tooltip, and the "What to Trust" section is brutally honest about limitations.
 """)
 
     st.header("Where This Tool Is Weak")
@@ -420,11 +464,10 @@ These are real limitations you need to understand. **Ignoring them will cost you
     with weak_col1:
         st.subheader("Data Quality")
         st.markdown("""
-**IV Rank is estimated, not real.**
-We don't have historical implied volatility data (that costs $10k+/year from providers like LiveVol).
-Instead, we approximate IV Rank using historical *realized* vol as a proxy. This can be off by 20+ points.
-The tool records real IV daily to build history over time, but until you have 90+ days of recordings,
-IV Rank is a rough guess.
+**IV Rank is estimated until you build history.**
+We record real IV daily (ATM + 25-delta put/call). Until you have 90+ days of recordings,
+IV Rank uses realized vol as a proxy (can be off by 20+ points). After 90 days, it uses real data.
+For faster real IV data, consider ThetaData ($50/mo) or Polygon.io ($200/mo).
 
 **Options data is delayed.**
 We pull from Yahoo Finance via a caching proxy. Data may be 5-15 minutes behind real-time.
@@ -437,58 +480,57 @@ Always verify earnings dates independently before selling options near them.
 
         st.subheader("Model Limitations")
         st.markdown("""
-**Probability of Profit assumes log-normal returns.**
-Real stock returns have fatter tails (crashes happen more often than the model predicts).
-The "Real Tail Risk" section corrects for this using actual historical data, but it's still based
-on one year of history.
+**Probability of Profit uses Student's t (fat tails) but is still approximate.**
+We fit a Student's t-distribution to actual historical returns, which captures fat tails better
+than log-normal. But it's still based on ~1 year of history and assumes stationarity.
 
-**GARCH is good but not magic.**
-GARCH(1,1) is the best simple volatility forecaster, but it assumes volatility is mean-reverting
-and doesn't account for regime changes (e.g., a sudden market crash or Fed policy shift).
-It works well 90% of the time and fails exactly when you need it most.
+**GJR-GARCH captures leverage effect but not regime changes.**
+GJR-GARCH models how bad news increases vol more than good news (leverage effect).
+But it still assumes mean-reversion and can't predict sudden regime shifts.
+The regime classifier adds a layer of protection, but it's rule-based, not predictive.
 
 **Greeks assume Black-Scholes.**
-The Greeks (delta, gamma, theta, vega) use Black-Scholes, which assumes constant volatility
-and log-normal prices. Both are wrong. The numbers are directionally useful but not precise.
+The Greeks use Black-Scholes with per-strike IV (not flat IV). This incorporates skew
+automatically but still assumes continuous trading and no jumps.
 """)
 
     with weak_col2:
         st.subheader("Backtesting")
         st.markdown("""
-**The backtest is partially circular.**
-Our historical backtest uses realized volatility as a *proxy* for implied volatility
-(since we don't have historical IV data). This means we're essentially comparing RV to RV,
-which inflates the apparent win rate. Treat backtest results as a rough sanity check,
-not rigorous evidence.
+**The backtest is de-biased but still limited.**
+We estimate IV as RV x 1.2 (since IV historically exceeds RV by ~15-25% for equities).
+This removes the worst circular bias, but the ratio varies by ticker and regime.
+Treat results as directionally useful, not precise.
 
 **One year of data isn't enough.**
-The backtest uses ~250 trading days. A real backtest would need 5-10 years across multiple
-market regimes (bull, bear, crash, recovery). We haven't seen how these signals perform
-in a 2008-style crash or a 2020-style V-recovery.
+The backtest uses ~250 trading days. A real backtest needs 5-10 years across multiple
+market regimes (2008 crash, 2018 Volmageddon, 2020 COVID, 2022 bear). For SPY/QQQ,
+you can extend to 20 years of underlying returns as a partial stress test.
 
-**No transaction costs.**
-The backtest doesn't account for bid-ask spreads, commissions, or slippage. In practice,
-selling options on a $0.05 wide spread vs. a $0.50 wide spread makes a huge difference.
+**Transaction costs are now included but approximate.**
+We model $0.65 commission + $0.025 slippage per contract per leg. Real slippage varies
+by liquidity — illiquid names with wide spreads cost much more. The backtest doesn't model
+bid-ask spread variation.
 """)
 
         st.subheader("What's Not Covered")
         st.markdown("""
-**Correlation risk.**
-If you sell covered calls on AAPL, MSFT, and GOOGL, a tech selloff hits all three
-simultaneously. This tool analyzes tickers independently (there's a correlation matrix
-if you enter multiple tickers, but it's basic).
+**Correlation risk is basic.**
+The tool now shows SPY beta per holding and portfolio-level beta, plus pairwise correlation.
+But it doesn't model joint tail risk or portfolio VaR. A correlated crash scenario
+is the #1 way premium sellers blow up.
 
 **Dealer positioning / gamma exposure.**
-Market makers' hedging flows can amplify or dampen moves. Tools like SpotGamma track this —
-we don't.
+Market makers' hedging flows can amplify or dampen moves. Tools like SpotGamma ($50/mo)
+track this — we don't. Best proxy: VIX term structure (which we show).
 
-**Skew dynamics.**
-OTM puts are systematically more expensive than the model assumes (volatility smile/skew).
-The Vol Surface chart shows this, but we don't incorporate it into trade scoring.
+**Skew is measured but not deeply modeled.**
+We now calculate 25-delta put/call skew and penalize trade scores when skew is steep.
+But we don't use SABR or SVI vol surface parameterization for strike-level adjustments.
 
-**Macro events.**
-Fed meetings, geopolitical events, sector rotation — none of this is modeled.
-The earnings warning is the only event-awareness we have.
+**Macro events are partially covered.**
+FOMC dates are hardcoded and flagged. But CPI, jobs reports, geopolitical events,
+and sector rotation are not modeled. Always check an economic calendar independently.
 """)
 
     st.divider()
@@ -557,6 +599,31 @@ with tab_dashboard:
                 f"**Earnings on {earnings_date.strftime('%b %d')}** ({earnings_days} days). "
                 f"Be cautious selling options that expire after this date."
             )
+
+        # --- FOMC warning ---
+        fomc_days = data.get("fomc_days")
+        fomc_date = data.get("fomc_date")
+        if fomc_days is not None and 0 <= fomc_days <= 3:
+            st.error(
+                f"**FOMC DECISION IN {fomc_days} DAYS** ({fomc_date.strftime('%b %d')}). "
+                f"IV may be elevated due to rate uncertainty. Premium could be fairly priced, not free edge. "
+                f"Avoid selling short-dated options through FOMC."
+            )
+        elif fomc_days is not None and 3 < fomc_days <= 14:
+            st.info(
+                f"**FOMC meeting on {fomc_date.strftime('%b %d')}** ({fomc_days} days). "
+                f"Factor this into expirations — avoid selling through FOMC unless intentional."
+            )
+
+        # --- Regime badge ---
+        regime = data.get("regime", "normal")
+        regime_info = data.get("regime_info", {})
+        if regime == "crash":
+            st.error(f"**REGIME: CRASH** — {regime_info.get('reason', '')}. Halt all new option writing.")
+        elif regime == "high_vol":
+            st.warning(f"**REGIME: HIGH VOL** — {regime_info.get('reason', '')}. Use wider strikes, smaller size.")
+        elif regime == "low_vol":
+            st.info(f"**REGIME: LOW VOL** — {regime_info.get('reason', '')}. Premiums are thin.")
 
         # --- Signal banner ---
         if signal == "GREEN":
@@ -664,11 +731,41 @@ with tab_dashboard:
 
             garch_info = data.get("garch_info", {})
             if garch_info and "persistence" in garch_info:
+                gamma = garch_info.get("gamma", 0)
+                leverage_str = ""
+                if gamma and gamma > 0:
+                    lev_ratio = garch_info.get("leverage_ratio")
+                    if lev_ratio:
+                        leverage_str = f" | Leverage effect: {lev_ratio:.1f}x (downside vol {lev_ratio:.1f}x worse than upside)"
                 st.caption(
-                    f"GARCH persistence: {garch_info['persistence']:.3f} "
+                    f"GJR-GARCH persistence: {garch_info['persistence']:.3f} "
                     f"({'High — vol shocks last long' if garch_info['persistence'] > 0.95 else 'Moderate — vol mean-reverts reasonably fast'}) | "
                     f"Long-run vol: {garch_info.get('long_run_vol', 0):.1f}%"
+                    f"{leverage_str}"
                 )
+
+        # --- Skew Info ---
+        skew_val = data.get("skew_value")
+        skew_det = data.get("skew_details", {})
+        if skew_val is not None:
+            with st.expander("Put/Call Skew", expanded=False):
+                sk_cols = st.columns(3)
+                with sk_cols[0]:
+                    st.metric("25d Put IV", f"{skew_det.get('put_25d_iv', 0):.1f}%",
+                              help="Implied vol of ~25-delta put. Higher than ATM = market pricing crash risk.")
+                with sk_cols[1]:
+                    st.metric("ATM IV", f"{skew_det.get('atm_iv', 0):.1f}%")
+                with sk_cols[2]:
+                    st.metric("25d Call IV", f"{skew_det.get('call_25d_iv', 0):.1f}%")
+                skew_label = "Normal" if skew_val < 5 else ("Elevated" if skew_val < 10 else "Extreme")
+                st.metric("Skew (Put - Call)", f"{skew_val:.1f} pts ({skew_label})",
+                          help="Positive = puts are more expensive than calls. "
+                               ">10 = extreme skew, market pricing significant tail risk. "
+                               "Penalizes put selling in trade scoring.")
+                if skew_val > 10:
+                    st.warning("Extreme skew — the market is pricing high tail risk. Be very cautious selling puts.")
+                elif skew_val > 5:
+                    st.info("Elevated skew — OTM puts are pricing in more risk than usual.")
 
         # --- Empirical Tails (Real Distribution) ---
         empirical = data.get("empirical")
@@ -714,7 +811,9 @@ with tab_dashboard:
             if bt_summary:
                 st.markdown(
                     "We looked at every day in the past year where conditions were similar to today, "
-                    "and checked what would have happened if you sold options then."
+                    "and checked what would have happened if you sold options then. "
+                    "**De-biased**: IV estimated at RV x 1.2 (removes circular bias). "
+                    "**Includes costs**: $0.65 commission + $0.025 slippage per contract."
                 )
                 for sig_name, stats in bt_summary.items():
                     color = {"GREEN": "green", "YELLOW": "orange", "RED": "red"}[sig_name]
@@ -836,6 +935,32 @@ with tab_dashboard:
                 corr_fig.update_layout(title="Return Correlations (1 Year)", height=400)
                 st.plotly_chart(corr_fig, use_container_width=True)
 
+                # Beta-weighting
+                betas = corr_data.get("betas", {})
+                portfolio_beta = corr_data.get("portfolio_beta")
+                if betas:
+                    st.subheader("SPY Beta")
+                    beta_cols = st.columns(len(betas) + 1)
+                    for i, (t, b) in enumerate(betas.items()):
+                        with beta_cols[i]:
+                            st.metric(t, f"{b:.2f}",
+                                      help="Beta to SPY. 1.0 = moves with market. >1.2 = amplifies market moves.")
+                    if portfolio_beta is not None:
+                        with beta_cols[-1]:
+                            st.metric("Portfolio", f"{portfolio_beta:.2f}",
+                                      help="Equal-weighted portfolio beta. >1.5 = very concentrated directional risk.")
+                        if portfolio_beta > 1.5:
+                            st.error(
+                                f"**Portfolio beta is {portfolio_beta:.2f}** — very concentrated market exposure. "
+                                f"A 5% S&P drop could mean a ~{portfolio_beta * 5:.0f}% portfolio hit. "
+                                f"Consider reducing total short-put exposure or hedging."
+                            )
+                        elif portfolio_beta > 1.2:
+                            st.warning(
+                                f"**Portfolio beta is {portfolio_beta:.2f}** — above-average market sensitivity. "
+                                f"Be aware of concentrated directional risk."
+                            )
+
                 if corr_data["avg_pairwise_corr"] > 0.6:
                     st.warning(
                         f"**Your holdings are highly correlated ({corr_data['avg_pairwise_corr']:.2f}).** "
@@ -919,6 +1044,12 @@ with tab_analyzer:
                         exp_dt = datetime.strptime(x, "%Y-%m-%d")
                         if exp_dt > earnings_date_az and earnings_days_az >= 0:
                             label += " ⚠ SPANS EARNINGS"
+                    # Flag if expiration spans FOMC
+                    fomc_d, fomc_dy = data.get("fomc_date"), data.get("fomc_days")
+                    if fomc_d is not None and fomc_dy is not None and fomc_dy >= 0:
+                        exp_dt = datetime.strptime(x, "%Y-%m-%d")
+                        if exp_dt > fomc_d:
+                            label += " ⚠ SPANS FOMC"
                     return label
                 except Exception:
                     return x
@@ -1019,7 +1150,7 @@ with tab_analyzer:
 
                     if not calls_df.empty:
                         calls_df["edge_score"] = calls_df.apply(
-                            lambda r: score_trade(r, current_iv, rv_forecast, iv_rank, term_label), axis=1
+                            lambda r: score_trade(r, current_iv, rv_forecast, iv_rank, term_label, skew_penalty=data.get("skew_penalty", 0)), axis=1
                         )
 
                         display_cols = [
@@ -1076,7 +1207,8 @@ with tab_analyzer:
 
                             # === FULL RISK ANALYSIS ===
                             prob_loss, prob_assign, prob_cat = calc_prob_of_loss(
-                                current_price, best["strike"], strike_iv, dte, "call", premium
+                                current_price, best["strike"], strike_iv, dte, "call", premium,
+                                hist=data["hist"]
                             )
                             if prob_loss is not None:
                                 avg_win = premium * 100
@@ -1185,7 +1317,7 @@ with tab_analyzer:
 
                     if not puts_df.empty:
                         puts_df["edge_score"] = puts_df.apply(
-                            lambda r: score_trade(r, current_iv, rv_forecast, iv_rank, term_label), axis=1
+                            lambda r: score_trade(r, current_iv, rv_forecast, iv_rank, term_label, skew_penalty=data.get("skew_penalty", 0)), axis=1
                         )
                         puts_df["eff_buy_price"] = puts_df["strike"] - puts_df.apply(
                             lambda r: r["bid"] if r["bid"] > 0 else r["lastPrice"], axis=1
@@ -1241,7 +1373,8 @@ with tab_analyzer:
                             )
 
                             prob_loss_p, prob_assign_p, prob_cat_p = calc_prob_of_loss(
-                                current_price, best["strike"], strike_iv_p, dte, "put", premium
+                                current_price, best["strike"], strike_iv_p, dte, "put", premium,
+                                hist=data["hist"]
                             )
                             if prob_loss_p is not None:
                                 avg_win_p = premium * 100

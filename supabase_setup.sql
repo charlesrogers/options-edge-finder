@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS iv_snapshots (
     front_exp TEXT,
     rv_20 REAL,
     term_label TEXT,
+    put_25d_iv REAL,
+    call_25d_iv REAL,
     PRIMARY KEY (ticker, date)
 );
 
