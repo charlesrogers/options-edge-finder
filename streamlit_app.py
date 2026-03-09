@@ -1502,56 +1502,91 @@ with tab_positions:
             ticker = trade["ticker"]
             with st.spinner(f"Checking {ticker} {trade['strike']} {trade['option_type']}..."):
                 try:
-                    stock = yf.Ticker(ticker)
-                    hist = stock.history(period="1y")
+                    hist = yf_proxy.get_stock_history(ticker, period="1y")
+                    if hist.empty:
+                        raise ValueError(f"No history data for {ticker}")
                     spot = hist["Close"].iloc[-1]
 
                     current_option_price = None
                     current_delta = None
                     try:
+                        trade_chain = yf_proxy.get_option_chain(ticker, trade["expiration"])
                         if trade["option_type"] == "call":
-                            chain = stock.option_chain(trade["expiration"]).calls
+                            chain = trade_chain.calls
                         else:
-                            chain = stock.option_chain(trade["expiration"]).puts
+                            chain = trade_chain.puts
                         match = chain[chain["strike"] == trade["strike"]]
                         if not match.empty:
                             row = match.iloc[0]
-                            mid = (row["bid"] + row["ask"]) / 2 if row["bid"] > 0 else row["lastPrice"]
+                            bid = row.get("bid", 0) or 0
+                            ask = row.get("ask", 0) or 0
+                            mid = (bid + ask) / 2 if bid > 0 else row.get("lastPrice", 0)
                             current_option_price = mid
                             dte_now = max((datetime.strptime(trade["expiration"], "%Y-%m-%d") - datetime.now()).days, 1)
                             iv_now = row.get("impliedVolatility", 0.3)
-                            from py_vollib.black_scholes.greeks.analytical import delta as bs_delta_fn
-                            flag = "c" if trade["option_type"] == "call" else "p"
-                            t_years = max(dte_now / 365.0, 1/365)
-                            current_delta = bs_delta_fn(flag, spot, trade["strike"], t_years, 0.045, iv_now)
+                            try:
+                                from py_vollib.black_scholes.greeks.analytical import delta as bs_delta_fn
+                                flag = "c" if trade["option_type"] == "call" else "p"
+                                t_years = max(dte_now / 365.0, 1/365)
+                                current_delta = bs_delta_fn(flag, spot, trade["strike"], t_years, 0.045, iv_now)
+                            except Exception:
+                                pass
                     except Exception:
                         pass
 
                     rv_20 = calc_realized_vol(hist, window=20)
                     current_iv = None
+                    term_label_pos = "N/A"
                     try:
-                        exps = stock.options
+                        exps = yf_proxy.get_expirations(ticker)
                         if exps:
-                            first_chain = stock.option_chain(exps[0]).calls
-                            first_chain_c = first_chain.copy()
-                            first_chain_c["dist"] = abs(first_chain_c["strike"] - spot)
-                            atm = first_chain_c.loc[first_chain_c["dist"].idxmin()]
-                            current_iv = atm["impliedVolatility"] * 100
+                            first_chain = yf_proxy.get_option_chain(ticker, exps[0])
+                            if not first_chain.calls.empty:
+                                fc = first_chain.calls.copy()
+                                fc["dist"] = abs(fc["strike"] - spot)
+                                atm = fc.loc[fc["dist"].idxmin()]
+                                current_iv = atm["impliedVolatility"] * 100
+                            # Term structure from first 2 expirations
+                            chains_for_ts = {exps[0]: first_chain}
+                            if len(exps) > 1:
+                                second = yf_proxy.get_option_chain(ticker, exps[1])
+                                if not second.calls.empty:
+                                    chains_for_ts[exps[1]] = second
+                            _, term_label_pos = get_term_structure(chains_for_ts, exps[:2], spot)
                     except Exception:
                         pass
-
-                    try:
-                        exps = stock.options
-                        chains_for_ts = {}
-                        for exp in list(exps)[:4]:
-                            chains_for_ts[exp] = stock.option_chain(exp)
-                        _, term_label_pos = get_term_structure(chains_for_ts, list(exps)[:4], spot)
-                    except Exception:
-                        term_label_pos = "N/A"
 
                     signals, metrics = generate_exit_signals(
                         trade, spot, current_option_price, current_iv, rv_20, term_label_pos, current_delta
                     )
+
+                    # Add regime and FOMC signals
+                    try:
+                        regime_pos = classify_vol_regime(
+                            vix_level=None, rv20=rv_20,
+                            rv60=calc_realized_vol(hist, window=60) if len(hist) >= 60 else None
+                        )
+                        if regime_pos[0] == "crash":
+                            signals.insert(0, ("MUST_SELL", "Crash Regime",
+                                "Volatility regime classified as CRASH. Close all short premium positions.",
+                                "Close this position immediately."))
+                        elif regime_pos[0] == "high_vol":
+                            signals.append(("WARNING", "High Vol Regime",
+                                f"Volatility regime is elevated ({regime_pos[1].get('reason', '')}).",
+                                "Consider reducing size or closing if trade is not well in profit."))
+                    except Exception:
+                        pass
+
+                    try:
+                        fomc_d, fomc_dy = get_next_fomc_date()
+                        if fomc_dy is not None:
+                            dte_trade = (datetime.strptime(trade["expiration"], "%Y-%m-%d") - datetime.now()).days
+                            if fomc_dy <= 3 and dte_trade > 0 and fomc_d and datetime.strptime(trade["expiration"], "%Y-%m-%d") > fomc_d:
+                                signals.append(("WARNING", "FOMC Imminent",
+                                    f"FOMC decision in {fomc_dy} days and your option expires after it.",
+                                    "Consider closing before FOMC if you're near breakeven."))
+                    except Exception:
+                        pass
                 except Exception as e:
                     signals = [("INFO", "Data Error", f"Could not load data: {e}", "Check manually")]
                     metrics = {"dte": 0, "pnl_per_share": None, "pnl_total": None, "pct_of_max": None, "current_delta": None}
