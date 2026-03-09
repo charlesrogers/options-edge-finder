@@ -3,6 +3,7 @@ import yfinance as yf
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
+import time
 import plotly.graph_objects as go
 from analytics import (
     calc_realized_vol,
@@ -207,28 +208,52 @@ tickers = [t.strip().upper() for t in ticker_input.split(",") if t.strip()]
 # ============================================================
 # DATA LOADERS
 # ============================================================
-@st.cache_data(ttl=300)
+def _yf_retry(func, retries=3, delay=2):
+    """Retry a yfinance call with backoff to handle rate limits."""
+    for attempt in range(retries):
+        try:
+            return func()
+        except Exception as e:
+            if attempt < retries - 1 and ("RateLimit" in type(e).__name__ or "429" in str(e)):
+                time.sleep(delay * (attempt + 1))
+            else:
+                raise
+    return None
+
+
+@st.cache_data(ttl=600)
 def load_stock_data(ticker, period="1y"):
     stock = yf.Ticker(ticker)
-    hist = stock.history(period=period)
-    info = stock.info
+    hist = _yf_retry(lambda: stock.history(period=period))
+    if hist is None or hist.empty:
+        return pd.DataFrame(), {}
+    # info call is separate and often rate-limited — make it optional
+    try:
+        info = _yf_retry(lambda: stock.info, retries=2, delay=3)
+        if info is None:
+            info = {}
+    except Exception:
+        info = {}
     return hist, info
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=600)
 def load_expirations(ticker):
     """Get all available expiration dates for a ticker."""
-    stock = yf.Ticker(ticker)
-    expirations = stock.options
-    return list(expirations) if expirations else []
+    try:
+        stock = yf.Ticker(ticker)
+        expirations = _yf_retry(lambda: stock.options, retries=2)
+        return list(expirations) if expirations else []
+    except Exception:
+        return []
 
 
-@st.cache_resource(ttl=120)
+@st.cache_resource(ttl=300)
 def load_chain(ticker, expiration):
     """Load a single expiration's option chain (lazy — only when needed)."""
     stock = yf.Ticker(ticker)
     try:
-        return stock.option_chain(expiration)
+        return _yf_retry(lambda: stock.option_chain(expiration), retries=2)
     except Exception:
         return None
 
@@ -246,7 +271,7 @@ def load_options_data(ticker):
     return chains, expirations
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=900)
 def load_vix_data():
     vix_hist = pd.DataFrame()
     for period in ["1y", "6mo", "3mo"]:
@@ -390,9 +415,17 @@ def compute_analytics(ticker):
 # ============================================================
 with tab_dashboard:
     for ticker in tickers:
-        with st.spinner(f"Loading {ticker}..."):
-            data = compute_analytics(ticker)
-            vix_hist, vix3m_hist = load_vix_data()
+        try:
+            with st.spinner(f"Loading {ticker}..."):
+                data = compute_analytics(ticker)
+                vix_hist, vix3m_hist = load_vix_data()
+        except Exception as e:
+            err_name = type(e).__name__
+            if "RateLimit" in err_name:
+                st.error(f"Yahoo Finance rate limit hit for {ticker}. Please wait 30 seconds and refresh.")
+            else:
+                st.error(f"Error loading {ticker}: {err_name} — {e}")
+            continue
 
         if data is None:
             st.error(f"No data for {ticker}")
