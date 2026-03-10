@@ -29,7 +29,10 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python -c "
-from db import score_pending_predictions, get_pending_predictions_count
+from db import reset_predictions_missing_pnl, score_pending_predictions, get_pending_predictions_count
+reset = reset_predictions_missing_pnl()
+if reset:
+    print(f'Reset {reset} old predictions missing P&L data')
 pending = get_pending_predictions_count()
 print(f'Pending predictions to check: {pending}')
 if pending > 0:

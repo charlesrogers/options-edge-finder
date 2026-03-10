@@ -623,6 +623,38 @@ def get_prediction_scorecard():
     return results
 
 
+def reset_predictions_missing_pnl():
+    """Reset scored predictions that are missing P&L data so they get re-scored."""
+    sb = _get_supabase()
+    if sb:
+        # Find scored predictions missing pnl_pct
+        resp = sb.table("predictions").select("id").eq("scored", 1).is_("pnl_pct", "null").execute()
+        ids = [r["id"] for r in (resp.data or [])]
+        if not ids:
+            return 0
+        for pid in ids:
+            sb.table("predictions").update({
+                "scored": 0,
+                "outcome_price": None,
+                "outcome_return": None,
+                "seller_won": None,
+            }).eq("id", pid).execute()
+        print(f"[reset] Reset {len(ids)} predictions missing P&L data for re-scoring")
+        return len(ids)
+    else:
+        conn = _get_sqlite()
+        cur = conn.execute(
+            "UPDATE predictions SET scored = 0, outcome_price = NULL, outcome_return = NULL, seller_won = NULL "
+            "WHERE scored = 1 AND pnl_pct IS NULL"
+        )
+        count = cur.rowcount
+        conn.commit()
+        conn.close()
+        if count:
+            print(f"[reset] Reset {count} predictions missing P&L data for re-scoring")
+        return count
+
+
 def get_pending_predictions_count():
     """How many predictions are waiting to be scored."""
     sb = _get_supabase()
