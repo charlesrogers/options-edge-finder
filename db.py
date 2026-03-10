@@ -494,10 +494,29 @@ def get_prediction_scorecard():
     # Check if P&L columns exist
     has_pnl = "pnl_pct" in df.columns and df["pnl_pct"].notna().any()
 
+    # Trade recommendation counts (across ALL predictions, not just scored)
+    sb2 = _get_supabase()
+    if sb2:
+        all_resp = sb2.table("predictions").select("signal").execute()
+        all_signals = [r["signal"] for r in (all_resp.data or [])]
+    else:
+        conn2 = _get_sqlite()
+        all_signals = [r["signal"] for r in conn2.execute("SELECT signal FROM predictions").fetchall()]
+        conn2.close()
+    total_all = len(all_signals)
+    total_recommended = sum(1 for s in all_signals if s == "GREEN")
+    total_cautioned = sum(1 for s in all_signals if s == "YELLOW")
+    total_avoided = sum(1 for s in all_signals if s == "RED")
+
     results = {
         "total_predictions": len(df),
         "total_correct": int(df["seller_won"].sum()),
         "overall_accuracy": float(df["seller_won"].mean() * 100),
+        "total_signals_generated": total_all,
+        "total_recommended": total_recommended,
+        "total_cautioned": total_cautioned,
+        "total_avoided": total_avoided,
+        "recommendation_rate": round(total_recommended / total_all * 100, 1) if total_all else 0,
         "by_signal": {},
         "by_regime": {},
         "by_ticker": {},

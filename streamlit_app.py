@@ -2091,8 +2091,27 @@ with tab_scorecard:
         except Exception:
             pass
     else:
-        # Overall stats
-        st.subheader("Overall Accuracy")
+        # Trade Recommendations summary
+        st.subheader("Trade Recommendations")
+        rc1, rc2, rc3, rc4 = st.columns(4)
+        with rc1:
+            st.metric("Tickers Analyzed", scorecard.get("total_signals_generated", scorecard["total_predictions"]),
+                      help="Total signals generated across all tickers and days")
+        with rc2:
+            st.metric("Trades Recommended", scorecard.get("total_recommended", "—"),
+                      help="GREEN signals = 'sell premium here'")
+        with rc3:
+            st.metric("Cautioned / Avoided",
+                      f"{scorecard.get('total_cautioned', 0)} / {scorecard.get('total_avoided', 0)}",
+                      help="YELLOW = proceed with caution, RED = don't sell")
+        with rc4:
+            rec_rate = scorecard.get("recommendation_rate", 0)
+            st.metric("Recommendation Rate", f"{rec_rate:.0f}%",
+                      help="% of analyzed tickers that got a GREEN signal. "
+                           "Lower = more selective. 30-50% is healthy.")
+
+        # Overall accuracy
+        st.subheader("Accuracy (Scored Predictions)")
         oc1, oc2, oc3, oc4 = st.columns(4)
         with oc1:
             st.metric("Total Scored", scorecard["total_predictions"])
