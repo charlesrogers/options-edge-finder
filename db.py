@@ -148,6 +148,11 @@ def _get_sqlite():
         ("predictions", "signal_reason", "TEXT"),
         ("predictions", "earnings_days", "INTEGER"),
         ("predictions", "fomc_days", "INTEGER"),
+        ("predictions", "expected_move_pct", "REAL"),
+        ("predictions", "actual_move_pct", "REAL"),
+        ("predictions", "premium_estimate", "REAL"),
+        ("predictions", "pnl_estimate", "REAL"),
+        ("predictions", "pnl_pct", "REAL"),
     ]
     for table, col, coltype in _pred_migrate:
         try:
@@ -414,6 +419,21 @@ def score_pending_predictions():
             actual_move_pct = abs(outcome_return)
             seller_won = 1 if actual_move_pct < expected_move_pct else 0
 
+            # P&L estimation (approximate ATM straddle)
+            # Premium ≈ IV * sqrt(T) * spot (ATM straddle approximation)
+            spot = pred["spot_price"]
+            premium_estimate = iv / 100 * np.sqrt(holding_days / 252) * spot
+            actual_move_dollars = abs(outcome_price - spot)
+
+            if actual_move_dollars <= premium_estimate:
+                # Seller keeps full premium (option expires worthless or partial)
+                pnl_estimate = premium_estimate - actual_move_dollars
+            else:
+                # Seller loses: premium minus intrinsic loss
+                pnl_estimate = premium_estimate - actual_move_dollars
+
+            pnl_pct = pnl_estimate / spot * 100
+
             update_data = {
                 "outcome_price": outcome_price,
                 "outcome_return": round(outcome_return, 4),
@@ -421,20 +441,20 @@ def score_pending_predictions():
                 "outcome_date": outcome_date.strftime("%Y-%m-%d"),
                 "scored": 1,
                 "seller_won": seller_won,
+                "expected_move_pct": round(expected_move_pct, 4),
+                "actual_move_pct": round(actual_move_pct, 4),
+                "premium_estimate": round(premium_estimate, 4),
+                "pnl_estimate": round(pnl_estimate, 4),
+                "pnl_pct": round(pnl_pct, 4),
             }
 
             if sb:
                 sb.table("predictions").update(update_data).eq("id", pred["id"]).execute()
             else:
                 conn = _get_sqlite()
-                conn.execute("""
-                    UPDATE predictions SET
-                        outcome_price = ?, outcome_return = ?, outcome_rv = ?,
-                        outcome_date = ?, scored = 1, seller_won = ?
-                    WHERE id = ?
-                """, (outcome_price, round(outcome_return, 4),
-                      round(outcome_rv, 2) if outcome_rv else None,
-                      outcome_date.strftime("%Y-%m-%d"), seller_won, pred["id"]))
+                cols = ", ".join(f"{k} = ?" for k in update_data.keys())
+                vals = list(update_data.values()) + [pred["id"]]
+                conn.execute(f"UPDATE predictions SET {cols} WHERE id = ?", vals)
                 conn.commit()
                 conn.close()
             scored_count += 1
@@ -471,6 +491,9 @@ def get_prediction_scorecard():
     if df.empty:
         return None
 
+    # Check if P&L columns exist
+    has_pnl = "pnl_pct" in df.columns and df["pnl_pct"].notna().any()
+
     results = {
         "total_predictions": len(df),
         "total_correct": int(df["seller_won"].sum()),
@@ -481,10 +504,29 @@ def get_prediction_scorecard():
         "recent": df.tail(20).to_dict("records"),
     }
 
+    # --- P&L summary (the real measure) ---
+    if has_pnl:
+        pnl = df["pnl_pct"].dropna()
+        results["pnl_summary"] = {
+            "avg_pnl_pct": round(float(pnl.mean()), 4),
+            "median_pnl_pct": round(float(pnl.median()), 4),
+            "total_pnl_pct": round(float(pnl.sum()), 4),
+            "std_pnl_pct": round(float(pnl.std()), 4),
+            "skewness": round(float(pnl.skew()), 4),
+            "kurtosis": round(float(pnl.kurtosis()), 4),
+            "worst_pnl_pct": round(float(pnl.min()), 4),
+            "best_pnl_pct": round(float(pnl.max()), 4),
+            "pct_positive": round(float((pnl > 0).mean() * 100), 2),
+            "avg_win_pct": round(float(pnl[pnl > 0].mean()), 4) if (pnl > 0).any() else 0,
+            "avg_loss_pct": round(float(pnl[pnl <= 0].mean()), 4) if (pnl <= 0).any() else 0,
+            "win_loss_ratio": round(
+                abs(float(pnl[pnl > 0].mean()) / float(pnl[pnl <= 0].mean())), 2
+            ) if (pnl > 0).any() and (pnl <= 0).any() and pnl[pnl <= 0].mean() != 0 else None,
+        }
+    else:
+        results["pnl_summary"] = None
+
     # --- Baseline comparison ---
-    # "Always sell" baseline: what % of the time would a seller win regardless of signal?
-    # This is just overall_accuracy across ALL predictions (since we log all signals).
-    # The model adds value if GREEN accuracy > overall and RED accuracy < overall.
     results["baseline_accuracy"] = results["overall_accuracy"]
 
     # --- Signal separation (the core test) ---
@@ -492,7 +534,7 @@ def get_prediction_scorecard():
         subset = df[df["signal"] == sig]
         if subset.empty:
             continue
-        results["by_signal"][sig] = {
+        sig_stats = {
             "count": len(subset),
             "accuracy": float(subset["seller_won"].mean() * 100),
             "avg_return": float(subset["outcome_return"].mean()),
@@ -500,33 +542,60 @@ def get_prediction_scorecard():
             "worst_return": float(subset["outcome_return"].min()),
             "best_return": float(subset["outcome_return"].max()),
         }
+        # P&L by signal
+        if has_pnl and subset["pnl_pct"].notna().any():
+            spnl = subset["pnl_pct"].dropna()
+            sig_stats["avg_pnl_pct"] = round(float(spnl.mean()), 4)
+            sig_stats["median_pnl_pct"] = round(float(spnl.median()), 4)
+            sig_stats["worst_pnl_pct"] = round(float(spnl.min()), 4)
+            sig_stats["total_pnl_pct"] = round(float(spnl.sum()), 4)
+            sig_stats["skewness"] = round(float(spnl.skew()), 4) if len(spnl) >= 3 else None
+        results["by_signal"][sig] = sig_stats
 
-    # --- Rolling accuracy (is the model improving over time?) ---
+    # --- Rolling accuracy + P&L (is the model improving over time?) ---
     df["date_dt"] = pd.to_datetime(df["date"])
     df = df.sort_values("date_dt")
     rolling_windows = []
     if len(df) >= 20:
-        # 30-prediction rolling window
         window = min(30, len(df))
         for i in range(window, len(df) + 1):
             window_df = df.iloc[i - window:i]
-            rolling_windows.append({
+            entry = {
                 "end_date": str(window_df["date"].iloc[-1]),
                 "accuracy": float(window_df["seller_won"].mean() * 100),
                 "count": len(window_df),
-            })
+            }
+            if has_pnl and window_df["pnl_pct"].notna().any():
+                entry["avg_pnl_pct"] = float(window_df["pnl_pct"].dropna().mean())
+            rolling_windows.append(entry)
     results["rolling_accuracy"] = rolling_windows
+
+    # --- Cumulative P&L curve ---
+    if has_pnl:
+        cum_pnl = df["pnl_pct"].dropna().cumsum()
+        results["cumulative_pnl"] = [
+            {"date": str(df.iloc[i]["date"]), "cum_pnl_pct": round(float(v), 4)}
+            for i, v in enumerate(cum_pnl) if not pd.isna(v)
+        ]
+    else:
+        results["cumulative_pnl"] = []
 
     # --- VRP as predictor (does higher VRP = better outcomes?) ---
     if "vrp" in df.columns and df["vrp"].notna().sum() >= 10:
         high_vrp = df[df["vrp"] >= 5]
         low_vrp = df[df["vrp"] < 5]
-        results["vrp_analysis"] = {
+        vrp_result = {
             "high_vrp_accuracy": float(high_vrp["seller_won"].mean() * 100) if len(high_vrp) >= 5 else None,
             "high_vrp_count": len(high_vrp),
             "low_vrp_accuracy": float(low_vrp["seller_won"].mean() * 100) if len(low_vrp) >= 5 else None,
             "low_vrp_count": len(low_vrp),
         }
+        if has_pnl:
+            if len(high_vrp) >= 5 and high_vrp["pnl_pct"].notna().any():
+                vrp_result["high_vrp_avg_pnl"] = round(float(high_vrp["pnl_pct"].dropna().mean()), 4)
+            if len(low_vrp) >= 5 and low_vrp["pnl_pct"].notna().any():
+                vrp_result["low_vrp_avg_pnl"] = round(float(low_vrp["pnl_pct"].dropna().mean()), 4)
+        results["vrp_analysis"] = vrp_result
     else:
         results["vrp_analysis"] = None
 

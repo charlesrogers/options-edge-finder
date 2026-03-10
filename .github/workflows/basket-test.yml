@@ -1,0 +1,50 @@
+name: Weekly Basket Test
+
+on:
+  schedule:
+    # Run Sunday at 6 PM ET (22:00 UTC) — before Monday's trading
+    - cron: '0 22 * * 0'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Basket size: quick (5), core (20), full (50)'
+        required: false
+        default: 'core'
+
+jobs:
+  basket-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install requests numpy pandas scipy arch supabase yfinance
+
+      - name: Run basket test
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          MODE="${{ github.event.inputs.mode || 'core' }}"
+          if [ "$MODE" = "quick" ]; then
+            python basket_test.py --quick
+          elif [ "$MODE" = "full" ]; then
+            python basket_test.py --full
+          else
+            python basket_test.py
+          fi
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: basket-results-${{ github.run_id }}
+          path: basket_results/
+          retention-days: 90

@@ -507,14 +507,30 @@ def calc_prob_of_loss(spot, strike, iv, dte, option_type, premium, hist=None):
     return prob_loss, prob_assignment, prob_max_loss
 
 
-def calc_kelly_size(prob_win, avg_win, avg_loss, fraction=0.25):
+def calc_kelly_size(prob_win, avg_win, avg_loss, fraction=0.25,
+                    skewness=None, max_position_pct=0.05):
     """
-    Fractional Kelly criterion for position sizing.
+    Fractional Kelly criterion with skew adjustment for position sizing.
     Chapter 17: f* = (bp - q) / b
     where b = avg_win/avg_loss, p = prob_win, q = 1-p
 
-    Returns fraction of capital to risk.
-    Default 25% Kelly (conservative, per book recommendation).
+    Skew adjustment (Module 7A):
+      Short premium has negative skewness (rare big losses).
+      Standard Kelly ignores this and oversizes.
+      Adjusted: kelly_adj = kelly * (1 / (1 + |skew|))
+      Then capped at quarter-Kelly and 5% absolute.
+
+    Args:
+        prob_win: Probability of winning (0-1)
+        avg_win: Average win amount
+        avg_loss: Average loss amount
+        fraction: Kelly fraction (default 0.25 = quarter-Kelly)
+        skewness: Empirical P&L skewness (None = no adjustment)
+        max_position_pct: Absolute cap per position (default 5%)
+
+    Returns:
+        float: fraction of capital to risk
+        dict: sizing details (if skewness provided)
     """
     if avg_loss == 0 or prob_win <= 0 or prob_win >= 1:
         return 0.0
@@ -527,7 +543,22 @@ def calc_kelly_size(prob_win, avg_win, avg_loss, fraction=0.25):
     if full_kelly <= 0:
         return 0.0  # no edge, don't bet
 
-    return full_kelly * fraction
+    quarter_kelly = full_kelly * fraction
+
+    # Skew adjustment: penalize for negative skewness (fat left tail)
+    if skewness is not None and skewness != 0:
+        skew_factor = 1.0 / (1.0 + abs(skewness))
+        skew_adjusted = full_kelly * skew_factor
+        # Cap at quarter-Kelly
+        adjusted = min(skew_adjusted, quarter_kelly)
+    else:
+        skew_factor = 1.0
+        adjusted = quarter_kelly
+
+    # Absolute cap: max_position_pct of portfolio per position
+    final = min(adjusted, max_position_pct)
+
+    return final
 
 
 def calc_edge_confidence(vrp, iv_rank, term_label, prob_loss, volume, open_interest, dte):

@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import yf_proxy
 import traceback
 from analytics import (
@@ -36,6 +37,12 @@ from db import add_trade, close_trade, get_open_trades, get_all_trades, delete_t
 from db import record_iv, get_iv_history, get_real_iv_rank, using_supabase
 from db import log_prediction, score_pending_predictions, get_prediction_scorecard
 from db import get_pending_predictions_count, get_all_predictions
+from eval_risk import run_all_risk_metrics
+from eval_backtest import walk_forward_backtest, iv_multiplier_sensitivity
+from eval_signals import run_all_signal_validation
+from eval_portfolio import (crisis_correlation_analysis, portfolio_vega_stress,
+                            portfolio_theta_risk, historical_stress_test)
+from eval_monitor import cusum_edge_detection, check_circuit_breakers
 
 st.set_page_config(
     page_title="Options Edge Finder",
@@ -44,7 +51,7 @@ st.set_page_config(
 )
 
 # Version marker — increment to bust Streamlit caches on deploy
-_APP_VERSION = "3.4-scorecard-v2"
+_APP_VERSION = "4.1-full-eval-pipeline"
 if "app_version" not in st.session_state or st.session_state.app_version != _APP_VERSION:
     st.cache_data.clear()
     st.cache_resource.clear()
@@ -840,9 +847,12 @@ with tab_dashboard:
                     )
 
         # --- Historical Backtest ---
+        bt_skewness = None  # used by Kelly sizing
         with st.expander("Historical Backtest: How reliable is this signal?", expanded=False):
             bt = backtest_vrp_strategy(hist, window=20, holding_period=20)
             bt_summary = summarize_backtest(bt)
+            if bt is not None and not bt.empty and "pnl_pct" in bt.columns:
+                bt_skewness = float(bt["pnl_pct"].skew())
             if bt_summary:
                 st.markdown(
                     "We looked at every day in the past year where conditions were similar to today, "
@@ -875,6 +885,89 @@ with tab_dashboard:
                     )
             else:
                 st.info("Not enough historical data to run backtest.")
+
+        # --- Walk-Forward Backtest (Module 4) ---
+        with st.expander("Walk-Forward Backtest: Out-of-Sample Validation", expanded=False):
+            st.caption(
+                "The standard backtest above is one-pass (in-sample). This splits history into "
+                "rolling train/test windows to measure TRUE out-of-sample performance. "
+                "If OOS results are much worse than in-sample, the strategy is overfit."
+            )
+            if len(hist) >= 1100:  # need ~4+ years
+                try:
+                    with st.spinner("Running walk-forward backtest (this takes a moment)..."):
+                        wf = walk_forward_backtest(hist, train_days=756, test_days=126, step_days=63)
+
+                    if wf.get("error"):
+                        st.warning(f"Walk-forward: {wf['error']}")
+                    else:
+                        oos = wf["oos_summary"]
+                        is_ = wf["is_summary"]
+
+                        st.markdown(f"**{oos['n_windows']} walk-forward windows evaluated**")
+
+                        wc1, wc2, wc3, wc4 = st.columns(4)
+                        with wc1:
+                            st.metric("OOS Win Rate", f"{oos['avg_win_rate']:.1f}%",
+                                      help="Average win rate across all out-of-sample windows")
+                        with wc2:
+                            st.metric("OOS Avg P&L", f"{oos['avg_pnl_pct']:+.3f}%",
+                                      help="Average P&L per trade across OOS windows")
+                        with wc3:
+                            st.metric("OOS Sharpe", f"{oos['avg_sharpe']:.3f}",
+                                      help="Average Sharpe ratio across OOS windows")
+                        with wc4:
+                            of = wf["overfit_ratio"]
+                            st.metric("Overfit Ratio", f"{of:.2f}x",
+                                      help="In-sample P&L / OOS P&L. >2x = likely overfit")
+
+                        # IS vs OOS comparison
+                        st.markdown("**In-Sample vs Out-of-Sample:**")
+                        comp_df = pd.DataFrame([
+                            {"Metric": "Avg P&L %", "In-Sample": f"{is_['avg_pnl_pct']:+.3f}%",
+                             "Out-of-Sample": f"{oos['avg_pnl_pct']:+.3f}%"},
+                            {"Metric": "Win Rate", "In-Sample": f"{is_['avg_win_rate']:.1f}%",
+                             "Out-of-Sample": f"{oos['avg_win_rate']:.1f}%"},
+                            {"Metric": "Sharpe", "In-Sample": f"{is_['avg_sharpe']:.3f}",
+                             "Out-of-Sample": f"{oos['avg_sharpe']:.3f}"},
+                        ])
+                        st.dataframe(comp_df, use_container_width=True, hide_index=True)
+
+                        if of > 2:
+                            st.error(f"Overfit ratio {of:.1f}x — in-sample results are misleading. "
+                                     f"Do NOT trust the standard backtest numbers.")
+                        elif of > 1.3:
+                            st.warning(f"Overfit ratio {of:.1f}x — some degradation OOS. "
+                                       f"Real results will likely be worse than backtest suggests.")
+                        elif oos["avg_pnl_pct"] > 0:
+                            st.success(f"Strategy holds up out-of-sample (overfit ratio {of:.1f}x). "
+                                       f"OOS P&L is positive.")
+                        else:
+                            st.error(f"OOS P&L is negative ({oos['avg_pnl_pct']:+.3f}%). "
+                                     f"Strategy does not work on unseen data.")
+
+                        # Window-by-window chart
+                        if wf.get("window_details"):
+                            wd = pd.DataFrame(wf["window_details"])
+                            fig_wf = go.Figure()
+                            fig_wf.add_trace(go.Bar(
+                                x=wd["test_start"], y=wd["oos_avg_pnl"],
+                                name="OOS Avg P&L",
+                                marker_color=["green" if p > 0 else "red" for p in wd["oos_avg_pnl"]],
+                            ))
+                            fig_wf.add_hline(y=0, line_dash="dash", line_color="gray")
+                            fig_wf.update_layout(
+                                title="Out-of-Sample P&L by Window",
+                                yaxis_title="Avg P&L %", xaxis_title="Test Window Start",
+                                height=300,
+                            )
+                            st.plotly_chart(fig_wf, use_container_width=True)
+
+                except Exception as e:
+                    st.warning(f"Walk-forward failed: {e}")
+            else:
+                st.info(f"Need ~4+ years of data for walk-forward ({len(hist)} rows available, need ~1100). "
+                        f"Try a ticker with longer history.")
 
         # --- Volatility chart ---
         with st.expander("Volatility History", expanded=False):
@@ -1251,7 +1344,10 @@ with tab_analyzer:
                                     max(0, current_price * 1.1 - best["strike"]) - premium,
                                     max(0, current_price * 1.15 - best["strike"]) - premium,
                                 ]))) * 100
-                                kelly_frac = calc_kelly_size(1 - prob_loss, avg_win, max(avg_loss, 1))
+                                kelly_frac = calc_kelly_size(
+                                    1 - prob_loss, avg_win, max(avg_loss, 1),
+                                    skewness=bt_skewness,
+                                )
                             else:
                                 kelly_frac = 0
 
@@ -1271,9 +1367,12 @@ with tab_analyzer:
                                            f"{prob_assign*100:.1f}%" if prob_assign is not None else "N/A",
                                            help=TIPS["prob_assign"])
                             with rc3:
+                                kelly_help = TIPS["kelly"]
+                                if bt_skewness is not None:
+                                    kelly_help += f" Adjusted for P&L skew ({bt_skewness:.2f})."
                                 st.metric("Kelly Size",
                                            f"{kelly_frac*100:.1f}% of capital" if kelly_frac > 0 else "No edge",
-                                           help=TIPS["kelly"])
+                                           help=kelly_help)
                             with rc4:
                                 grade = "A" if conf_score >= 80 else "B" if conf_score >= 60 else "C" if conf_score >= 40 else "D" if conf_score >= 25 else "F"
                                 st.metric("Confidence", f"{grade} ({conf_score}/100)",
@@ -1417,7 +1516,10 @@ with tab_analyzer:
                                     max(0, best["strike"] - current_price * 0.9) - premium,
                                     max(0, best["strike"] - current_price * 0.85) - premium,
                                 ]))) * 100
-                                kelly_frac_p = calc_kelly_size(1 - prob_loss_p, avg_win_p, max(avg_loss_p, 1))
+                                kelly_frac_p = calc_kelly_size(
+                                    1 - prob_loss_p, avg_win_p, max(avg_loss_p, 1),
+                                    skewness=bt_skewness,
+                                )
                             else:
                                 kelly_frac_p = 0
 
@@ -1529,6 +1631,42 @@ with tab_positions:
                 st.rerun()
 
     open_trades = get_open_trades()
+
+    # --- Circuit Breakers (Module 8C) ---
+    try:
+        vix_cb = None
+        try:
+            vix_data_cb = yf_proxy.get_stock_history("^VIX", period="5d")
+            if not vix_data_cb.empty:
+                vix_cb = float(vix_data_cb["Close"].iloc[-1])
+        except Exception:
+            pass
+
+        fomc_date_cb, fomc_days_cb = get_next_fomc_date()
+
+        open_tickers_cb = list(set(t.get("ticker", "") for t in open_trades)) if open_trades else []
+
+        cb = check_circuit_breakers(
+            vix_level=vix_cb,
+            fomc_days=fomc_days_cb,
+            open_tickers=open_tickers_cb,
+        )
+
+        if cb["n_alerts"] > 0:
+            for alert in cb["alerts"]:
+                if alert["severity"] == "CRITICAL":
+                    st.error(f"**{alert['type']} CIRCUIT BREAKER**: {alert['message']}\n\n"
+                             f"**Action:** {alert['action']}")
+                elif alert["severity"] == "HIGH":
+                    st.warning(f"**{alert['type']} CIRCUIT BREAKER**: {alert['message']}\n\n"
+                               f"**Action:** {alert['action']}")
+                elif alert["severity"] == "MODERATE":
+                    st.info(f"**{alert['type']}**: {alert['message']} — {alert['action']}")
+
+            if cb["sizing_multiplier"] < 1.0:
+                st.caption(f"Position sizing adjusted to {cb['sizing_multiplier']:.0%} of normal")
+    except Exception:
+        pass
 
     if not open_trades:
         st.info("No open positions. Log a trade above or use the Trade Analyzer to find opportunities.")
@@ -1714,6 +1852,195 @@ with tab_positions:
             st.metric("Total Realized P&L", f"${total_pnl:+,.0f}")
             st.metric("Win Rate", f"{win_count}/{len(closed_trades)} ({win_count/len(closed_trades)*100:.0f}%)")
 
+    # --- Portfolio Risk Analysis (Module 6) ---
+    if open_trades:
+        st.divider()
+        st.subheader("Portfolio Risk Analysis")
+
+        port_tickers = list(set(t.get("ticker", "") for t in open_trades if t.get("ticker")))
+
+        # Portfolio value input
+        portfolio_val = st.number_input(
+            "Portfolio Value ($)", min_value=1000, value=100000, step=5000,
+            help="Enter total portfolio value for risk calculations as % of portfolio",
+            key="portfolio_value_input",
+        )
+
+        # --- Capital Deployment Tracking (Module 7B) ---
+        deployed_capital = 0
+        for t in open_trades:
+            try:
+                strike = float(t.get("strike", 0))
+                contracts = int(t.get("contracts", 1))
+                opt_type = t.get("option_type", "call")
+                strategy = t.get("strategy", "")
+
+                if "put" in opt_type or "put" in strategy:
+                    # Cash-secured put: margin = strike * 100 * contracts
+                    margin = strike * 100 * contracts
+                else:
+                    # Covered call: margin = stock value (already held)
+                    spot = float(t.get("spot_at_open", 0) or strike)
+                    margin = spot * 100 * contracts
+                deployed_capital += margin
+            except Exception:
+                continue
+
+        deployment_pct = deployed_capital / portfolio_val * 100 if portfolio_val > 0 else 0
+        cash_reserve_pct = 100 - deployment_pct
+
+        dc1, dc2, dc3, dc4 = st.columns(4)
+        with dc1:
+            st.metric("Capital Deployed", f"${deployed_capital:,.0f}",
+                      help="Estimated margin/capital tied up in open positions")
+        with dc2:
+            st.metric("Deployment %", f"{deployment_pct:.0f}%",
+                      help="% of portfolio committed to open positions")
+        with dc3:
+            color = "normal" if cash_reserve_pct >= 35 else "inverse"
+            st.metric("Cash Reserve", f"{cash_reserve_pct:.0f}%",
+                      help="Uninvested capital. Target: 35-50% normal, 60-75% high vol")
+        with dc4:
+            st.metric("Positions", len(open_trades))
+
+        # Deployment warnings based on regime targets
+        if cash_reserve_pct < 25:
+            st.error(
+                f"Cash reserve {cash_reserve_pct:.0f}% is DANGEROUSLY LOW. "
+                f"Target: >35% in normal markets, >60% in high vol. "
+                f"Close some positions or add capital before opening new trades."
+            )
+        elif cash_reserve_pct < 35:
+            st.warning(
+                f"Cash reserve {cash_reserve_pct:.0f}% is below the 35% target for normal markets. "
+                f"Avoid opening new positions until some close."
+            )
+        else:
+            st.caption(
+                f"Deployment targets: Normal regime 50-65% deployed, "
+                f"High vol 25-40%, Crisis 0%. Current: {deployment_pct:.0f}% deployed."
+            )
+
+        pr_tab1, pr_tab2, pr_tab3 = st.tabs([
+            "Vega Stress & Greeks", "Stress Scenarios", "Correlation Analysis"
+        ])
+
+        with pr_tab1:
+            try:
+                vs = portfolio_vega_stress(open_trades, portfolio_val)
+                tr = portfolio_theta_risk(open_trades)
+
+                if not vs.get("error"):
+                    st.markdown("**Vega Stress Test** — What happens if volatility spikes?")
+                    vc1, vc2, vc3 = st.columns(3)
+                    with vc1:
+                        st.metric("VIX +5", f"${vs['stress_5pt_loss']:+,.0f}",
+                                  help="Estimated loss from a 5-point VIX increase")
+                    with vc2:
+                        st.metric("VIX +10", f"${vs['stress_10pt_loss']:+,.0f}",
+                                  help="Estimated loss from a 10-point VIX spike")
+                    with vc3:
+                        st.metric("VIX +20", f"${vs['stress_20pt_loss']:+,.0f}",
+                                  help="Estimated loss from a 20-point VIX spike (Volmageddon-scale)")
+
+                    if vs.get("stress_10pt_pct") is not None:
+                        if vs["passes_5pct_test"]:
+                            st.success(f"VIX +10 = {vs['stress_10pt_pct']:+.1f}% of portfolio. Within 5% limit.")
+                        else:
+                            st.error(f"VIX +10 = {vs['stress_10pt_pct']:+.1f}% of portfolio. "
+                                     f"EXCEEDS 5% limit — reduce positions or add hedges.")
+
+                if not tr.get("error"):
+                    st.markdown("**Portfolio Greeks**")
+                    gc1, gc2, gc3, gc4 = st.columns(4)
+                    with gc1:
+                        st.metric("Daily Theta", f"${tr['portfolio_theta_daily']:+.2f}",
+                                  help="Daily time decay income (positive = seller earns)")
+                    with gc2:
+                        st.metric("Portfolio Vega", f"{tr['portfolio_vega']:.2f}",
+                                  help="Sensitivity to 1% IV change (negative = short vol)")
+                    with gc3:
+                        if tr.get("theta_vega_ratio"):
+                            st.metric("Theta/Vega", f"{tr['theta_vega_ratio']:.1f} days",
+                                      help="Days of theta to offset a 1-point IV rise")
+                    with gc4:
+                        if tr.get("breakeven_daily_move"):
+                            st.metric("Breakeven Move", f"${tr['breakeven_daily_move']:.2f}",
+                                      help="Daily stock move that wipes out one day of theta")
+
+            except Exception as e:
+                st.warning(f"Could not compute portfolio Greeks: {e}")
+
+        with pr_tab2:
+            try:
+                stress = historical_stress_test(open_trades, portfolio_val)
+                if not isinstance(stress, dict) or stress.get("error"):
+                    st.warning(f"Stress test: {stress.get('error', 'failed')}")
+                else:
+                    for name, s in stress.items():
+                        if not isinstance(s, dict) or "combined_loss" not in s:
+                            continue
+                        st.markdown(f"**{name}** — {s['description']}")
+                        sc1, sc2, sc3 = st.columns(3)
+                        with sc1:
+                            st.metric("SPY Move", f"{s['spy_drop_pct']:+.0f}%")
+                        with sc2:
+                            st.metric("VIX Level", f"{s['vix_level']} (+{s['vix_change']})")
+                        with sc3:
+                            st.metric("Est. Loss", f"${s['combined_loss']:+,.0f}")
+
+                        if s.get("loss_pct") is not None:
+                            if s["surviving"]:
+                                st.info(f"Portfolio impact: {s['loss_pct']:+.1f}% — survivable")
+                            else:
+                                st.error(f"Portfolio impact: {s['loss_pct']:+.1f}% — CRITICAL (>25% loss)")
+                        st.markdown("---")
+
+            except Exception as e:
+                st.warning(f"Stress test failed: {e}")
+
+        with pr_tab3:
+            if len(port_tickers) >= 2:
+                try:
+                    with st.spinner("Computing correlations..."):
+                        cc = crisis_correlation_analysis(port_tickers)
+
+                    if cc.get("error"):
+                        st.warning(f"Correlation analysis: {cc['error']}")
+                    else:
+                        cc1, cc2, cc3 = st.columns(3)
+                        with cc1:
+                            st.metric("Avg Normal Corr", f"{cc['avg_normal_corr']:.3f}",
+                                      help="Average pairwise correlation in normal markets")
+                        with cc2:
+                            if cc.get("avg_crisis_corr") is not None:
+                                st.metric("Avg Crisis Corr", f"{cc['avg_crisis_corr']:.3f}",
+                                          help="Correlation on days SPY drops >1%")
+                        with cc3:
+                            st.metric("Effective Bets", f"{cc['n_eff_normal']:.1f} / {cc['n_available']}",
+                                      help="How many truly independent positions you have")
+
+                        if cc.get("diversification_illusion") and cc["diversification_illusion"] > 3:
+                            st.warning(
+                                f"Diversification illusion: {cc['diversification_illusion']:.0f}x — "
+                                f"you think you have {cc['n_available']} bets but really have "
+                                f"{cc['n_eff_normal']:.1f}. In a crisis, it drops to "
+                                f"{cc.get('n_eff_crisis', '?')}."
+                            )
+
+                        if cc["high_corr_pairs"]:
+                            st.markdown("**Highly correlated pairs (|r| > 0.7):**")
+                            pair_data = [{"Pair": p["pair"],
+                                         "Normal": f"{p['normal_corr']:.3f}",
+                                         "Crisis": f"{p['crisis_corr']:.3f}" if p.get("crisis_corr") else "N/A"}
+                                        for p in cc["high_corr_pairs"][:8]]
+                            st.dataframe(pd.DataFrame(pair_data), use_container_width=True, hide_index=True)
+
+                except Exception as e:
+                    st.warning(f"Correlation analysis failed: {e}")
+            else:
+                st.info("Need 2+ different tickers in open positions for correlation analysis.")
+
 
 # ============================================================
 # TAB: SCORECARD
@@ -1786,6 +2113,230 @@ with tab_scorecard:
         else:
             st.error(f"Accuracy {acc:.1f}% — below 50%. Do NOT rely on these signals.")
 
+        # --- P&L Summary (the REAL measure) ---
+        pnl_summary = scorecard.get("pnl_summary")
+        if pnl_summary:
+            st.subheader("P&L Analysis — Does Winning Actually Make Money?")
+            st.caption(
+                "Win rate can lie ($1 wins / $10 losses = 85% win rate but negative expected value). "
+                "P&L shows the actual dollar impact. Negative skewness = rare big losses."
+            )
+            p1, p2, p3, p4 = st.columns(4)
+            with p1:
+                avg = pnl_summary["avg_pnl_pct"]
+                st.metric("Avg P&L per Trade", f"{avg:+.2f}%",
+                          help="Average profit/loss per prediction as % of stock price")
+            with p2:
+                st.metric("Win/Loss Ratio",
+                          f"{pnl_summary['win_loss_ratio']:.2f}x" if pnl_summary.get("win_loss_ratio") else "N/A",
+                          help="Average win size / average loss size. >1 = wins are bigger than losses.")
+            with p3:
+                st.metric("Skewness", f"{pnl_summary['skewness']:.2f}",
+                          help="Negative = fat left tail (rare big losses). "
+                               "Short premium typically shows -2 to -3. Closer to 0 is better.")
+            with p4:
+                st.metric("Worst Single Trade", f"{pnl_summary['worst_pnl_pct']:+.2f}%",
+                          help="Worst single prediction P&L. This is your tail risk.")
+
+            # The critical test
+            if avg > 0 and pnl_summary["skewness"] > -2:
+                st.success(f"Positive avg P&L ({avg:+.2f}%) with manageable skew ({pnl_summary['skewness']:.1f}). Strategy is working.")
+            elif avg > 0:
+                st.warning(f"Positive avg P&L ({avg:+.2f}%) but high negative skew ({pnl_summary['skewness']:.1f}). "
+                           f"Wins are real but tail risk is significant.")
+            else:
+                st.error(f"NEGATIVE avg P&L ({avg:+.2f}%). Despite a {acc:.0f}% win rate, "
+                         f"losses are larger than wins. The strategy is losing money.")
+
+        # --- Tail Risk Metrics (Module 3) ---
+        if pnl_summary:
+            with st.expander("Tail Risk Metrics — How Bad Can It Get?", expanded=False):
+                st.caption(
+                    "Risk metrics beyond simple win rate. These measure tail behavior, "
+                    "drawdown severity, and asymmetric market exposure."
+                )
+                try:
+                    all_preds_for_risk = get_all_predictions()
+                    scored_preds = all_preds_for_risk[all_preds_for_risk["scored"] == 1] if not all_preds_for_risk.empty else pd.DataFrame()
+                    if not scored_preds.empty and "pnl_pct" in scored_preds.columns and scored_preds["pnl_pct"].notna().any():
+                        risk = run_all_risk_metrics(scored_preds)
+
+                        # CVaR
+                        cvar_data = risk.get("cvar", {}).get("overall")
+                        if cvar_data:
+                            rc1, rc2, rc3 = st.columns(3)
+                            with rc1:
+                                st.metric("VaR (95%)", f"{cvar_data['var_95']:+.2f}%",
+                                          help="Value at Risk: 95% of trades do better than this")
+                            with rc2:
+                                st.metric("CVaR (95%)", f"{cvar_data['cvar_95']:+.2f}%",
+                                          help="Expected loss in the worst 5% of trades")
+                            with rc3:
+                                tr = cvar_data['tail_risk_ratio']
+                                st.metric("Tail Risk Ratio", f"{tr:.1f}x",
+                                          help="CVaR / avg premium. >1 = worst trades wipe out avg premium")
+
+                            if tr > 3:
+                                st.error(f"Tail risk ratio {tr:.1f}x — worst trades are devastating relative to premiums collected.")
+                            elif tr > 1.5:
+                                st.warning(f"Tail risk ratio {tr:.1f}x — moderate tail risk. Size positions accordingly.")
+
+                            # CVaR by signal
+                            cvar_sigs = {k: v for k, v in risk.get("cvar", {}).items() if k != "overall" and v is not None}
+                            if cvar_sigs:
+                                st.markdown("**CVaR by Signal:**")
+                                cs_cols = st.columns(len(cvar_sigs))
+                                for i, (sig, cv) in enumerate(cvar_sigs.items()):
+                                    with cs_cols[i]:
+                                        st.metric(f"{sig} CVaR", f"{cv['cvar_95']:+.2f}%")
+
+                        # Omega + Sortino + Calmar
+                        omega = risk.get("omega")
+                        sortino = risk.get("sortino")
+                        calmar = risk.get("calmar")
+
+                        ratio_cols = st.columns(4)
+                        with ratio_cols[0]:
+                            if omega:
+                                st.metric("Omega Ratio", f"{omega['omega_breakeven']:.2f}",
+                                          help="Sum of gains / sum of losses. >1 = positive expected value")
+                        with ratio_cols[1]:
+                            if omega:
+                                st.metric("Omega (risk-free)", f"{omega['omega_risk_free']:.2f}",
+                                          help=f">1 means strategy beats risk-free rate ({omega['rf_threshold_pct']:.2f}% per trade)")
+                        with ratio_cols[2]:
+                            if sortino and sortino.get("sortino_annualized") is not None:
+                                st.metric("Sortino (ann.)", f"{sortino['sortino_annualized']:.2f}",
+                                          help="Risk-adjusted return using downside deviation only. >1 = good, >2 = excellent")
+                        with ratio_cols[3]:
+                            if calmar and calmar.get("calmar_ratio") is not None:
+                                st.metric("Calmar Ratio", f"{calmar['calmar_ratio']:.2f}",
+                                          help="Annual return / max drawdown. >1 = return exceeds worst drawdown")
+
+                        # Max Drawdown detail
+                        dd = risk.get("max_drawdown")
+                        if dd and dd["max_drawdown_pct"] != 0:
+                            st.markdown(f"**Max Drawdown:** {dd['max_drawdown_pct']:+.2f}% "
+                                        f"({dd['n_trades_in_drawdown']} trades, "
+                                        f"{'recovered' if dd.get('recovered') else 'NOT recovered'})")
+
+                        # Conditional Beta
+                        cb = risk.get("conditional_beta")
+                        if cb and not cb.get("error") and cb.get("up_beta") is not None:
+                            st.markdown("**Market Exposure Asymmetry:**")
+                            b1, b2, b3 = st.columns(3)
+                            with b1:
+                                st.metric("Up-Beta", f"{cb['up_beta']:.3f}",
+                                          help="Sensitivity when SPY goes up. Low = limited upside capture")
+                            with b2:
+                                st.metric("Down-Beta", f"{cb['down_beta']:.3f}",
+                                          help="Sensitivity when SPY goes down. High = large losses in selloffs")
+                            with b3:
+                                if cb.get("asymmetry_ratio") is not None:
+                                    st.metric("Asymmetry", f"{cb['asymmetry_ratio']:.1f}x",
+                                              help="Down-beta / up-beta. >1 = lose more in drops than gain in rallies (typical for short premium)")
+
+                    else:
+                        st.info("Not enough scored predictions with P&L data for risk metrics.")
+                except Exception as e:
+                    st.warning(f"Could not compute risk metrics: {e}")
+
+        # --- Signal Validation (Module 5) ---
+        if pnl_summary:
+            with st.expander("Signal Validation — Are the Signals Real?", expanded=False):
+                st.caption(
+                    "Statistical tests on whether each signal component (VRP, IV rank, regime, skew) "
+                    "actually predicts P&L, or is just noise."
+                )
+                try:
+                    all_preds_for_sig = get_all_predictions()
+                    scored_for_sig = all_preds_for_sig[all_preds_for_sig["scored"] == 1] if not all_preds_for_sig.empty else pd.DataFrame()
+                    if not scored_for_sig.empty and "pnl_pct" in scored_for_sig.columns and scored_for_sig["pnl_pct"].notna().sum() >= 30:
+                        sig_val = run_all_signal_validation(scored_for_sig)
+
+                        # 5A: Fama-MacBeth coefficients
+                        fm = sig_val.get("fama_macbeth", {})
+                        if not fm.get("error") and fm.get("coefficients"):
+                            st.markdown("**Signal Predictive Power** (pooled OLS with Newey-West SE)")
+                            st.caption(f"R² = {fm['r_squared']:.4f} | n = {fm['n_obs']}")
+                            coeff_rows = []
+                            for name, c in fm["coefficients"].items():
+                                if name == "intercept":
+                                    continue
+                                coeff_rows.append({
+                                    "Signal": name,
+                                    "Beta": f"{c['beta']:.4f}",
+                                    "t-stat": f"{c['t_stat']:.2f}",
+                                    "p-value": f"{c['p_value']:.4f}",
+                                    "Significant": "Yes " + c["stars"] if c["significant"] else "No",
+                                })
+                            st.dataframe(pd.DataFrame(coeff_rows), use_container_width=True, hide_index=True)
+
+                            vrp_c = fm["coefficients"].get("vrp")
+                            if vrp_c and vrp_c["significant"] and vrp_c["beta"] > 0:
+                                st.success("VRP has significant positive predictive power — core thesis holds.")
+                            elif vrp_c and not vrp_c["significant"]:
+                                st.error(f"VRP is NOT significant (p={vrp_c['p_value']:.3f}). "
+                                         f"Core edge thesis is weak with current data.")
+                        elif fm.get("error"):
+                            st.info(f"Signal regression: {fm['error']}")
+
+                        # 5B: VIF
+                        mc = sig_val.get("multicollinearity", {})
+                        if not mc.get("error") and mc.get("vif"):
+                            st.markdown("**Multicollinearity (VIF)**")
+                            vif_rows = [{"Signal": f, "VIF": f"{v['vif']:.2f}", "Status": v["concern"].upper()}
+                                        for f, v in mc["vif"].items()]
+                            st.dataframe(pd.DataFrame(vif_rows), use_container_width=True, hide_index=True)
+                            severe = [f for f, v in mc["vif"].items() if v["concern"] == "severe"]
+                            if severe:
+                                st.warning(f"Severe multicollinearity: {', '.join(severe)}. "
+                                           f"These signals are redundant — consider dropping one.")
+
+                        # 5C: Regime filter
+                        rf = sig_val.get("regime_filter", {})
+                        if not rf.get("error"):
+                            st.markdown("**Regime Filter Test**")
+                            rc1, rc2, rc3 = st.columns(3)
+                            a = rf["strategy_a"]
+                            b = rf["strategy_b"]
+                            with rc1:
+                                st.metric("Filtered GREEN", f"{a['avg_pnl_pct']:+.3f}%" if a["avg_pnl_pct"] is not None else "N/A",
+                                          help=f"{a['n_trades']} trades")
+                            with rc2:
+                                st.metric("All GREEN", f"{b['avg_pnl_pct']:+.3f}%" if b["avg_pnl_pct"] is not None else "N/A",
+                                          help=f"{b['n_trades']} trades")
+                            with rc3:
+                                st.metric("Random Skip", f"{rf['strategy_c']['avg_pnl_pct']:+.3f}%",
+                                          help=f"Average of 100 random subsamples")
+
+                            if rf.get("regime_adds_value") is True:
+                                st.success("Regime filter adds significant value over random skipping.")
+                            elif rf.get("regime_adds_value") is False:
+                                st.warning("Regime filter does NOT beat random skipping — "
+                                           "it may just be reducing sample size without adding information.")
+
+                        # 5D: Deflated Sharpe
+                        er = sig_val.get("exit_rule", {})
+                        if not er.get("error"):
+                            st.markdown("**Deflated Sharpe Ratio** (multiple-testing correction)")
+                            dc1, dc2 = st.columns(2)
+                            with dc1:
+                                st.metric("Observed Sharpe", f"{er['observed_sharpe']:.4f}")
+                            with dc2:
+                                st.metric("Expected Max (null)", f"{er['expected_max_sharpe_null']:.4f}",
+                                          help=f"Expected best Sharpe from {er['n_trials_assumed']} random trials")
+                            if er["passes_dsr"]:
+                                st.success("Passes Deflated Sharpe test — performance likely genuine.")
+                            else:
+                                st.warning("Fails Deflated Sharpe — performance may be from overfitting "
+                                           "exit rules across multiple parameter choices.")
+
+                    else:
+                        st.info("Need 30+ scored predictions with P&L data for signal validation.")
+                except Exception as e:
+                    st.warning(f"Signal validation failed: {e}")
+
         # --- Signal Separation (the most important test) ---
         st.subheader("Signal Separation — Does GREEN Beat RED?")
         st.caption("This is THE test. If GREEN doesn't beat RED, the signals are useless.")
@@ -1797,10 +2348,38 @@ with tab_scorecard:
                 with sig_cols[i]:
                     st.markdown(f"**{sig}** ({stats['count']} predictions)")
                     st.metric("Accuracy", f"{stats['accuracy']:.1f}%")
+                    if stats.get("avg_pnl_pct") is not None:
+                        st.metric("Avg P&L", f"{stats['avg_pnl_pct']:+.2f}%",
+                                  help="Average P&L per prediction as % of stock price")
+                        st.metric("Total P&L", f"{stats['total_pnl_pct']:+.2f}%")
                     st.metric("Avg Stock Return", f"{stats['avg_return']:+.1f}%")
                     if stats.get("avg_vrp") is not None:
                         st.metric("Avg VRP at Signal", f"{stats['avg_vrp']:+.1f}")
+                    if stats.get("skewness") is not None:
+                        st.metric("P&L Skew", f"{stats['skewness']:.2f}",
+                                  help="Negative = fat left tail (big losses)")
                     st.metric("Worst Return", f"{stats['worst_return']:+.1f}%")
+
+            # Signal separation test — P&L based (more reliable than accuracy)
+            green_pnl = by_signal.get("GREEN", {}).get("avg_pnl_pct")
+            red_pnl = by_signal.get("RED", {}).get("avg_pnl_pct")
+            if green_pnl is not None and red_pnl is not None:
+                pnl_spread = green_pnl - red_pnl
+                if pnl_spread > 0.5:
+                    st.success(
+                        f"GREEN avg P&L ({green_pnl:+.2f}%) vs RED ({red_pnl:+.2f}%) = "
+                        f"**{pnl_spread:+.2f}pp spread**. GREEN makes more money. Signals work."
+                    )
+                elif pnl_spread > 0:
+                    st.info(
+                        f"GREEN avg P&L ({green_pnl:+.2f}%) vs RED ({red_pnl:+.2f}%) = "
+                        f"**{pnl_spread:+.2f}pp spread**. Slight edge — need more data."
+                    )
+                else:
+                    st.error(
+                        f"RED avg P&L ({red_pnl:+.2f}%) beats GREEN ({green_pnl:+.2f}%). "
+                        f"Signals are NOT adding value by P&L."
+                    )
 
             green_acc = by_signal.get("GREEN", {}).get("accuracy", 0)
             yellow_acc = by_signal.get("YELLOW", {}).get("accuracy", 0)
@@ -1857,26 +2436,87 @@ with tab_scorecard:
                 else:
                     st.warning(f"High VRP underperforms by {abs(vrp_spread):.0f}pp — VRP may not be predictive here.")
 
-        # --- Rolling Accuracy (is the model improving?) ---
+        # --- Cumulative P&L Curve ---
+        cum_pnl = scorecard.get("cumulative_pnl", [])
+        if len(cum_pnl) >= 5:
+            st.subheader("Cumulative P&L — Equity Curve")
+            st.caption(
+                "Running total of estimated P&L (% of stock price) across all scored predictions. "
+                "A rising curve = the strategy is making money over time."
+            )
+            cum_df = pd.DataFrame(cum_pnl)
+            fig_cum = go.Figure()
+            fig_cum.add_trace(go.Scatter(
+                x=cum_df["date"], y=cum_df["cum_pnl_pct"],
+                mode="lines", name="Cumulative P&L",
+                line=dict(color="green", width=2),
+                fill="tozeroy",
+                fillcolor="rgba(0,200,0,0.1)",
+            ))
+            fig_cum.add_hline(y=0, line_dash="dash", line_color="red")
+            fig_cum.update_layout(
+                yaxis_title="Cumulative P&L (%)", xaxis_title="Date",
+                height=350,
+            )
+            st.plotly_chart(fig_cum, use_container_width=True)
+
+            # Max drawdown
+            cum_series = pd.Series([p["cum_pnl_pct"] for p in cum_pnl])
+            running_max = cum_series.cummax()
+            drawdown = cum_series - running_max
+            max_dd = drawdown.min()
+            if max_dd < -1:
+                st.warning(f"Max drawdown: {max_dd:.2f}pp — watch for sustained losses.")
+            elif max_dd < 0:
+                st.info(f"Max drawdown: {max_dd:.2f}pp — within normal range.")
+
+        # --- Rolling Accuracy + P&L (is the model improving?) ---
         rolling = scorecard.get("rolling_accuracy", [])
         if len(rolling) >= 5:
-            st.subheader("Accuracy Over Time — Is the Model Improving?")
+            st.subheader("Performance Over Time — Is the Model Improving?")
             st.caption("30-prediction rolling window. Upward trend = model is learning. Flat = stable. Down = degrading.")
             roll_df = pd.DataFrame(rolling)
-            fig_roll = go.Figure()
-            fig_roll.add_trace(go.Scatter(
+
+            # Dual-axis chart: accuracy + rolling P&L
+            has_rolling_pnl = "avg_pnl_pct" in roll_df.columns and roll_df["avg_pnl_pct"].notna().any()
+
+            if has_rolling_pnl:
+                fig_roll = make_subplots(specs=[[{"secondary_y": True}]])
+            else:
+                fig_roll = go.Figure()
+
+            acc_trace = go.Scatter(
                 x=roll_df["end_date"], y=roll_df["accuracy"],
                 mode="lines+markers", name="Rolling Accuracy",
                 line=dict(color="blue", width=2),
-            ))
+            )
+            if has_rolling_pnl:
+                fig_roll.add_trace(acc_trace, secondary_y=False)
+            else:
+                fig_roll.add_trace(acc_trace)
+
+            if has_rolling_pnl:
+                fig_roll.add_trace(go.Scatter(
+                    x=roll_df["end_date"], y=roll_df["avg_pnl_pct"],
+                    mode="lines", name="Rolling Avg P&L (%)",
+                    line=dict(color="orange", width=2, dash="dot"),
+                ), secondary_y=True)
+
             fig_roll.add_hline(y=50, line_dash="dash", line_color="red",
                               annotation_text="Random (50%)")
             fig_roll.add_hline(y=acc, line_dash="dash", line_color="green",
                               annotation_text=f"Overall ({acc:.0f}%)")
-            fig_roll.update_layout(
+
+            layout_kwargs = dict(
                 yaxis_title="Accuracy %", xaxis_title="Date",
                 yaxis_range=[0, 100], height=350,
             )
+            if has_rolling_pnl:
+                fig_roll.update_yaxes(title_text="Accuracy %", secondary_y=False)
+                fig_roll.update_yaxes(title_text="Avg P&L %", secondary_y=True)
+                fig_roll.update_layout(xaxis_title="Date", height=350)
+            else:
+                fig_roll.update_layout(**layout_kwargs)
             st.plotly_chart(fig_roll, use_container_width=True)
 
             # Trend detection
@@ -1890,6 +2530,58 @@ with tab_scorecard:
                     st.warning(f"Accuracy trending DOWN ({trend:+.1f}pp). Model may be degrading.")
                 else:
                     st.info(f"Accuracy stable ({trend:+.1f}pp change). Consistent performance.")
+
+        # --- CUSUM Edge Erosion (Module 8A) ---
+        if pnl_summary:
+            try:
+                all_preds_cusum = get_all_predictions()
+                scored_cusum = all_preds_cusum[all_preds_cusum["scored"] == 1] if not all_preds_cusum.empty else pd.DataFrame()
+                if not scored_cusum.empty and "pnl_pct" in scored_cusum.columns and scored_cusum["pnl_pct"].notna().sum() >= 20:
+                    pnl_for_cusum = scored_cusum["pnl_pct"].dropna()
+                    dates_for_cusum = scored_cusum.loc[pnl_for_cusum.index, "date"] if "date" in scored_cusum.columns else None
+                    cusum = cusum_edge_detection(pnl_for_cusum, dates_for_cusum)
+
+                    if not cusum.get("error") and cusum.get("chart_data"):
+                        st.subheader("Edge Erosion Monitor (CUSUM)")
+                        st.caption(
+                            "CUSUM detects if the strategy's edge is degrading over time. "
+                            "Rising line = performance slipping. If it crosses the red threshold, "
+                            "the edge may be gone."
+                        )
+
+                        cd = pd.DataFrame(cusum["chart_data"])
+                        fig_cusum = go.Figure()
+                        x_vals = cd["date"] if "date" in cd.columns else cd["idx"]
+                        fig_cusum.add_trace(go.Scatter(
+                            x=x_vals, y=cd["cusum"],
+                            mode="lines", name="CUSUM",
+                            line=dict(color="blue", width=2),
+                        ))
+                        fig_cusum.add_hline(
+                            y=cusum["threshold"], line_dash="dash", line_color="red",
+                            annotation_text=f"Alert threshold ({cusum['threshold']})",
+                        )
+                        fig_cusum.update_layout(
+                            yaxis_title="CUSUM Value", xaxis_title="Trade #" if "date" not in cd.columns else "Date",
+                            height=300,
+                        )
+                        st.plotly_chart(fig_cusum, use_container_width=True)
+
+                        if cusum["alert"]:
+                            st.error(
+                                f"CUSUM crossed alert threshold at trade #{cusum['alert_trade_idx']}. "
+                                f"Edge may have eroded — investigate before opening new positions."
+                            )
+                        else:
+                            st.success(f"CUSUM at {cusum['current_cusum']:.2f} (threshold {cusum['threshold']:.0f}). "
+                                       f"No edge erosion detected.")
+
+                        if cusum.get("ir_trend") is not None:
+                            if cusum["ir_trend"] < -0.2:
+                                st.warning(f"Information ratio declining: "
+                                           f"{cusum['early_ir']:.3f} → {cusum['recent_ir']:.3f}")
+            except Exception:
+                pass
 
         # By regime
         by_regime = scorecard.get("by_regime", {})
@@ -1921,12 +2613,16 @@ with tab_scorecard:
         if recent:
             rdf = pd.DataFrame(recent)
             display_cols = ["date", "ticker", "signal", "regime", "spot_price",
-                           "vrp", "outcome_return", "seller_won"]
+                           "vrp", "outcome_return", "pnl_pct", "seller_won"]
             display_cols = [c for c in display_cols if c in rdf.columns]
             rdf_display = rdf[display_cols].copy()
             if "outcome_return" in rdf_display.columns:
                 rdf_display["outcome_return"] = rdf_display["outcome_return"].apply(
                     lambda x: f"{x:+.1f}%" if pd.notna(x) else "N/A"
+                )
+            if "pnl_pct" in rdf_display.columns:
+                rdf_display["pnl_pct"] = rdf_display["pnl_pct"].apply(
+                    lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A"
                 )
             if "seller_won" in rdf_display.columns:
                 rdf_display["seller_won"] = rdf_display["seller_won"].map({1: "Yes", 0: "No"})
