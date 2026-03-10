@@ -22,7 +22,7 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
-        run: pip install requests numpy pandas scipy arch supabase
+        run: pip install requests numpy pandas scipy arch supabase yfinance
 
       - name: Score pending predictions
         env:
