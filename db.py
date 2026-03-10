@@ -12,13 +12,28 @@ import sqlite3
 from datetime import datetime, timedelta
 
 # --- Supabase setup ---
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+def _read_secret(key):
+    """Read from os.environ first, then st.secrets (Streamlit Cloud)."""
+    val = os.environ.get(key, "")
+    if not val:
+        try:
+            import streamlit as st
+            val = st.secrets.get(key, "")
+        except Exception:
+            pass
+    return val or ""
+
+SUPABASE_URL = _read_secret("SUPABASE_URL")
+SUPABASE_KEY = _read_secret("SUPABASE_KEY")
 _supabase_client = None
 
 
 def _get_supabase():
-    global _supabase_client
+    global _supabase_client, SUPABASE_URL, SUPABASE_KEY
+    # Re-read secrets on first call in case module loaded before st.secrets was ready
+    if not SUPABASE_URL:
+        SUPABASE_URL = _read_secret("SUPABASE_URL")
+        SUPABASE_KEY = _read_secret("SUPABASE_KEY")
     if _supabase_client is None and SUPABASE_URL and SUPABASE_KEY:
         from supabase import create_client
         _supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -26,6 +41,10 @@ def _get_supabase():
 
 
 def using_supabase():
+    if not SUPABASE_URL:
+        # Try re-reading in case secrets loaded late
+        url = _read_secret("SUPABASE_URL")
+        return bool(url)
     return bool(SUPABASE_URL and SUPABASE_KEY)
 
 

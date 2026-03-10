@@ -44,7 +44,7 @@ st.set_page_config(
 )
 
 # Version marker — increment to bust Streamlit caches on deploy
-_APP_VERSION = "3.1-scorecard"
+_APP_VERSION = "3.2-supabase"
 if "app_version" not in st.session_state or st.session_state.app_version != _APP_VERSION:
     st.cache_data.clear()
     st.cache_resource.clear()
@@ -358,6 +358,7 @@ def compute_analytics(ticker):
             pass
 
     # Record today's IV snapshot with 25-delta IVs
+    db_status = []
     if current_iv is not None:
         try:
             first_exp = expirations[0] if expirations else ""
@@ -365,8 +366,9 @@ def compute_analytics(ticker):
             c25 = skew_details.get("call_25d_iv")
             record_iv(ticker, current_iv, current_price, first_exp, rv_20, term_label,
                       put_25d_iv=p25, call_25d_iv=c25)
-        except Exception:
-            pass
+            db_status.append(f"IV snapshot saved ({'Supabase' if using_supabase() else 'local SQLite'})")
+        except Exception as e:
+            db_status.append(f"IV snapshot FAILED: {e}")
 
     # Log prediction for scoring later
     try:
@@ -376,8 +378,9 @@ def compute_analytics(ticker):
             iv_rank=iv_rank, term_label=term_label, regime=regime,
             skew=skew_value, garch_vol=garch_vol, forecast_method=forecast_method,
         )
-    except Exception:
-        pass
+        db_status.append(f"Prediction logged ({'Supabase' if using_supabase() else 'local SQLite'})")
+    except Exception as e:
+        db_status.append(f"Prediction log FAILED: {e}")
 
     # Empirical tail probabilities
     empirical = calc_empirical_probabilities(hist, move_pct=0.05, holding_days=20)
@@ -416,6 +419,7 @@ def compute_analytics(ticker):
         "regime": regime, "regime_info": regime_info,
         "skew_value": skew_value, "skew_penalty": skew_penalty, "skew_details": skew_details,
         "empirical": empirical,
+        "db_status": db_status,
     }
 
 
@@ -646,6 +650,15 @@ with tab_dashboard:
             st.warning(f"**MARGINAL** — {signal_reason}")
         else:
             st.error(f"**DON'T SELL** — {signal_reason}")
+
+        # --- DB storage status ---
+        db_status = data.get("db_status", [])
+        if db_status:
+            status_text = " | ".join(db_status)
+            if any("FAILED" in s for s in db_status):
+                st.error(f"Database: {status_text}")
+            else:
+                st.caption(f"Data recorded: {status_text}")
 
         # --- Plain English explanation ---
         explanation = explain_signal_plain_english(
