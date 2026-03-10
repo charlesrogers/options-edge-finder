@@ -359,12 +359,17 @@ def score_pending_predictions():
     import pandas as pd
     import numpy as np
 
-    conn = _get_sqlite()
-    rows = conn.execute(
-        "SELECT * FROM predictions WHERE scored = 0"
-    ).fetchall()
-    predictions = [dict(r) for r in rows]
-    conn.close()
+    sb = _get_supabase()
+    if sb:
+        resp = sb.table("predictions").select("*").eq("scored", 0).execute()
+        predictions = resp.data or []
+    else:
+        conn = _get_sqlite()
+        rows = conn.execute(
+            "SELECT * FROM predictions WHERE scored = 0"
+        ).fetchall()
+        predictions = [dict(r) for r in rows]
+        conn.close()
 
     scored_count = 0
     for pred in predictions:
@@ -386,7 +391,6 @@ def score_pending_predictions():
             # Find the closest trading day to the outcome date
             mask = hist.index >= pd.Timestamp(outcome_date.strftime("%Y-%m-%d"))
             if mask.sum() == 0:
-                # Outcome date hasn't been reached in market data yet
                 continue
             outcome_row = hist[mask].iloc[0]
             outcome_price = float(outcome_row["Close"])
@@ -404,27 +408,40 @@ def score_pending_predictions():
                 outcome_rv = None
 
             # Did the option seller win?
-            # Seller wins if the stock didn't move more than the expected move (IV/sqrt(252/holding))
+            # Seller wins if the stock didn't move more than the expected move
             iv = pred.get("atm_iv") or pred.get("rv_forecast") or 25
             expected_move_pct = iv / 100 * np.sqrt(holding_days / 252) * 100
             actual_move_pct = abs(outcome_return)
             seller_won = 1 if actual_move_pct < expected_move_pct else 0
 
-            # Update the prediction
-            conn = _get_sqlite()
-            conn.execute("""
-                UPDATE predictions SET
-                    outcome_price = ?, outcome_return = ?, outcome_rv = ?,
-                    outcome_date = ?, scored = 1, seller_won = ?
-                WHERE id = ?
-            """, (outcome_price, outcome_return, outcome_rv,
-                  outcome_date.strftime("%Y-%m-%d"), seller_won, pred["id"]))
-            conn.commit()
-            conn.close()
+            update_data = {
+                "outcome_price": outcome_price,
+                "outcome_return": round(outcome_return, 4),
+                "outcome_rv": round(outcome_rv, 2) if outcome_rv else None,
+                "outcome_date": outcome_date.strftime("%Y-%m-%d"),
+                "scored": 1,
+                "seller_won": seller_won,
+            }
+
+            if sb:
+                sb.table("predictions").update(update_data).eq("id", pred["id"]).execute()
+            else:
+                conn = _get_sqlite()
+                conn.execute("""
+                    UPDATE predictions SET
+                        outcome_price = ?, outcome_return = ?, outcome_rv = ?,
+                        outcome_date = ?, scored = 1, seller_won = ?
+                    WHERE id = ?
+                """, (outcome_price, round(outcome_return, 4),
+                      round(outcome_rv, 2) if outcome_rv else None,
+                      outcome_date.strftime("%Y-%m-%d"), seller_won, pred["id"]))
+                conn.commit()
+                conn.close()
             scored_count += 1
+            print(f"[scoring] {pred['ticker']} {pred['date']}: return={outcome_return:+.1f}%, seller_won={seller_won}")
 
         except Exception as e:
-            print(f"[predictions] Error scoring {pred['ticker']} {pred['date']}: {e}")
+            print(f"[scoring] Error scoring {pred['ticker']} {pred['date']}: {e}")
             continue
 
     return scored_count
@@ -433,15 +450,23 @@ def score_pending_predictions():
 def get_prediction_scorecard():
     """
     Get scored predictions grouped by signal type.
-    Returns dict with accuracy stats per signal.
+    Returns dict with accuracy stats per signal, plus baseline comparison
+    and rolling accuracy for tracking improvement over time.
     """
     import pandas as pd
-    conn = _get_sqlite()
-    df = pd.read_sql_query(
-        "SELECT * FROM predictions WHERE scored = 1 ORDER BY date",
-        conn
-    )
-    conn.close()
+
+    sb = _get_supabase()
+    if sb:
+        resp = sb.table("predictions").select("*").eq("scored", 1).order("date").execute()
+        data = resp.data or []
+        df = pd.DataFrame(data) if data else pd.DataFrame()
+    else:
+        conn = _get_sqlite()
+        df = pd.read_sql_query(
+            "SELECT * FROM predictions WHERE scored = 1 ORDER BY date",
+            conn
+        )
+        conn.close()
 
     if df.empty:
         return None
@@ -456,7 +481,13 @@ def get_prediction_scorecard():
         "recent": df.tail(20).to_dict("records"),
     }
 
-    # By signal
+    # --- Baseline comparison ---
+    # "Always sell" baseline: what % of the time would a seller win regardless of signal?
+    # This is just overall_accuracy across ALL predictions (since we log all signals).
+    # The model adds value if GREEN accuracy > overall and RED accuracy < overall.
+    results["baseline_accuracy"] = results["overall_accuracy"]
+
+    # --- Signal separation (the core test) ---
     for sig in ["GREEN", "YELLOW", "RED"]:
         subset = df[df["signal"] == sig]
         if subset.empty:
@@ -465,21 +496,51 @@ def get_prediction_scorecard():
             "count": len(subset),
             "accuracy": float(subset["seller_won"].mean() * 100),
             "avg_return": float(subset["outcome_return"].mean()),
-            "avg_vrp": float(subset["vrp"].mean()) if subset["vrp"].notna().any() else None,
+            "avg_vrp": float(subset["vrp"].mean()) if "vrp" in subset.columns and subset["vrp"].notna().any() else None,
             "worst_return": float(subset["outcome_return"].min()),
             "best_return": float(subset["outcome_return"].max()),
         }
 
-    # By regime
-    for reg in df["regime"].dropna().unique():
-        subset = df[df["regime"] == reg]
-        if len(subset) < 3:
-            continue
-        results["by_regime"][reg] = {
-            "count": len(subset),
-            "accuracy": float(subset["seller_won"].mean() * 100),
-            "avg_return": float(subset["outcome_return"].mean()),
+    # --- Rolling accuracy (is the model improving over time?) ---
+    df["date_dt"] = pd.to_datetime(df["date"])
+    df = df.sort_values("date_dt")
+    rolling_windows = []
+    if len(df) >= 20:
+        # 30-prediction rolling window
+        window = min(30, len(df))
+        for i in range(window, len(df) + 1):
+            window_df = df.iloc[i - window:i]
+            rolling_windows.append({
+                "end_date": str(window_df["date"].iloc[-1]),
+                "accuracy": float(window_df["seller_won"].mean() * 100),
+                "count": len(window_df),
+            })
+    results["rolling_accuracy"] = rolling_windows
+
+    # --- VRP as predictor (does higher VRP = better outcomes?) ---
+    if "vrp" in df.columns and df["vrp"].notna().sum() >= 10:
+        high_vrp = df[df["vrp"] >= 5]
+        low_vrp = df[df["vrp"] < 5]
+        results["vrp_analysis"] = {
+            "high_vrp_accuracy": float(high_vrp["seller_won"].mean() * 100) if len(high_vrp) >= 5 else None,
+            "high_vrp_count": len(high_vrp),
+            "low_vrp_accuracy": float(low_vrp["seller_won"].mean() * 100) if len(low_vrp) >= 5 else None,
+            "low_vrp_count": len(low_vrp),
         }
+    else:
+        results["vrp_analysis"] = None
+
+    # By regime
+    if "regime" in df.columns:
+        for reg in df["regime"].dropna().unique():
+            subset = df[df["regime"] == reg]
+            if len(subset) < 3:
+                continue
+            results["by_regime"][reg] = {
+                "count": len(subset),
+                "accuracy": float(subset["seller_won"].mean() * 100),
+                "avg_return": float(subset["outcome_return"].mean()),
+            }
 
     # By ticker
     for tick in df["ticker"].unique():
@@ -495,16 +556,26 @@ def get_prediction_scorecard():
 
 def get_pending_predictions_count():
     """How many predictions are waiting to be scored."""
-    conn = _get_sqlite()
-    row = conn.execute("SELECT COUNT(*) as cnt FROM predictions WHERE scored = 0").fetchone()
-    conn.close()
-    return dict(row)["cnt"]
+    sb = _get_supabase()
+    if sb:
+        resp = sb.table("predictions").select("id", count="exact").eq("scored", 0).execute()
+        return resp.count or 0
+    else:
+        conn = _get_sqlite()
+        row = conn.execute("SELECT COUNT(*) as cnt FROM predictions WHERE scored = 0").fetchone()
+        conn.close()
+        return dict(row)["cnt"]
 
 
 def get_all_predictions():
     """Get all predictions for display."""
     import pandas as pd
-    conn = _get_sqlite()
-    df = pd.read_sql_query("SELECT * FROM predictions ORDER BY date DESC", conn)
-    conn.close()
-    return df
+    sb = _get_supabase()
+    if sb:
+        resp = sb.table("predictions").select("*").order("date", desc=True).execute()
+        return pd.DataFrame(resp.data) if resp.data else pd.DataFrame()
+    else:
+        conn = _get_sqlite()
+        df = pd.read_sql_query("SELECT * FROM predictions ORDER BY date DESC", conn)
+        conn.close()
+        return df

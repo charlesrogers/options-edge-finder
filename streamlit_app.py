@@ -44,7 +44,7 @@ st.set_page_config(
 )
 
 # Version marker — increment to bust Streamlit caches on deploy
-_APP_VERSION = "3.3-fix-ordering"
+_APP_VERSION = "3.4-scorecard-v2"
 if "app_version" not in st.session_state or st.session_state.app_version != _APP_VERSION:
     st.cache_data.clear()
     st.cache_resource.clear()
@@ -1763,34 +1763,37 @@ with tab_scorecard:
     else:
         # Overall stats
         st.subheader("Overall Accuracy")
-        oc1, oc2, oc3 = st.columns(3)
+        oc1, oc2, oc3, oc4 = st.columns(4)
         with oc1:
-            st.metric("Total Predictions Scored", scorecard["total_predictions"])
+            st.metric("Total Scored", scorecard["total_predictions"])
         with oc2:
-            st.metric("Correct (Seller Won)", scorecard["total_correct"])
+            st.metric("Seller Won", scorecard["total_correct"])
         with oc3:
             acc = scorecard["overall_accuracy"]
-            acc_color = "normal"
             st.metric("Accuracy", f"{acc:.1f}%",
-                      help="% of times the expected move was larger than the actual move. "
-                           ">60% = tool has edge. >70% = strong. <50% = tool is wrong more than right.")
+                      help="% of times the actual move was smaller than the expected move (IV-implied). "
+                           ">60% = tool has edge. >70% = strong. <50% = broken.")
+        with oc4:
+            baseline = scorecard.get("baseline_accuracy", acc)
+            st.metric("Baseline (Always Sell)", f"{baseline:.1f}%",
+                      help="Win rate if you ignored signals and always sold. "
+                           "The model adds value only if GREEN > baseline > RED.")
 
         if acc >= 65:
-            st.success(f"The tool's signals are performing well ({acc:.1f}% accuracy). Signals have predictive value.")
+            st.success(f"Overall accuracy {acc:.1f}% — signals have predictive value.")
         elif acc >= 50:
-            st.info(f"Accuracy is moderate ({acc:.1f}%). Signals are slightly better than random. More data needed.")
+            st.info(f"Accuracy {acc:.1f}% — slightly better than random. Need more data.")
         else:
-            st.error(f"Accuracy is below 50% ({acc:.1f}%). The tool's signals are not working — do NOT rely on them.")
+            st.error(f"Accuracy {acc:.1f}% — below 50%. Do NOT rely on these signals.")
 
-        # By signal type
-        st.subheader("Accuracy by Signal")
-        st.markdown("Does GREEN actually outperform RED? This is the key test.")
+        # --- Signal Separation (the most important test) ---
+        st.subheader("Signal Separation — Does GREEN Beat RED?")
+        st.caption("This is THE test. If GREEN doesn't beat RED, the signals are useless.")
 
         by_signal = scorecard.get("by_signal", {})
         if by_signal:
             sig_cols = st.columns(len(by_signal))
             for i, (sig, stats) in enumerate(by_signal.items()):
-                color_map = {"GREEN": "green", "YELLOW": "orange", "RED": "red"}
                 with sig_cols[i]:
                     st.markdown(f"**{sig}** ({stats['count']} predictions)")
                     st.metric("Accuracy", f"{stats['accuracy']:.1f}%")
@@ -1799,26 +1802,94 @@ with tab_scorecard:
                         st.metric("Avg VRP at Signal", f"{stats['avg_vrp']:+.1f}")
                     st.metric("Worst Return", f"{stats['worst_return']:+.1f}%")
 
-            # The critical test: GREEN should have higher accuracy than RED
             green_acc = by_signal.get("GREEN", {}).get("accuracy", 0)
+            yellow_acc = by_signal.get("YELLOW", {}).get("accuracy", 0)
             red_acc = by_signal.get("RED", {}).get("accuracy", 0)
             if green_acc > 0 and red_acc > 0:
-                if green_acc > red_acc + 10:
+                spread = green_acc - red_acc
+                if spread > 15:
                     st.success(
-                        f"GREEN ({green_acc:.0f}%) significantly outperforms RED ({red_acc:.0f}%). "
-                        f"The signal differentiation is working — follow the signals."
+                        f"GREEN ({green_acc:.0f}%) vs RED ({red_acc:.0f}%) = **{spread:+.0f}pp spread**. "
+                        f"Strong signal differentiation. Follow the signals."
                     )
-                elif green_acc > red_acc:
+                elif spread > 5:
                     st.info(
-                        f"GREEN ({green_acc:.0f}%) slightly outperforms RED ({red_acc:.0f}%). "
-                        f"Directionally correct but not enough data for confidence."
+                        f"GREEN ({green_acc:.0f}%) vs RED ({red_acc:.0f}%) = **{spread:+.0f}pp spread**. "
+                        f"Directionally correct but needs more data for confidence."
+                    )
+                elif spread > 0:
+                    st.warning(
+                        f"GREEN ({green_acc:.0f}%) vs RED ({red_acc:.0f}%) = **{spread:+.0f}pp spread**. "
+                        f"Barely separating — signals may not be reliable yet."
                     )
                 else:
                     st.error(
                         f"RED ({red_acc:.0f}%) outperforms GREEN ({green_acc:.0f}%). "
-                        f"The signals are INVERTED — something is broken in the model. "
-                        f"Do NOT trade based on these signals until this is investigated."
+                        f"Signals are INVERTED — do NOT trade on them."
                     )
+
+        # --- VRP as Predictor ---
+        vrp_analysis = scorecard.get("vrp_analysis")
+        if vrp_analysis:
+            st.subheader("VRP as Predictor — Does Higher VRP = Better Outcomes?")
+            st.caption("VRP (IV - RV forecast) is the core edge metric. High VRP should mean sellers win more.")
+            v1, v2 = st.columns(2)
+            with v1:
+                if vrp_analysis.get("high_vrp_accuracy") is not None:
+                    st.metric(f"VRP >= 5 ({vrp_analysis['high_vrp_count']} predictions)",
+                              f"{vrp_analysis['high_vrp_accuracy']:.1f}%")
+                else:
+                    st.metric("VRP >= 5", "Not enough data")
+            with v2:
+                if vrp_analysis.get("low_vrp_accuracy") is not None:
+                    st.metric(f"VRP < 5 ({vrp_analysis['low_vrp_count']} predictions)",
+                              f"{vrp_analysis['low_vrp_accuracy']:.1f}%")
+                else:
+                    st.metric("VRP < 5", "Not enough data")
+
+            if (vrp_analysis.get("high_vrp_accuracy") is not None and
+                    vrp_analysis.get("low_vrp_accuracy") is not None):
+                vrp_spread = vrp_analysis["high_vrp_accuracy"] - vrp_analysis["low_vrp_accuracy"]
+                if vrp_spread > 10:
+                    st.success(f"High VRP outperforms by {vrp_spread:.0f}pp — VRP is a valid predictor.")
+                elif vrp_spread > 0:
+                    st.info(f"High VRP slightly better by {vrp_spread:.0f}pp — directionally correct.")
+                else:
+                    st.warning(f"High VRP underperforms by {abs(vrp_spread):.0f}pp — VRP may not be predictive here.")
+
+        # --- Rolling Accuracy (is the model improving?) ---
+        rolling = scorecard.get("rolling_accuracy", [])
+        if len(rolling) >= 5:
+            st.subheader("Accuracy Over Time — Is the Model Improving?")
+            st.caption("30-prediction rolling window. Upward trend = model is learning. Flat = stable. Down = degrading.")
+            roll_df = pd.DataFrame(rolling)
+            fig_roll = go.Figure()
+            fig_roll.add_trace(go.Scatter(
+                x=roll_df["end_date"], y=roll_df["accuracy"],
+                mode="lines+markers", name="Rolling Accuracy",
+                line=dict(color="blue", width=2),
+            ))
+            fig_roll.add_hline(y=50, line_dash="dash", line_color="red",
+                              annotation_text="Random (50%)")
+            fig_roll.add_hline(y=acc, line_dash="dash", line_color="green",
+                              annotation_text=f"Overall ({acc:.0f}%)")
+            fig_roll.update_layout(
+                yaxis_title="Accuracy %", xaxis_title="Date",
+                yaxis_range=[0, 100], height=350,
+            )
+            st.plotly_chart(fig_roll, use_container_width=True)
+
+            # Trend detection
+            if len(rolling) >= 10:
+                first_half = np.mean([r["accuracy"] for r in rolling[:len(rolling)//2]])
+                second_half = np.mean([r["accuracy"] for r in rolling[len(rolling)//2:]])
+                trend = second_half - first_half
+                if trend > 5:
+                    st.success(f"Accuracy trending UP (+{trend:.1f}pp). Model is improving.")
+                elif trend < -5:
+                    st.warning(f"Accuracy trending DOWN ({trend:+.1f}pp). Model may be degrading.")
+                else:
+                    st.info(f"Accuracy stable ({trend:+.1f}pp change). Consistent performance.")
 
         # By regime
         by_regime = scorecard.get("by_regime", {})
@@ -1835,13 +1906,12 @@ with tab_scorecard:
         by_ticker = scorecard.get("by_ticker", {})
         if by_ticker:
             st.subheader("Accuracy by Ticker")
-            st.markdown("Are some tickers more predictable than others?")
-            import pandas as pd
+            st.caption("Sorted by prediction count. Tickers with few predictions are unreliable.")
             ticker_df = pd.DataFrame([
-                {"Ticker": t, "Predictions": s["count"],
+                {"Ticker": t, "Count": s["count"],
                  "Accuracy": f"{s['accuracy']:.1f}%",
                  "Avg Return": f"{s['avg_return']:+.1f}%"}
-                for t, s in by_ticker.items()
+                for t, s in sorted(by_ticker.items(), key=lambda x: x[1]["count"], reverse=True)
             ])
             st.dataframe(ticker_df, use_container_width=True, hide_index=True)
 
@@ -1849,7 +1919,6 @@ with tab_scorecard:
         st.subheader("Recent Scored Predictions")
         recent = scorecard.get("recent", [])
         if recent:
-            import pandas as pd
             rdf = pd.DataFrame(recent)
             display_cols = ["date", "ticker", "signal", "regime", "spot_price",
                            "vrp", "outcome_return", "seller_won"]
