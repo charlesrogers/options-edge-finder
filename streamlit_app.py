@@ -44,7 +44,7 @@ st.set_page_config(
 )
 
 # Version marker — increment to bust Streamlit caches on deploy
-_APP_VERSION = "3.2-supabase"
+_APP_VERSION = "3.3-fix-ordering"
 if "app_version" not in st.session_state or st.session_state.app_version != _APP_VERSION:
     st.cache_data.clear()
     st.cache_resource.clear()
@@ -357,6 +357,28 @@ def compute_analytics(ticker):
         except Exception:
             pass
 
+    # Empirical tail probabilities
+    empirical = calc_empirical_probabilities(hist, move_pct=0.05, holding_days=20)
+
+    # Earnings check
+    earnings_date = None
+    earnings_days = None
+    try:
+        cal = info.get("earningsTimestampStart") or info.get("earningsDate")
+        if cal:
+            if isinstance(cal, (list, tuple)):
+                cal = cal[0]
+            if isinstance(cal, (int, float)):
+                earnings_date = datetime.fromtimestamp(cal)
+            else:
+                earnings_date = pd.Timestamp(cal).to_pydatetime()
+            earnings_days = (earnings_date - datetime.now()).days
+    except Exception:
+        pass
+
+    # FOMC check
+    fomc_date, fomc_days = get_next_fomc_date()
+
     # Record today's IV snapshot — full data capture
     db_status = []
     if current_iv is not None:
@@ -389,28 +411,6 @@ def compute_analytics(ticker):
         db_status.append(f"Prediction logged ({'Supabase' if using_supabase() else 'local SQLite'})")
     except Exception as e:
         db_status.append(f"Prediction log FAILED: {e}")
-
-    # Empirical tail probabilities
-    empirical = calc_empirical_probabilities(hist, move_pct=0.05, holding_days=20)
-
-    # Earnings check
-    earnings_date = None
-    earnings_days = None
-    try:
-        cal = info.get("earningsTimestampStart") or info.get("earningsDate")
-        if cal:
-            if isinstance(cal, (list, tuple)):
-                cal = cal[0]
-            if isinstance(cal, (int, float)):
-                earnings_date = datetime.fromtimestamp(cal)
-            else:
-                earnings_date = pd.Timestamp(cal).to_pydatetime()
-            earnings_days = (earnings_date - datetime.now()).days
-    except Exception:
-        pass
-
-    # FOMC check
-    fomc_date, fomc_days = get_next_fomc_date()
 
     return {
         "hist": hist, "info": info, "chains": chains, "expirations": expirations,
