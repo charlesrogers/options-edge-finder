@@ -2,21 +2,25 @@ name: Daily IV Sampler
 
 on:
   schedule:
-    # Run at 11:00 AM and 3:30 PM ET (15:00 and 19:30 UTC) on weekdays
-    # 11 AM = after market settles, 3:30 PM = near close for end-of-day snapshot
-    - cron: '0 15 * * 1-5'
-    - cron: '30 19 * * 1-5'
+    # Run once per day at 3:55 PM ET (19:55 UTC) on weekdays
+    # Near close = IV stabilized, tighter spreads, less noise
+    - cron: '55 19 * * 1-5'
   workflow_dispatch:
     inputs:
       tickers:
-        description: 'Comma-separated tickers (leave empty for all defaults)'
+        description: 'Comma-separated tickers (leave empty for all ~350 defaults)'
         required: false
         type: string
+      bootstrap:
+        description: 'Run bootstrap mode (backfill 90 days of pseudo-IV)'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   sample:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v4
@@ -35,8 +39,14 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          if [ -n "${{ github.event.inputs.tickers }}" ]; then
-            # Convert comma-separated to space-separated
+          if [ "${{ github.event.inputs.bootstrap }}" = "true" ]; then
+            if [ -n "${{ github.event.inputs.tickers }}" ]; then
+              TICKERS=$(echo "${{ github.event.inputs.tickers }}" | tr ',' ' ')
+              python batch_sampler.py --bootstrap $TICKERS
+            else
+              python batch_sampler.py --bootstrap
+            fi
+          elif [ -n "${{ github.event.inputs.tickers }}" ]; then
             TICKERS=$(echo "${{ github.event.inputs.tickers }}" | tr ',' ' ')
             python batch_sampler.py $TICKERS
           else
