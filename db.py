@@ -70,14 +70,28 @@ def _get_sqlite():
         )
     """)
     # Migration: add columns if they don't exist yet (for existing DBs)
-    try:
-        conn.execute("ALTER TABLE iv_snapshots ADD COLUMN put_25d_iv REAL")
-    except Exception:
-        pass
-    try:
-        conn.execute("ALTER TABLE iv_snapshots ADD COLUMN call_25d_iv REAL")
-    except Exception:
-        pass
+    _migrate_cols = [
+        ("iv_snapshots", "put_25d_iv", "REAL"),
+        ("iv_snapshots", "call_25d_iv", "REAL"),
+        ("iv_snapshots", "rv_10", "REAL"),
+        ("iv_snapshots", "rv_30", "REAL"),
+        ("iv_snapshots", "rv_60", "REAL"),
+        ("iv_snapshots", "yz_20", "REAL"),
+        ("iv_snapshots", "garch_vol", "REAL"),
+        ("iv_snapshots", "iv_rank", "REAL"),
+        ("iv_snapshots", "iv_pctl", "REAL"),
+        ("iv_snapshots", "vrp", "REAL"),
+        ("iv_snapshots", "signal", "TEXT"),
+        ("iv_snapshots", "regime", "TEXT"),
+        ("iv_snapshots", "skew", "REAL"),
+        ("iv_snapshots", "fomc_days", "INTEGER"),
+        ("iv_snapshots", "earnings_days", "INTEGER"),
+    ]
+    for table, col, coltype in _migrate_cols:
+        try:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {coltype}")
+        except Exception:
+            pass
     conn.execute("""
         CREATE TABLE IF NOT EXISTS trades (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -126,6 +140,20 @@ def _get_sqlite():
             UNIQUE(ticker, date, holding_days)
         )
     """)
+    # Migration: predictions extra columns
+    _pred_migrate = [
+        ("predictions", "rv_20", "REAL"),
+        ("predictions", "iv_pctl", "REAL"),
+        ("predictions", "skew_penalty", "REAL"),
+        ("predictions", "signal_reason", "TEXT"),
+        ("predictions", "earnings_days", "INTEGER"),
+        ("predictions", "fomc_days", "INTEGER"),
+    ]
+    for table, col, coltype in _pred_migrate:
+        try:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {coltype}")
+        except Exception:
+            pass
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -135,21 +163,32 @@ def _get_sqlite():
 # ============================================================
 
 def record_iv(ticker, atm_iv, spot_price, front_exp, rv_20, term_label,
-              put_25d_iv=None, call_25d_iv=None):
+              put_25d_iv=None, call_25d_iv=None,
+              rv_10=None, rv_30=None, rv_60=None, yz_20=None,
+              garch_vol=None, iv_rank=None, iv_pctl=None,
+              vrp=None, signal=None, regime=None, skew=None,
+              fomc_days=None, earnings_days=None):
     today = datetime.now().strftime("%Y-%m-%d")
+    row = {
+        "ticker": ticker, "date": today, "atm_iv": atm_iv,
+        "spot_price": spot_price, "front_exp": front_exp,
+        "rv_20": rv_20, "term_label": term_label,
+        "put_25d_iv": put_25d_iv, "call_25d_iv": call_25d_iv,
+        "rv_10": rv_10, "rv_30": rv_30, "rv_60": rv_60, "yz_20": yz_20,
+        "garch_vol": garch_vol, "iv_rank": iv_rank, "iv_pctl": iv_pctl,
+        "vrp": vrp, "signal": signal, "regime": regime, "skew": skew,
+        "fomc_days": fomc_days, "earnings_days": earnings_days,
+    }
     sb = _get_supabase()
     if sb:
-        sb.table("iv_snapshots").upsert({
-            "ticker": ticker, "date": today, "atm_iv": atm_iv,
-            "spot_price": spot_price, "front_exp": front_exp,
-            "rv_20": rv_20, "term_label": term_label,
-            "put_25d_iv": put_25d_iv, "call_25d_iv": call_25d_iv,
-        }).execute()
+        sb.table("iv_snapshots").upsert(row).execute()
     else:
         conn = _get_sqlite()
+        cols = ", ".join(row.keys())
+        placeholders = ", ".join(["?"] * len(row))
         conn.execute(
-            "INSERT OR REPLACE INTO iv_snapshots (ticker, date, atm_iv, spot_price, front_exp, rv_20, term_label, put_25d_iv, call_25d_iv) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (ticker, today, atm_iv, spot_price, front_exp, rv_20, term_label, put_25d_iv, call_25d_iv),
+            f"INSERT OR REPLACE INTO iv_snapshots ({cols}) VALUES ({placeholders})",
+            tuple(row.values()),
         )
         conn.commit()
         conn.close()
@@ -280,29 +319,32 @@ def delete_trade(trade_id):
 
 def log_prediction(ticker, signal, spot_price, atm_iv=None, rv_forecast=None,
                    vrp=None, iv_rank=None, term_label=None, regime=None,
-                   skew=None, garch_vol=None, forecast_method=None, holding_days=20):
+                   skew=None, garch_vol=None, forecast_method=None, holding_days=20,
+                   rv_20=None, iv_pctl=None, skew_penalty=None, signal_reason=None,
+                   earnings_days=None, fomc_days=None):
     """Log today's prediction for a ticker. One prediction per ticker per day per holding period."""
     today = datetime.now().strftime("%Y-%m-%d")
+    row = {
+        "ticker": ticker, "date": today, "signal": signal,
+        "spot_price": spot_price, "atm_iv": atm_iv, "rv_forecast": rv_forecast,
+        "vrp": vrp, "iv_rank": iv_rank, "term_label": term_label,
+        "regime": regime, "skew": skew, "garch_vol": garch_vol,
+        "forecast_method": forecast_method, "holding_days": holding_days,
+        "rv_20": rv_20, "iv_pctl": iv_pctl, "skew_penalty": skew_penalty,
+        "signal_reason": signal_reason, "earnings_days": earnings_days,
+        "fomc_days": fomc_days, "scored": 0,
+    }
     sb = _get_supabase()
     if sb:
-        sb.table("predictions").upsert({
-            "ticker": ticker, "date": today, "signal": signal,
-            "spot_price": spot_price, "atm_iv": atm_iv, "rv_forecast": rv_forecast,
-            "vrp": vrp, "iv_rank": iv_rank, "term_label": term_label,
-            "regime": regime, "skew": skew, "garch_vol": garch_vol,
-            "forecast_method": forecast_method, "holding_days": holding_days,
-            "scored": 0,
-        }).execute()
+        sb.table("predictions").upsert(row, on_conflict="ticker,date,holding_days").execute()
     else:
         conn = _get_sqlite()
-        conn.execute("""
-            INSERT OR REPLACE INTO predictions
-            (ticker, date, signal, spot_price, atm_iv, rv_forecast, vrp, iv_rank,
-             term_label, regime, skew, garch_vol, forecast_method, holding_days, scored)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-        """, (ticker, today, signal, spot_price, atm_iv, rv_forecast,
-              vrp, iv_rank, term_label, regime, skew, garch_vol,
-              forecast_method, holding_days))
+        cols = ", ".join(row.keys())
+        placeholders = ", ".join(["?"] * len(row))
+        conn.execute(
+            f"INSERT OR REPLACE INTO predictions ({cols}) VALUES ({placeholders})",
+            tuple(row.values()),
+        )
         conn.commit()
         conn.close()
 

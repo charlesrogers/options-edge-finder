@@ -357,7 +357,7 @@ def compute_analytics(ticker):
         except Exception:
             pass
 
-    # Record today's IV snapshot with 25-delta IVs
+    # Record today's IV snapshot — full data capture
     db_status = []
     if current_iv is not None:
         try:
@@ -365,18 +365,26 @@ def compute_analytics(ticker):
             p25 = skew_details.get("put_25d_iv")
             c25 = skew_details.get("call_25d_iv")
             record_iv(ticker, current_iv, current_price, first_exp, rv_20, term_label,
-                      put_25d_iv=p25, call_25d_iv=c25)
+                      put_25d_iv=p25, call_25d_iv=c25,
+                      rv_10=rv_10, rv_30=rv_30, rv_60=rv_60, yz_20=yz_20,
+                      garch_vol=garch_vol, iv_rank=iv_rank, iv_pctl=iv_pctl,
+                      vrp=vrp, signal=signal, regime=regime, skew=skew_value,
+                      fomc_days=fomc_days,
+                      earnings_days=earnings_days)
             db_status.append(f"IV snapshot saved ({'Supabase' if using_supabase() else 'local SQLite'})")
         except Exception as e:
             db_status.append(f"IV snapshot FAILED: {e}")
 
-    # Log prediction for scoring later
+    # Log prediction for scoring later — full context
     try:
         log_prediction(
             ticker=ticker, signal=signal, spot_price=current_price,
             atm_iv=current_iv, rv_forecast=rv_forecast, vrp=vrp,
             iv_rank=iv_rank, term_label=term_label, regime=regime,
             skew=skew_value, garch_vol=garch_vol, forecast_method=forecast_method,
+            rv_20=rv_20, iv_pctl=iv_pctl, skew_penalty=skew_penalty,
+            signal_reason=signal_reason, earnings_days=earnings_days,
+            fomc_days=fomc_days,
         )
         db_status.append(f"Prediction logged ({'Supabase' if using_supabase() else 'local SQLite'})")
     except Exception as e:

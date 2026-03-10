@@ -1,4 +1,5 @@
 -- Run this in your Supabase SQL editor to create the tables
+-- If tables already exist, skip to the ALTER TABLE section at the bottom
 
 CREATE TABLE IF NOT EXISTS iv_snapshots (
     ticker TEXT NOT NULL,
@@ -10,6 +11,19 @@ CREATE TABLE IF NOT EXISTS iv_snapshots (
     term_label TEXT,
     put_25d_iv REAL,
     call_25d_iv REAL,
+    rv_10 REAL,
+    rv_30 REAL,
+    rv_60 REAL,
+    yz_20 REAL,
+    garch_vol REAL,
+    iv_rank REAL,
+    iv_pctl REAL,
+    vrp REAL,
+    signal TEXT,
+    regime TEXT,
+    skew REAL,
+    fomc_days INTEGER,
+    earnings_days INTEGER,
     PRIMARY KEY (ticker, date)
 );
 
@@ -56,6 +70,12 @@ CREATE TABLE IF NOT EXISTS predictions (
     outcome_date TEXT,
     scored INTEGER DEFAULT 0,
     seller_won INTEGER,
+    rv_20 REAL,
+    iv_pctl REAL,
+    skew_penalty REAL,
+    signal_reason TEXT,
+    earnings_days INTEGER,
+    fomc_days INTEGER,
     UNIQUE(ticker, date, holding_days)
 );
 
