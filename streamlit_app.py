@@ -43,6 +43,8 @@ from eval_signals import run_all_signal_validation
 from eval_portfolio import (crisis_correlation_analysis, portfolio_vega_stress,
                             portfolio_theta_risk, historical_stress_test)
 from eval_monitor import cusum_edge_detection, check_circuit_breakers
+from basket_test import (CORE_BASKET, QUICK_BASKET, FULL_BASKET,
+                         test_ticker, _compute_aggregate, load_all_results)
 
 st.set_page_config(
     page_title="Options Edge Finder",
@@ -51,7 +53,7 @@ st.set_page_config(
 )
 
 # Version marker — increment to bust Streamlit caches on deploy
-_APP_VERSION = "4.1-full-eval-pipeline"
+_APP_VERSION = "4.2-basket-ui"
 if "app_version" not in st.session_state or st.session_state.app_version != _APP_VERSION:
     st.cache_data.clear()
     st.cache_resource.clear()
@@ -208,12 +210,13 @@ TIPS = {
 st.title("Options Edge Finder")
 st.caption("Know when to sell. Know when to fold.")
 
-tab_guide, tab_dashboard, tab_analyzer, tab_positions, tab_scorecard = st.tabs([
+tab_guide, tab_dashboard, tab_analyzer, tab_positions, tab_scorecard, tab_basket = st.tabs([
     "Getting Started",
     "Dashboard",
     "Trade Analyzer",
     "My Positions",
     "Scorecard",
+    "Basket Test",
 ])
 
 # Ticker input — persistent across tabs via session state
@@ -2645,6 +2648,300 @@ with tab_scorecard:
                     st.dataframe(pending_df[display_cols].head(50), use_container_width=True, hide_index=True)
     except Exception:
         pass
+
+
+# ============================================================
+# TAB: BASKET TEST
+# ============================================================
+with tab_basket:
+    st.header("Basket Performance Test")
+    st.caption(
+        "Run the full evaluation pipeline across a basket of tickers to test whether the strategy works "
+        "at scale. Computes one-pass backtest, walk-forward OOS validation, GREEN-only P&L, and risk metrics."
+    )
+
+    # Basket selection
+    basket_choice = st.selectbox(
+        "Select basket",
+        ["Quick (5 tickers)", "Core (20 tickers)", "Full (50 tickers)", "Custom"],
+        index=0,
+        help="Quick: ~2 min, Core: ~8 min, Full: ~20 min",
+    )
+
+    if basket_choice == "Custom":
+        custom_input = st.text_input(
+            "Enter tickers (comma-separated)",
+            value="SPY, QQQ, AAPL, MSFT, NVDA, TSLA",
+        )
+        selected_basket = [t.strip().upper() for t in custom_input.split(",") if t.strip()]
+    elif "Quick" in basket_choice:
+        selected_basket = QUICK_BASKET
+    elif "Full" in basket_choice:
+        selected_basket = FULL_BASKET
+    else:
+        selected_basket = CORE_BASKET
+
+    st.caption(f"**{len(selected_basket)} tickers:** {', '.join(selected_basket[:20])}"
+               + (f" ... +{len(selected_basket)-20} more" if len(selected_basket) > 20 else ""))
+
+    # Run button
+    if st.button("Run Basket Test", type="primary"):
+        import yfinance as yf
+        from basket_test import save_results, save_to_supabase
+
+        progress = st.progress(0, text="Starting...")
+        ticker_results = {}
+        status_area = st.empty()
+
+        for i, ticker in enumerate(selected_basket):
+            progress.progress(
+                (i) / len(selected_basket),
+                text=f"Testing {ticker} ({i+1}/{len(selected_basket)})..."
+            )
+            try:
+                hist = yf.download(ticker, period="6y", progress=False)
+                if isinstance(hist.columns, pd.MultiIndex):
+                    hist.columns = hist.columns.get_level_values(0)
+
+                if hist.empty or len(hist) < 252:
+                    ticker_results[ticker] = {"error": f"Insufficient data ({len(hist)} rows)"}
+                    continue
+
+                result = test_ticker(ticker, hist)
+                ticker_results[ticker] = result
+
+            except Exception as e:
+                ticker_results[ticker] = {"error": str(e)}
+
+        progress.progress(1.0, text="Complete!")
+
+        # Build full results
+        from datetime import datetime as _dt
+        results = {
+            "run_date": _dt.now().strftime("%Y-%m-%d %H:%M"),
+            "n_tickers": len(selected_basket),
+            "period": "6y",
+            "holding_period": 20,
+            "tickers": ticker_results,
+        }
+        results["aggregate"] = _compute_aggregate(ticker_results)
+
+        # Save
+        try:
+            save_results(results)
+            save_to_supabase(results)
+        except Exception:
+            pass
+
+        # Store in session state for display
+        st.session_state["basket_results"] = results
+
+    # Display results
+    results = st.session_state.get("basket_results")
+    if results:
+        agg = results.get("aggregate", {})
+        n_ok = agg.get("n_successful", 0)
+        n_oos = agg.get("n_with_oos", 0)
+
+        st.subheader(f"Results — {results['run_date']}")
+        st.caption(f"{results['n_tickers']} tickers requested, {n_ok} successful, {n_oos} with walk-forward")
+
+        # ── Aggregate metrics ──
+        op = agg.get("one_pass", {})
+        gr = agg.get("green_only", {})
+        wf = agg.get("walk_forward", {})
+
+        if op:
+            st.markdown("### Overall (One-Pass Backtest)")
+            a1, a2, a3, a4 = st.columns(4)
+            with a1:
+                st.metric("Avg Win Rate", f"{op['avg_win_rate']:.1f}%")
+            with a2:
+                st.metric("Avg P&L / Trade", f"{op['avg_pnl']:+.4f}%")
+            with a3:
+                st.metric("Avg Sharpe", f"{op['avg_sharpe']:.3f}")
+            with a4:
+                st.metric("% Tickers Profitable", f"{op['pct_profitable']:.0f}%")
+
+        if gr:
+            st.markdown("### GREEN-Only (What You'd Actually Trade)")
+            g1, g2, g3 = st.columns(3)
+            with g1:
+                st.metric("Avg Win Rate", f"{gr['avg_win_rate']:.1f}%")
+            with g2:
+                st.metric("Avg P&L / Trade", f"{gr['avg_pnl']:+.4f}%")
+            with g3:
+                st.metric("% Tickers Profitable", f"{gr['pct_profitable']:.0f}%")
+
+            if op and gr["avg_pnl"] > op["avg_pnl"]:
+                st.success(f"GREEN signals outperform overall by "
+                           f"{gr['avg_pnl'] - op['avg_pnl']:+.4f}pp — signals add value.")
+            elif op:
+                st.warning("GREEN signals don't outperform overall — signals may need tuning.")
+
+        if wf:
+            st.markdown("### Walk-Forward (Out-of-Sample)")
+            w1, w2, w3, w4 = st.columns(4)
+            with w1:
+                st.metric("OOS Win Rate", f"{wf['avg_win_rate']:.1f}%")
+            with w2:
+                st.metric("OOS Avg P&L", f"{wf['avg_pnl']:+.4f}%")
+            with w3:
+                st.metric("% OOS Profitable", f"{wf['pct_profitable_oos']:.0f}%")
+            with w4:
+                st.metric("Avg Overfit Ratio", f"{wf['avg_overfit_ratio']:.2f}x",
+                          help=">2x means in-sample results are misleading")
+
+            if wf["avg_pnl"] > 0 and wf["avg_overfit_ratio"] < 2:
+                st.success("Strategy holds up out-of-sample with low overfit. Robust.")
+            elif wf["avg_pnl"] > 0:
+                st.info("Positive OOS but elevated overfit ratio — real results may be weaker.")
+            else:
+                st.error("Negative OOS P&L — strategy does not work on unseen data.")
+
+        surv = agg.get("survivorship_adjusted")
+        if surv:
+            st.markdown("### Survivorship Bias Adjustment")
+            s1, s2, s3 = st.columns(3)
+            with s1:
+                st.metric("Raw Annual Return", f"{surv['raw_annual_return_pct']:+.2f}%")
+            with s2:
+                st.metric("Adjusted (-150bps/yr)", f"{surv['adjusted_annual_return_pct']:+.2f}%")
+            with s3:
+                st.metric("Still Profitable?", "YES" if surv["still_profitable"] else "NO")
+
+        # ── Per-ticker table ──
+        st.markdown("### Per-Ticker Results")
+        table_rows = []
+        for ticker, r in sorted(results["tickers"].items()):
+            if isinstance(r, dict) and r.get("error"):
+                table_rows.append({
+                    "Ticker": ticker, "Win%": "ERR", "Avg P&L": str(r["error"])[:30],
+                    "Sharpe": "", "GREEN P&L": "", "OOS P&L": "", "Overfit": "",
+                })
+                continue
+
+            op_t = r.get("one_pass", {})
+            gr_t = r.get("green_only", {})
+            wf_t = r.get("walk_forward", {})
+
+            table_rows.append({
+                "Ticker": ticker,
+                "Win%": f"{op_t['overall_win_rate']:.0f}%" if not op_t.get("error") else "N/A",
+                "Avg P&L": f"{op_t['overall_avg_pnl']:+.3f}%" if not op_t.get("error") else "N/A",
+                "Sharpe": f"{op_t['overall_sharpe']:.3f}" if not op_t.get("error") else "N/A",
+                "GREEN P&L": f"{gr_t['avg_pnl']:+.3f}%" if gr_t and not gr_t.get("error") else "N/A",
+                "OOS P&L": f"{wf_t['oos_avg_pnl']:+.3f}%" if not wf_t.get("error") else "N/A",
+                "Overfit": f"{wf_t['overfit_ratio']:.2f}x" if not wf_t.get("error") else "N/A",
+            })
+
+        st.dataframe(pd.DataFrame(table_rows), use_container_width=True, hide_index=True)
+
+        # ── Charts ──
+        valid_tickers = {t: r for t, r in results["tickers"].items()
+                         if isinstance(r, dict) and not r.get("error")
+                         and not r.get("one_pass", {}).get("error")}
+
+        if valid_tickers:
+            # P&L comparison chart
+            st.markdown("### P&L Comparison")
+            chart_data = []
+            for t, r in sorted(valid_tickers.items()):
+                op_t = r["one_pass"]
+                gr_t = r.get("green_only", {})
+                chart_data.append({
+                    "Ticker": t,
+                    "Overall": op_t["overall_avg_pnl"],
+                    "GREEN": gr_t.get("avg_pnl", 0) if gr_t else 0,
+                })
+
+            cdf = pd.DataFrame(chart_data)
+            fig_pnl = go.Figure()
+            fig_pnl.add_trace(go.Bar(x=cdf["Ticker"], y=cdf["Overall"], name="Overall",
+                                     marker_color="steelblue"))
+            fig_pnl.add_trace(go.Bar(x=cdf["Ticker"], y=cdf["GREEN"], name="GREEN Only",
+                                     marker_color="green"))
+            fig_pnl.add_hline(y=0, line_dash="dash", line_color="red")
+            fig_pnl.update_layout(barmode="group", yaxis_title="Avg P&L %",
+                                  height=400, margin=dict(t=30))
+            st.plotly_chart(fig_pnl, use_container_width=True)
+
+            # OOS vs IS comparison
+            oos_tickers = {t: r for t, r in valid_tickers.items()
+                           if not r.get("walk_forward", {}).get("error")}
+            if oos_tickers:
+                st.markdown("### In-Sample vs Out-of-Sample")
+                oos_data = []
+                for t, r in sorted(oos_tickers.items()):
+                    wf_t = r["walk_forward"]
+                    op_t = r["one_pass"]
+                    oos_data.append({
+                        "Ticker": t,
+                        "In-Sample": op_t["overall_avg_pnl"],
+                        "Out-of-Sample": wf_t["oos_avg_pnl"],
+                    })
+
+                odf = pd.DataFrame(oos_data)
+                fig_oos = go.Figure()
+                fig_oos.add_trace(go.Bar(x=odf["Ticker"], y=odf["In-Sample"],
+                                         name="In-Sample", marker_color="lightblue"))
+                fig_oos.add_trace(go.Bar(x=odf["Ticker"], y=odf["Out-of-Sample"],
+                                         name="Out-of-Sample", marker_color="navy"))
+                fig_oos.add_hline(y=0, line_dash="dash", line_color="red")
+                fig_oos.update_layout(barmode="group", yaxis_title="Avg P&L %",
+                                      height=400, margin=dict(t=30))
+                st.plotly_chart(fig_oos, use_container_width=True)
+
+    # ── Historical runs ──
+    history = load_all_results()
+    if history:
+        with st.expander(f"Historical Runs ({len(history)} saved)", expanded=False):
+            hist_rows = []
+            for h in history:
+                ha = h.get("aggregate", {})
+                hop = ha.get("one_pass", {})
+                hgr = ha.get("green_only", {})
+                hwf = ha.get("walk_forward", {})
+                hist_rows.append({
+                    "Date": h.get("run_date", "?"),
+                    "Tickers": h.get("n_tickers", "?"),
+                    "Avg P&L": f"{hop.get('avg_pnl', 0):+.4f}%" if hop else "N/A",
+                    "GREEN P&L": f"{hgr.get('avg_pnl', 0):+.4f}%" if hgr else "N/A",
+                    "OOS P&L": f"{hwf.get('avg_pnl', 0):+.4f}%" if hwf else "N/A",
+                    "Overfit": f"{hwf.get('avg_overfit_ratio', 0):.2f}x" if hwf else "N/A",
+                })
+            st.dataframe(pd.DataFrame(hist_rows), use_container_width=True, hide_index=True)
+
+            # Trend chart if enough history
+            if len(history) >= 2:
+                trend_data = []
+                for h in history:
+                    ha = h.get("aggregate", {})
+                    hop = ha.get("one_pass", {})
+                    hgr = ha.get("green_only", {})
+                    if hop:
+                        trend_data.append({
+                            "date": h.get("run_date", ""),
+                            "overall": hop.get("avg_pnl", 0),
+                            "green": hgr.get("avg_pnl", 0) if hgr else 0,
+                        })
+                if trend_data:
+                    tdf = pd.DataFrame(trend_data)
+                    fig_trend = go.Figure()
+                    fig_trend.add_trace(go.Scatter(
+                        x=tdf["date"], y=tdf["overall"],
+                        mode="lines+markers", name="Overall P&L",
+                    ))
+                    fig_trend.add_trace(go.Scatter(
+                        x=tdf["date"], y=tdf["green"],
+                        mode="lines+markers", name="GREEN P&L",
+                    ))
+                    fig_trend.add_hline(y=0, line_dash="dash", line_color="red")
+                    fig_trend.update_layout(
+                        title="Basket Performance Over Time",
+                        yaxis_title="Avg P&L %", height=350,
+                    )
+                    st.plotly_chart(fig_trend, use_container_width=True)
 
 
 # ============================================================
