@@ -308,6 +308,17 @@ def sample_ticker(ticker, vix_data=None):
             fomc_days=fomc_days, earnings_days=None,
         )
 
+        # Discipline check — would we actually trade this?
+        try:
+            from discipline import check_trade_filters, get_severity
+            should_trade, filter_reasons = check_trade_filters(
+                vrp=vrp, iv_rank=iv_rank, term_label=term_label,
+                regime=regime, fomc_days=fomc_days, atm_iv=current_iv,
+            )
+            trade_severity = get_severity(filter_reasons)
+        except Exception:
+            should_trade, filter_reasons, trade_severity = True, [], "TRADE"
+
         # Log prediction
         log_prediction(
             ticker=ticker, signal=signal, spot_price=current_price,
@@ -321,6 +332,7 @@ def sample_ticker(ticker, vix_data=None):
         return {
             "ticker": ticker, "status": "ok",
             "price": current_price, "iv": current_iv, "vrp": vrp, "signal": signal,
+            "should_trade": should_trade, "trade_severity": trade_severity,
         }
 
     except Exception as e:
