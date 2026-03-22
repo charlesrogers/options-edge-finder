@@ -1,0 +1,50 @@
+# Backfill CLV + Register Hypotheses (one-time)
+#
+# BEFORE running this workflow, create the signal_graveyard table in
+# Supabase SQL Editor with:
+#
+#   CREATE TABLE IF NOT EXISTS signal_graveyard (
+#       signal_id TEXT PRIMARY KEY,
+#       name TEXT NOT NULL,
+#       tier INTEGER,
+#       hypothesis TEXT,
+#       pre_registered_date TEXT NOT NULL,
+#       tested_date TEXT,
+#       status TEXT DEFAULT 'untested',
+#       layer_reached INTEGER DEFAULT 0,
+#       best_sharpe REAL,
+#       best_clv REAL,
+#       n_trades INTEGER,
+#       failure_reason TEXT,
+#       notes TEXT
+#   );
+#
+# Also add CLV columns to predictions table:
+#
+#   ALTER TABLE predictions ADD COLUMN IF NOT EXISTS iv_at_scoring REAL;
+#   ALTER TABLE predictions ADD COLUMN IF NOT EXISTS clv_realized REAL;
+#
+name: Backfill CLV + Register Hypotheses
+on:
+  workflow_dispatch:
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install supabase pandas numpy requests
+      - name: Register H01-H04 in signal graveyard
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python3 register_hypotheses.py
+      - name: Backfill CLV for scored predictions
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python3 backfill_clv.py

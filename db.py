@@ -153,12 +153,32 @@ def _get_sqlite():
         ("predictions", "premium_estimate", "REAL"),
         ("predictions", "pnl_estimate", "REAL"),
         ("predictions", "pnl_pct", "REAL"),
+        ("predictions", "iv_at_scoring", "REAL"),
+        ("predictions", "clv_realized", "REAL"),
     ]
     for table, col, coltype in _pred_migrate:
         try:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {coltype}")
         except Exception:
             pass
+    # Signal graveyard — tracks all tested hypotheses (pass + fail) for Deflated Sharpe
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS signal_graveyard (
+            signal_id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            tier INTEGER,
+            hypothesis TEXT,
+            pre_registered_date TEXT NOT NULL,
+            tested_date TEXT,
+            status TEXT DEFAULT 'untested',
+            layer_reached INTEGER DEFAULT 0,
+            best_sharpe REAL,
+            best_rvrp REAL,
+            n_trades INTEGER,
+            failure_reason TEXT,
+            notes TEXT
+        )
+    """)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -229,6 +249,118 @@ def get_real_iv_rank(ticker, current_iv):
     iv_rank = max(0, min(100, ((current_iv - iv_min) / (iv_max - iv_min)) * 100))
     iv_pctl = (iv_series < current_iv).sum() / len(iv_series) * 100
     return iv_rank, iv_pctl, len(iv_series)
+
+
+# ============================================================
+# IV LOOKUP (for CLV computation)
+# ============================================================
+
+def get_iv_on_date(ticker, date_str):
+    """
+    Fetch ATM IV for a ticker on or near a specific date.
+    Looks in iv_snapshots for exact date, then tries up to 5 prior days.
+    Returns atm_iv float or None.
+    """
+    import pandas as pd
+    target = datetime.strptime(date_str, "%Y-%m-%d") if isinstance(date_str, str) else date_str
+    sb = _get_supabase()
+    # Try exact date first, then look back up to 5 days
+    for offset in range(6):
+        check_date = (target - timedelta(days=offset)).strftime("%Y-%m-%d")
+        if sb:
+            resp = sb.table("iv_snapshots").select("atm_iv").eq("ticker", ticker).eq("date", check_date).execute()
+            if resp.data and resp.data[0].get("atm_iv") is not None:
+                return float(resp.data[0]["atm_iv"])
+        else:
+            conn = _get_sqlite()
+            row = conn.execute(
+                "SELECT atm_iv FROM iv_snapshots WHERE ticker = ? AND date = ?",
+                (ticker, check_date),
+            ).fetchone()
+            conn.close()
+            if row and row["atm_iv"] is not None:
+                return float(row["atm_iv"])
+    return None
+
+
+# ============================================================
+# SIGNAL GRAVEYARD — hypothesis tracking for Deflated Sharpe
+# ============================================================
+
+def register_hypothesis(signal_id, name, tier, hypothesis):
+    """Pre-register a hypothesis BEFORE testing. Returns True on success."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    row = {
+        "signal_id": signal_id, "name": name, "tier": tier,
+        "hypothesis": hypothesis, "pre_registered_date": today,
+        "status": "untested", "layer_reached": 0,
+    }
+    sb = _get_supabase()
+    if sb:
+        sb.table("signal_graveyard").upsert(row, on_conflict="signal_id").execute()
+    else:
+        conn = _get_sqlite()
+        conn.execute(
+            "INSERT OR REPLACE INTO signal_graveyard "
+            "(signal_id, name, tier, hypothesis, pre_registered_date, status, layer_reached) "
+            "VALUES (?, ?, ?, ?, ?, 'untested', 0)",
+            (signal_id, name, tier, hypothesis, today),
+        )
+        conn.commit()
+        conn.close()
+    return True
+
+
+def update_hypothesis_result(signal_id, status, layer_reached,
+                              best_sharpe=None, best_rvrp=None, n_trades=None,
+                              failure_reason=None, notes=None):
+    """Record test results for a hypothesis."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    update = {
+        "status": status, "layer_reached": layer_reached,
+        "tested_date": today, "best_sharpe": best_sharpe,
+        "best_rvrp": best_rvrp, "n_trades": n_trades,
+        "failure_reason": failure_reason, "notes": notes,
+    }
+    sb = _get_supabase()
+    if sb:
+        sb.table("signal_graveyard").update(update).eq("signal_id", signal_id).execute()
+    else:
+        conn = _get_sqlite()
+        cols = ", ".join(f"{k} = ?" for k in update.keys())
+        vals = list(update.values()) + [signal_id]
+        conn.execute(f"UPDATE signal_graveyard SET {cols} WHERE signal_id = ?", vals)
+        conn.commit()
+        conn.close()
+
+
+def get_graveyard():
+    """Return all signal graveyard entries as a DataFrame."""
+    import pandas as pd
+    sb = _get_supabase()
+    if sb:
+        resp = sb.table("signal_graveyard").select("*").order("pre_registered_date").execute()
+        return pd.DataFrame(resp.data) if resp.data else pd.DataFrame()
+    else:
+        conn = _get_sqlite()
+        df = pd.read_sql_query("SELECT * FROM signal_graveyard ORDER BY pre_registered_date", conn)
+        conn.close()
+        return df
+
+
+def get_graveyard_count():
+    """Total hypotheses ever tested (for Deflated Sharpe denominator)."""
+    sb = _get_supabase()
+    if sb:
+        resp = sb.table("signal_graveyard").select("signal_id").neq("status", "untested").execute()
+        return len(resp.data) if resp.data else 0
+    else:
+        conn = _get_sqlite()
+        count = conn.execute(
+            "SELECT COUNT(*) FROM signal_graveyard WHERE status != 'untested'"
+        ).fetchone()[0]
+        conn.close()
+        return count
 
 
 # ============================================================
@@ -434,11 +566,19 @@ def score_pending_predictions():
 
             pnl_pct = pnl_estimate / spot * 100
 
+            # CLV computation — the primary edge metric
+            outcome_date_str = outcome_date.strftime("%Y-%m-%d")
+            iv_at_scoring = get_iv_on_date(pred["ticker"], outcome_date_str)
+            atm_iv_entry = pred.get("atm_iv")
+            clv_realized = None
+            if atm_iv_entry and outcome_rv and atm_iv_entry > 0:
+                clv_realized = round((atm_iv_entry - outcome_rv) / atm_iv_entry, 6)
+
             update_data = {
                 "outcome_price": outcome_price,
                 "outcome_return": round(outcome_return, 4),
                 "outcome_rv": round(outcome_rv, 2) if outcome_rv else None,
-                "outcome_date": outcome_date.strftime("%Y-%m-%d"),
+                "outcome_date": outcome_date_str,
                 "scored": 1,
                 "seller_won": seller_won,
                 "expected_move_pct": round(expected_move_pct, 4),
@@ -446,6 +586,8 @@ def score_pending_predictions():
                 "premium_estimate": round(premium_estimate, 4),
                 "pnl_estimate": round(pnl_estimate, 4),
                 "pnl_pct": round(pnl_pct, 4),
+                "iv_at_scoring": round(iv_at_scoring, 4) if iv_at_scoring else None,
+                "clv_realized": clv_realized,
             }
 
             if sb:
@@ -544,6 +686,35 @@ def get_prediction_scorecard():
         }
     else:
         results["pnl_summary"] = None
+
+    # --- CLV summary (the primary edge metric) ---
+    has_clv = "clv_realized" in df.columns and df["clv_realized"].notna().any()
+    if has_clv:
+        clv = df["clv_realized"].dropna()
+        results["rvrp_summary"] = {
+            "avg_rvrp": round(float(clv.mean()), 6),
+            "median_rvrp": round(float(clv.median()), 6),
+            "std_rvrp": round(float(clv.std()), 6),
+            "pct_positive_rvrp": round(float((clv > 0).mean() * 100), 2),
+            "count": len(clv),
+            "best_rvrp": round(float(clv.max()), 6),
+            "worst_rvrp": round(float(clv.min()), 6),
+        }
+        # CLV by signal
+        rvrp_by_signal = {}
+        for sig in ["GREEN", "YELLOW", "RED"]:
+            sig_clv = df[df["signal"] == sig]["clv_realized"].dropna()
+            if len(sig_clv) > 0:
+                rvrp_by_signal[sig] = {
+                    "avg_rvrp": round(float(sig_clv.mean()), 6),
+                    "median_rvrp": round(float(sig_clv.median()), 6),
+                    "count": len(sig_clv),
+                    "pct_positive": round(float((sig_clv > 0).mean() * 100), 2),
+                }
+        results["rvrp_by_signal"] = rvrp_by_signal
+    else:
+        results["rvrp_summary"] = None
+        results["rvrp_by_signal"] = {}
 
     # --- Baseline comparison ---
     results["baseline_accuracy"] = results["overall_accuracy"]

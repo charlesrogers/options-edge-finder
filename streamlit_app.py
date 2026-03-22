@@ -2170,6 +2170,66 @@ with tab_scorecard:
                 st.error(f"NEGATIVE avg P&L ({avg:+.2f}%). Despite a {acc:.0f}% win rate, "
                          f"losses are larger than wins. The strategy is losing money.")
 
+        # --- Realized VRP Analysis (the PRIMARY edge metric) ---
+        rvrp_summary = scorecard.get("rvrp_summary")
+        if rvrp_summary:
+            st.subheader("Realized VRP — Do We Have Real Edge?")
+            st.caption(
+                "Realized VRP = (IV at entry - Realized Vol) / IV at entry. "
+                "Measures whether we sell IV that proves overpriced. "
+                "Positive = real edge. Lower variance than P&L — "
+                "the most reliable signal of profitability (Sinclair & Mack, 2024)."
+            )
+            c1, c2, c3, c4 = st.columns(4)
+            with c1:
+                avg_rvrp = rvrp_summary["avg_rvrp"]
+                st.metric("Avg Realized VRP", f"{avg_rvrp:.1%}",
+                          help="(IV_entry - RV_holding) / IV_entry. Positive = sold overpriced vol.")
+            with c2:
+                st.metric("Median Realized VRP", f"{rvrp_summary['median_rvrp']:.1%}")
+            with c3:
+                st.metric("% Positive", f"{rvrp_summary['pct_positive_rvrp']:.0f}%",
+                          help="Percentage of trades where IV exceeded realized vol. "
+                               "Sinclair benchmark: 82% for SPY.")
+            with c4:
+                st.metric("Observations", f"{rvrp_summary['count']}")
+
+            if avg_rvrp > 0.02:
+                st.success(f"Strong positive Realized VRP ({avg_rvrp:.1%}). "
+                           "You are consistently selling overpriced volatility.")
+            elif avg_rvrp > 0:
+                st.info(f"Positive Realized VRP ({avg_rvrp:.1%}). Edge exists but thin. "
+                        "Monitor for decay.")
+            else:
+                st.error(f"Negative Realized VRP ({avg_rvrp:.1%}). "
+                         "You are selling UNDERPRICED volatility. Reassess strategy.")
+
+            # Realized VRP by signal type
+            rvrp_by_sig = scorecard.get("rvrp_by_signal", {})
+            if rvrp_by_sig:
+                st.markdown("**Realized VRP by Signal Type**")
+                sig_cols = st.columns(len(rvrp_by_sig))
+                for i, (sig, data) in enumerate(rvrp_by_sig.items()):
+                    color_map = {"GREEN": "green", "YELLOW": "orange", "RED": "red"}
+                    with sig_cols[i]:
+                        st.metric(
+                            f":{color_map.get(sig, 'gray')}[{sig}] Avg RVRP",
+                            f"{data['avg_rvrp']:.1%}",
+                            help=f"{data['pct_positive']:.0f}% positive, n={data['count']}"
+                        )
+                # Check monotonic ordering (H03)
+                green_rvrp = rvrp_by_sig.get("GREEN", {}).get("avg_rvrp")
+                red_rvrp = rvrp_by_sig.get("RED", {}).get("avg_rvrp")
+                if green_rvrp is not None and red_rvrp is not None:
+                    spread = green_rvrp - red_rvrp
+                    if spread > 0.015:
+                        st.success(f"Signal discrimination working: GREEN exceeds RED by {spread:.1%}.")
+                    elif spread > 0:
+                        st.info(f"Weak signal discrimination: GREEN exceeds RED by only {spread:.1%}.")
+                    else:
+                        st.error("Signal discrimination BROKEN: RED Realized VRP >= GREEN. "
+                                 "Traffic light ordering is not monotonic.")
+
         # --- Tail Risk Metrics (Module 3) ---
         if pnl_summary:
             with st.expander("Tail Risk Metrics — How Bad Can It Get?", expanded=False):
