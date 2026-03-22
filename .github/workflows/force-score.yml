@@ -1,0 +1,38 @@
+name: Force Score Predictions
+on:
+  workflow_dispatch:
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install requests numpy pandas scipy arch supabase yfinance
+      - name: Score pending predictions + run gate
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          python3 -c "
+          from db import reset_predictions_missing_pnl, score_pending_predictions, get_pending_predictions_count
+          reset = reset_predictions_missing_pnl()
+          if reset:
+              print(f'Reset {reset} old predictions missing P&L data')
+          pending = get_pending_predictions_count()
+          print(f'Pending predictions to check: {pending}')
+          if pending > 0:
+              scored = score_pending_predictions()
+              print(f'Scored: {scored}')
+          else:
+              print('Nothing to score yet.')
+          "
+      - name: Run testing gate H01-H04
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python3 run_gate_h01_h04.py
