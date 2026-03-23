@@ -2,7 +2,10 @@
 headless = true
 
 [theme]
-primaryColor = "#4CAF50"
-backgroundColor = "#0E1117"
-secondaryBackgroundColor = "#262730"
-textColor = "#FAFAFA"
+# House design system (oklch-based, Stripe/Robinhood-inspired)
+# Matches grade-optimizer and style-guide repo
+primaryColor = "#7c5cff"
+backgroundColor = "#0f1117"
+secondaryBackgroundColor = "#1a1c2e"
+textColor = "#e8e9ed"
+font = "sans serif"
