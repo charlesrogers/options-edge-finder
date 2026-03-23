@@ -456,22 +456,71 @@ with tab_trades:
     if "watchlist" not in st.session_state:
         st.session_state.watchlist = DEFAULT_WATCHLIST
 
-    with st.expander("Edit Watchlist", expanded=False):
-        wl_input = st.text_input("Watchlist", value=st.session_state.watchlist,
-                                  label_visibility="collapsed",
-                                  placeholder="SPY, QQQ, AAPL, MSFT ...")
-        st.session_state.watchlist = wl_input
+    # --- Portfolio Holdings ---
+    try:
+        from db import get_holdings, save_holding
+        holdings = get_holdings()
+    except Exception:
+        holdings = {}
 
-    watchlist = [t.strip().upper() for t in st.session_state.watchlist.split(",") if t.strip()]
+    with st.expander("My Stock Holdings (edit shares owned)", expanded=not bool(holdings)):
+        st.caption("Enter how many shares you own of each stock. "
+                   "This determines covered call sizing and concentration limits.")
+
+        # Default tickers
+        default_tickers = ["TXN", "TMUS", "GOOGL", "AMZN", "AAPL", "KKR", "DIS"]
+        edit_tickers = sorted(set(list(holdings.keys()) + default_tickers))
+
+        cols_per_row = 3
+        for i in range(0, len(edit_tickers), cols_per_row):
+            row_tickers = edit_tickers[i:i + cols_per_row]
+            cols = st.columns(cols_per_row)
+            for j, tick in enumerate(row_tickers):
+                with cols[j]:
+                    current = holdings.get(tick, {}).get("shares", 0)
+                    new_val = st.number_input(
+                        f"{tick} shares", value=int(current),
+                        min_value=0, step=100, key=f"holding_{tick}",
+                    )
+                    if new_val != current:
+                        try:
+                            save_holding(tick, new_val)
+                            holdings[tick] = {"shares": new_val, "avg_cost": None}
+                        except Exception:
+                            pass
+
+        # Add new ticker
+        new_tick = st.text_input("Add ticker", placeholder="Enter ticker symbol...",
+                                  key="add_holding_ticker")
+        if new_tick:
+            new_tick = new_tick.strip().upper()
+            if new_tick and new_tick not in holdings:
+                try:
+                    save_holding(new_tick, 0)
+                    holdings[new_tick] = {"shares": 0, "avg_cost": None}
+                    st.rerun()
+                except Exception:
+                    pass
+
+    # Watchlist = tickers with holdings
+    watchlist = [t for t in holdings if holdings[t].get("shares", 0) > 0]
+    if not watchlist:
+        watchlist = [t.strip().upper() for t in "TXN, TMUS, GOOGL, AMZN, AAPL, KKR, DIS".split(",")]
 
     # Portfolio settings + phase
-    portfolio_value = st.session_state.get("portfolio_value", 100000)
+    portfolio_value = st.session_state.get("portfolio_value", 1000000)
+    available_cash = st.session_state.get("available_cash", 200000)
     current_phase = st.session_state.get("trading_phase", "paper")
 
     with st.expander("Portfolio Settings", expanded=False):
-        portfolio_value = st.number_input("Portfolio Value ($)", value=portfolio_value,
-                                           min_value=10000, step=10000)
+        portfolio_value = st.number_input("Total Portfolio Value ($)", value=portfolio_value,
+                                           min_value=10000, step=50000)
         st.session_state.portfolio_value = portfolio_value
+        available_cash = st.number_input("Available Cash ($)", value=available_cash,
+                                          min_value=0, step=10000,
+                                          help="Cash available for cash-secured puts. "
+                                               "System will keep 25% in reserve.")
+        st.session_state.available_cash = available_cash
 
         current_phase = st.selectbox(
             "Current Phase",
@@ -575,23 +624,45 @@ with tab_trades:
                     passed_on.append({"ticker": ticker, "reason": reason, "signal": signal})
                     continue
 
-                # Find a specific strike to recommend (~20-delta put)
-                strike_price = None
-                premium = None
+                # Holdings for this ticker
+                shares_owned = holdings.get(ticker, {}).get("shares", 0)
+
+                # Find specific strikes for both strategies
+                put_strike = None
+                put_premium = None
+                call_strike = None
+                call_premium = None
                 expiry = None
+
                 if chains and expirations:
                     first_exp = expirations[0]
+                    expiry = first_exp
+
+                    # Cash-secured put: ~5% OTM
                     if first_exp in chains and hasattr(chains[first_exp], 'puts') and not chains[first_exp].puts.empty:
                         puts = chains[first_exp].puts.copy()
-                        # Target ~20-delta: roughly 5% OTM
-                        target_strike = current_price * 0.95
-                        puts["dist"] = abs(puts["strike"] - target_strike)
+                        target = current_price * 0.95
+                        puts["dist"] = abs(puts["strike"] - target)
                         best = puts.loc[puts["dist"].idxmin()]
-                        strike_price = float(best["strike"])
+                        put_strike = float(best["strike"])
                         bid = best.get("bid", 0) or 0
                         ask = best.get("ask", 0) or 0
-                        premium = round((bid + ask) / 2, 2) if bid > 0 else float(best.get("lastPrice", 0))
-                        expiry = first_exp
+                        put_premium = round((bid + ask) / 2, 2) if bid > 0 else float(best.get("lastPrice", 0))
+
+                    # Covered call: ~5% OTM (only if he owns shares)
+                    if shares_owned >= 100 and first_exp in chains and hasattr(chains[first_exp], 'calls') and not chains[first_exp].calls.empty:
+                        calls_df = chains[first_exp].calls.copy()
+                        target = current_price * 1.05
+                        calls_df["dist"] = abs(calls_df["strike"] - target)
+                        best_call = calls_df.loc[calls_df["dist"].idxmin()]
+                        call_strike = float(best_call["strike"])
+                        bid = best_call.get("bid", 0) or 0
+                        ask = best_call.get("ask", 0) or 0
+                        call_premium = round((bid + ask) / 2, 2) if bid > 0 else float(best_call.get("lastPrice", 0))
+
+                # For backward compat
+                strike_price = put_strike
+                premium = put_premium
 
                 # Bayesian probability
                 prob_win = None
@@ -622,11 +693,25 @@ with tab_trades:
 
                 vrp_pct = ((current_iv - rv_forecast) / current_iv * 100) if current_iv and rv_forecast and current_iv > 0 else None
 
+                # Covered call sizing
+                cc_contracts = 0
+                cc_reason = ""
+                if shares_owned >= 100:
+                    try:
+                        from discipline import size_covered_call
+                        cc_contracts, cc_reason = size_covered_call(shares_owned, 0, 0.25)
+                    except Exception:
+                        cc_contracts = shares_owned // 400  # 25% default
+
                 recommendations.append({
                     "ticker": ticker,
                     "price": current_price,
-                    "strike": strike_price,
-                    "premium": premium,
+                    "strike": put_strike,
+                    "premium": put_premium,
+                    "call_strike": call_strike,
+                    "call_premium": call_premium,
+                    "cc_contracts": cc_contracts,
+                    "shares_owned": shares_owned,
                     "expiry": expiry,
                     "iv": current_iv,
                     "rv": rv_forecast,
@@ -660,31 +745,57 @@ with tab_trades:
                     tick = rec["ticker"]
                     risk_badge = ":red[HIGH RISK]" if tick in HIGH_RISK else ":green[LOW RISK]" if tick in LOW_RISK else ":orange[MODERATE]"
 
-                    st.markdown(f"### {tick}  ${rec['price']:.2f}  {risk_badge}")
-
-                    # --- The specific trade instruction ---
-                    if rec.get("strike") and rec.get("premium") and rec.get("expiry"):
-                        premium_per_share = rec["premium"]
-                        premium_total = premium_per_share * 100
-                        strike = rec["strike"]
-                        expiry = rec["expiry"]
-
-                        # Use 1 contract for paper/starter display
-                        display_contracts = max(rec.get("contracts", 1), 1)
-
-                        if current_phase == "paper":
-                            st.markdown(
-                                f"**What to do:** Sell 1 **{tick} {expiry} ${strike:.0f} Put** "
-                                f"at **${premium_per_share:.2f}** per share (${premium_total:.0f} total premium). "
-                                f"*Paper trade only — track but don't execute.*"
-                            )
-                        else:
-                            st.markdown(
-                                f"**What to do:** Sell {display_contracts} **{tick} {expiry} ${strike:.0f} Put** "
-                                f"at **${premium_per_share:.2f}** per share "
-                                f"(${premium_total * display_contracts:,.0f} total premium)."
-                            )
+                    # Holdings context
+                    shares = rec.get("shares_owned", 0)
+                    if shares > 0:
+                        value = shares * rec["price"]
+                        pct = value / portfolio_value * 100 if portfolio_value > 0 else 0
+                        st.markdown(f"### {tick}  ${rec['price']:.2f}  {risk_badge}")
+                        st.caption(f"You own **{shares:,} shares** (${value:,.0f}, {pct:.1f}% of portfolio)")
                     else:
+                        st.markdown(f"### {tick}  ${rec['price']:.2f}  {risk_badge}")
+
+                    # --- Strategy A: Covered Call (if he owns shares) ---
+                    if shares >= 100 and rec.get("call_strike") and rec.get("call_premium"):
+                        cc = rec["cc_contracts"]
+                        c_strike = rec["call_strike"]
+                        c_prem = rec["call_premium"]
+                        c_total = c_prem * 100 * max(cc, 1)
+                        covered_shares = max(cc, 1) * 100
+                        upside = (c_strike - rec["price"]) / rec["price"] * 100
+
+                        phase_note = " *Paper trade only.*" if current_phase == "paper" else ""
+                        st.markdown(
+                            f"**Covered Call:** Sell {max(cc, 1)} **{tick} {rec['expiry']} "
+                            f"${c_strike:.0f} Call** at **${c_prem:.2f}**/share "
+                            f"(${c_total:,.0f} premium). "
+                            f"Covers {covered_shares} of your {shares} shares.{phase_note}"
+                        )
+                        st.caption(
+                            f"You keep shares + premium unless {tick} rises above ${c_strike:.0f} "
+                            f"(+{upside:.1f}%), in which case you sell at a profit."
+                        )
+
+                    # --- Strategy B: Cash-Secured Put ---
+                    if rec.get("strike") and rec.get("premium"):
+                        p_strike = rec["strike"]
+                        p_prem = rec["premium"]
+                        p_total = p_prem * 100
+                        cash_needed = p_strike * 100
+
+                        phase_note = " *Paper trade only.*" if current_phase == "paper" else ""
+                        st.markdown(
+                            f"**Cash-Secured Put:** Sell 1 **{tick} {rec['expiry']} "
+                            f"${p_strike:.0f} Put** at **${p_prem:.2f}**/share "
+                            f"(${p_total:,.0f} premium). "
+                            f"Requires ${cash_needed:,.0f} cash reserve.{phase_note}"
+                        )
+                        if shares > 0:
+                            st.caption(f"If assigned, you add 100 shares to your existing {shares}.")
+                        else:
+                            st.caption(f"If assigned, you buy 100 shares at ${p_strike:.0f}.")
+
+                    if not (shares >= 100 and rec.get("call_strike")) and not rec.get("strike"):
                         st.markdown(f"**Signal:** GREEN — conditions favor selling premium on {tick}. "
                                     f"Check your broker for specific strikes.")
 

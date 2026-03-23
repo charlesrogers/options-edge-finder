@@ -209,7 +209,7 @@ PHASES = {
 
 def get_position_size(portfolio_value, strike_price, current_phase="paper"):
     """
-    Enforce phase-appropriate position sizing.
+    Enforce phase-appropriate position sizing for cash-secured puts.
 
     Returns:
         (contracts: int, reason: str)
@@ -225,12 +225,89 @@ def get_position_size(portfolio_value, strike_price, current_phase="paper"):
     if phase["max_pct"] > 0 and strike_price > 0:
         max_capital = portfolio_value * phase["max_pct"]
         contracts = max(1, int(max_capital / (strike_price * 100)))
-        # Apply max_contracts cap if set
         if phase.get("max_contracts"):
             contracts = min(contracts, phase["max_contracts"])
         return contracts, f"{phase['label']} — {phase['max_pct']:.0%} of portfolio per position"
 
     return 1, "Default 1 contract"
+
+
+def size_covered_call(shares_owned, existing_calls=0, cover_pct=0.25):
+    """
+    How many covered calls to sell on shares you already own.
+
+    Args:
+        shares_owned: total shares of this ticker
+        existing_calls: calls already sold on this ticker
+        cover_pct: fraction of shares to cover (0.25 = conservative)
+
+    Returns:
+        (contracts: int, reason: str)
+    """
+    if shares_owned < 100:
+        return 0, f"Need at least 100 shares to sell covered calls (have {shares_owned})"
+
+    max_calls = shares_owned // 100
+    available = max_calls - existing_calls
+    if available <= 0:
+        return 0, f"All {max_calls * 100} shares already covered"
+
+    target = max(1, int(max_calls * cover_pct))
+    new_calls = min(target - existing_calls, available)
+    new_calls = max(0, new_calls)
+
+    covered_shares = (existing_calls + new_calls) * 100
+    return new_calls, f"Cover {covered_shares} of {shares_owned} shares ({covered_shares/shares_owned:.0%})"
+
+
+def size_cash_secured_put(portfolio_value, available_cash, strike_price,
+                           current_phase="paper", max_pct=0.03):
+    """
+    How many cash-secured puts to sell.
+
+    Args:
+        portfolio_value: total portfolio value
+        available_cash: cash not committed to other positions
+        strike_price: put strike price
+        current_phase: deployment phase
+        max_pct: max % of portfolio per position
+
+    Returns:
+        (contracts: int, reason: str)
+    """
+    if current_phase == "paper":
+        return 0, "Paper only"
+    if current_phase == "starter":
+        return 1, "Starter: max 1 contract"
+
+    capital_per = strike_price * 100
+
+    # Limit 1: max % of portfolio
+    max_from_portfolio = int(portfolio_value * max_pct / capital_per) if capital_per > 0 else 0
+
+    # Limit 2: available cash (keep 25% reserve)
+    usable_cash = available_cash * 0.75
+    max_from_cash = int(usable_cash / capital_per) if capital_per > 0 else 0
+
+    contracts = max(0, min(max_from_portfolio, max_from_cash))
+    committed = contracts * capital_per
+
+    if contracts == 0 and max_from_portfolio > 0:
+        return 0, f"Insufficient cash (need ${capital_per:,} per contract, have ${available_cash:,.0f} usable)"
+    elif contracts == 0:
+        return 0, f"Position would exceed {max_pct:.0%} of portfolio"
+
+    return contracts, f"{contracts} contract{'s' if contracts > 1 else ''} (${committed:,} committed, keeping 25% cash reserve)"
+
+
+def check_concentration(ticker, current_exposure, portfolio_value, max_pct=0.15):
+    """Don't let any single name exceed max_pct of portfolio."""
+    if portfolio_value <= 0:
+        return True, "Unknown portfolio value"
+    current_pct = current_exposure / portfolio_value
+    if current_pct > max_pct:
+        return False, f"{ticker} is {current_pct:.0%} of portfolio (max {max_pct:.0%}). Don't add more exposure."
+    return True, f"{ticker} is {current_pct:.0%} of portfolio. Room to add."
 
 
 def check_position_limits(open_positions, current_phase="paper"):

@@ -211,8 +211,72 @@ def _get_sqlite():
             PRIMARY KEY (ticker, date, expiration)
         )
     """)
+    # Portfolio holdings — shares owned per ticker
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS portfolio_holdings (
+            ticker TEXT PRIMARY KEY,
+            shares INTEGER DEFAULT 0,
+            avg_cost REAL,
+            last_updated TEXT
+        )
+    """)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+# ============================================================
+# PORTFOLIO HOLDINGS
+# ============================================================
+
+def save_holding(ticker, shares, avg_cost=None):
+    """Save or update share count for a ticker."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    row = _sanitize_row({
+        "ticker": ticker.upper(), "shares": int(shares),
+        "avg_cost": avg_cost, "last_updated": today,
+    })
+    sb = _get_supabase()
+    if sb:
+        sb.table("portfolio_holdings").upsert(row, on_conflict="ticker").execute()
+    else:
+        conn = _get_sqlite()
+        conn.execute(
+            "INSERT OR REPLACE INTO portfolio_holdings (ticker, shares, avg_cost, last_updated) "
+            "VALUES (?, ?, ?, ?)",
+            (row["ticker"], row["shares"], row["avg_cost"], row["last_updated"]),
+        )
+        conn.commit()
+        conn.close()
+
+
+def get_holdings():
+    """Get all portfolio holdings as a dict {ticker: {shares, avg_cost}}."""
+    sb = _get_supabase()
+    if sb:
+        resp = sb.table("portfolio_holdings").select("*").execute()
+        data = resp.data or []
+    else:
+        conn = _get_sqlite()
+        try:
+            rows = conn.execute("SELECT * FROM portfolio_holdings").fetchall()
+            data = [dict(r) for r in rows]
+        except Exception:
+            data = []
+        conn.close()
+    return {r["ticker"]: {"shares": r.get("shares", 0), "avg_cost": r.get("avg_cost")}
+            for r in data if r.get("shares", 0) > 0}
+
+
+def delete_holding(ticker):
+    """Remove a ticker from holdings."""
+    sb = _get_supabase()
+    if sb:
+        sb.table("portfolio_holdings").delete().eq("ticker", ticker.upper()).execute()
+    else:
+        conn = _get_sqlite()
+        conn.execute("DELETE FROM portfolio_holdings WHERE ticker = ?", (ticker.upper(),))
+        conn.commit()
+        conn.close()
 
 
 # ============================================================
