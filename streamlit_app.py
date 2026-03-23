@@ -2728,6 +2728,59 @@ with tab_scorecard:
     except Exception:
         pass
 
+    # --- Signal Graveyard & Hypothesis Tracker ---
+    try:
+        from db import get_graveyard
+        graveyard_df = get_graveyard()
+        if not graveyard_df.empty:
+            with st.expander(f"Signal Graveyard ({len(graveyard_df)} hypotheses)", expanded=False):
+                st.caption(
+                    "Every hypothesis is pre-registered before testing. The graveyard tracks "
+                    "all ideas (pass + fail) for Deflated Sharpe Ratio correction. "
+                    "More failed signals = MORE confidence in surviving signals."
+                )
+
+                # Color-coded status
+                def style_status(val):
+                    colors = {
+                        "untested": "color: gray",
+                        "testing": "color: dodgerblue",
+                        "passed": "color: green; font-weight: bold",
+                    }
+                    for key in colors:
+                        if key in str(val).lower():
+                            return colors[key]
+                    if "failed" in str(val).lower():
+                        return "color: red"
+                    return ""
+
+                display_cols = ["signal_id", "name", "tier", "status", "layer_reached"]
+                if "best_rvrp" in graveyard_df.columns:
+                    display_cols.append("best_rvrp")
+                if "n_trades" in graveyard_df.columns:
+                    display_cols.append("n_trades")
+                available = [c for c in display_cols if c in graveyard_df.columns]
+
+                styled = graveyard_df[available].style.applymap(
+                    style_status, subset=["status"]
+                ) if "status" in available else graveyard_df[available]
+                st.dataframe(styled, use_container_width=True, hide_index=True)
+
+                # Summary stats
+                total = len(graveyard_df)
+                tested = len(graveyard_df[graveyard_df["status"] != "untested"]) if "status" in graveyard_df.columns else 0
+                passed = len(graveyard_df[graveyard_df["status"].str.contains("passed", na=False)]) if "status" in graveyard_df.columns else 0
+                failed = len(graveyard_df[graveyard_df["status"].str.contains("failed", na=False)]) if "status" in graveyard_df.columns else 0
+
+                g1, g2, g3, g4 = st.columns(4)
+                g1.metric("Registered", total)
+                g2.metric("Tested", tested)
+                g3.metric("Passed", passed)
+                g4.metric("Failed", failed, help="Failed signals are GOOD — they prove the gate works "
+                          "and improve Deflated Sharpe correction for surviving signals.")
+    except Exception:
+        pass
+
 
 # ============================================================
 # TAB: BASKET TEST
