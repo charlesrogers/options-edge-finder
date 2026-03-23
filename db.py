@@ -211,6 +211,24 @@ def _get_sqlite():
             PRIMARY KEY (ticker, date, expiration)
         )
     """)
+    # Option chain snapshots — full chain data per ticker/date/expiry/strike
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS option_chain_snapshots (
+            ticker TEXT NOT NULL,
+            date TEXT NOT NULL,
+            expiration TEXT NOT NULL,
+            option_type TEXT NOT NULL,
+            strike REAL NOT NULL,
+            bid REAL,
+            ask REAL,
+            last_price REAL,
+            volume INTEGER,
+            open_interest INTEGER,
+            implied_volatility REAL,
+            in_the_money INTEGER,
+            PRIMARY KEY (ticker, date, expiration, option_type, strike)
+        )
+    """)
     # Portfolio holdings — shares owned per ticker
     conn.execute("""
         CREATE TABLE IF NOT EXISTS portfolio_holdings (
@@ -377,6 +395,78 @@ def get_iv_on_date(ticker, date_str):
             if row and row["atm_iv"] is not None:
                 return float(row["atm_iv"])
     return None
+
+
+# ============================================================
+# OPTION CHAIN SNAPSHOTS — full chain data for backtesting
+# ============================================================
+
+def record_chain_snapshot(ticker, expiry, chain):
+    """
+    Store full option chain (all strikes, bids, asks, IVs) for a ticker/expiry.
+    This is the raw data needed for proper backtesting with real option prices.
+    """
+    today = datetime.now().strftime("%Y-%m-%d")
+    sb = _get_supabase()
+    rows = []
+
+    for opt_type, df in [("call", chain.calls), ("put", chain.puts)]:
+        if df is None or df.empty:
+            continue
+        for _, row in df.iterrows():
+            r = _sanitize_row({
+                "ticker": ticker,
+                "date": today,
+                "expiration": expiry,
+                "option_type": opt_type,
+                "strike": float(row.get("strike", 0)),
+                "bid": float(row.get("bid", 0) or 0),
+                "ask": float(row.get("ask", 0) or 0),
+                "last_price": float(row.get("lastPrice", 0) or 0),
+                "volume": int(row.get("volume", 0) or 0),
+                "open_interest": int(row.get("openInterest", 0) or 0),
+                "implied_volatility": float(row.get("impliedVolatility", 0) or 0),
+                "in_the_money": 1 if row.get("inTheMoney") else 0,
+            })
+            if r["strike"] > 0:
+                rows.append(r)
+
+    if not rows:
+        return 0
+
+    if sb:
+        # Batch upsert (Supabase supports bulk)
+        for i in range(0, len(rows), 50):
+            batch = rows[i:i + 50]
+            try:
+                sb.table("option_chain_snapshots").upsert(
+                    batch, on_conflict="ticker,date,expiration,option_type,strike"
+                ).execute()
+            except Exception:
+                # Fall back to individual inserts
+                for r in batch:
+                    try:
+                        sb.table("option_chain_snapshots").upsert(
+                            r, on_conflict="ticker,date,expiration,option_type,strike"
+                        ).execute()
+                    except Exception:
+                        pass
+    else:
+        conn = _get_sqlite()
+        for r in rows:
+            cols = ", ".join(r.keys())
+            placeholders = ", ".join(["?"] * len(r))
+            try:
+                conn.execute(
+                    f"INSERT OR REPLACE INTO option_chain_snapshots ({cols}) VALUES ({placeholders})",
+                    tuple(r.values()),
+                )
+            except Exception:
+                pass
+        conn.commit()
+        conn.close()
+
+    return len(rows)
 
 
 # ============================================================

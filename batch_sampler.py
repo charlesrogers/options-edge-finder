@@ -248,11 +248,26 @@ def sample_ticker(ticker, vix_data=None):
             except Exception:
                 pass
 
+            # Store full chain for backtesting (don't discard raw data)
+            if chains:
+                try:
+                    from db import record_chain_snapshot
+                    for exp_key, chain_data in chains.items():
+                        record_chain_snapshot(ticker, exp_key, chain_data)
+                except Exception:
+                    pass  # Non-critical — don't block sampler
+
             # Second expiration for term structure (only if first succeeded)
             if chains and len(expirations) >= 2:
                 try:
                     chain2 = yf_proxy.get_option_chain(ticker, expirations[1])
                     chains[expirations[1]] = chain2
+                    # Store second chain too
+                    try:
+                        from db import record_chain_snapshot
+                        record_chain_snapshot(ticker, expirations[1], chain2)
+                    except Exception:
+                        pass
                 except Exception:
                     pass
 
