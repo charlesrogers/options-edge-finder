@@ -653,60 +653,93 @@ with tab_trades:
             for rec in recommendations:
                 with st.container():
                     st.markdown("---")
-                    col1, col2 = st.columns([3, 2])
 
-                    with col1:
-                        # Tail risk badge
-                        HIGH_RISK = {"NVDA", "TSLA", "AMD", "COIN", "MSTR", "GME", "AMC", "RIVN", "LCID", "SMCI"}
-                        LOW_RISK = {"SPY", "QQQ", "DIA", "IWM", "GLD", "TLT", "XLF", "XLE", "XLK", "XLV"}
-                        tick = rec["ticker"]
-                        if tick in HIGH_RISK:
-                            risk_badge = ":red[HIGH RISK]"
-                        elif tick in LOW_RISK:
-                            risk_badge = ":green[LOW RISK]"
-                        else:
-                            risk_badge = ":orange[MODERATE]"
-                        st.markdown(f"### {tick}  ${rec['price']:.2f}  {risk_badge}")
+                    # Tail risk badge
+                    HIGH_RISK = {"NVDA", "TSLA", "AMD", "COIN", "MSTR", "GME", "AMC", "RIVN", "LCID", "SMCI"}
+                    LOW_RISK = {"SPY", "QQQ", "DIA", "IWM", "GLD", "TLT", "XLF", "XLE", "XLK", "XLV"}
+                    tick = rec["ticker"]
+                    risk_badge = ":red[HIGH RISK]" if tick in HIGH_RISK else ":green[LOW RISK]" if tick in LOW_RISK else ":orange[MODERATE]"
 
-                        if rec["strike"] and rec["premium"] and rec["expiry"]:
-                            st.markdown(
-                                f"**SELL:** {rec['expiry']} ${rec['strike']:.0f} Put "
-                                f"@ ~${rec['premium']:.2f}"
-                            )
-                            max_profit = rec['premium'] * 100 * rec['contracts']
-                            st.caption(
-                                f"Max profit: ${max_profit:,.0f} "
-                                f"({rec['contracts']} contract{'s' if rec['contracts'] > 1 else ''})"
-                            )
-                        else:
-                            st.markdown(f"**SELL premium** — GREEN signal, VRP = {rec['vrp']:.1f}")
+                    st.markdown(f"### {tick}  ${rec['price']:.2f}  {risk_badge}")
 
-                        # Plain English reason
-                        if rec["iv"] and rec["rv"]:
-                            pct_over = ((rec["iv"] - rec["rv"]) / rec["rv"] * 100)
-                            st.caption(
-                                f"IV ({rec['iv']:.1f}%) is {pct_over:.0f}% higher than expected vol "
-                                f"({rec['rv']:.1f}%). You're selling overpriced insurance."
-                            )
+                    # --- The specific trade instruction ---
+                    if rec.get("strike") and rec.get("premium") and rec.get("expiry"):
+                        premium_per_share = rec["premium"]
+                        premium_total = premium_per_share * 100
+                        strike = rec["strike"]
+                        expiry = rec["expiry"]
 
-                        # Worst case warning
-                        if rec["strike"] and rec["price"]:
-                            drop_10pct = rec["price"] * 0.10
-                            loss_10pct = max(0, (rec["price"] - rec["strike"]) + drop_10pct - (rec.get("premium") or 0)) * 100
-                            st.caption(
-                                f"Worst case (10% drop): ~${loss_10pct:,.0f} loss "
-                                f"(you'd own 100 shares at ${rec['strike']:.0f})."
-                            )
+                        # Use 1 contract for paper/starter display
+                        display_contracts = max(rec.get("contracts", 1), 1)
 
-                    with col2:
-                        if rec.get("prob_win"):
-                            st.metric("P(Profit)", f"{rec['prob_win']:.0%}")
-                        if rec.get("vrp"):
-                            st.metric("Edge (VRP)", f"{rec['vrp']:.1f} pts")
                         if current_phase == "paper":
-                            st.metric("Size", "PAPER ONLY", help="Paper trading phase — track but don't execute")
+                            st.markdown(
+                                f"**What to do:** Sell 1 **{tick} {expiry} ${strike:.0f} Put** "
+                                f"at **${premium_per_share:.2f}** per share (${premium_total:.0f} total premium). "
+                                f"*Paper trade only — track but don't execute.*"
+                            )
                         else:
-                            st.metric("Size", f"{rec['contracts']} contract{'s' if rec['contracts'] > 1 else ''}")
+                            st.markdown(
+                                f"**What to do:** Sell {display_contracts} **{tick} {expiry} ${strike:.0f} Put** "
+                                f"at **${premium_per_share:.2f}** per share "
+                                f"(${premium_total * display_contracts:,.0f} total premium)."
+                            )
+                    else:
+                        st.markdown(f"**Signal:** GREEN — conditions favor selling premium on {tick}. "
+                                    f"Check your broker for specific strikes.")
+
+                    # --- Key numbers in columns ---
+                    c1, c2, c3, c4 = st.columns(4)
+                    with c1:
+                        if rec.get("prob_win"):
+                            st.metric("Chance of Profit", f"{rec['prob_win']:.0%}")
+                        elif rec.get("iv") and rec.get("rv") and rec["iv"] > 0:
+                            # Approximate from VRP: positive VRP ≈ 70-85% win rate historically
+                            approx_win = min(85, 60 + (rec.get("vrp", 0) or 0) * 2)
+                            st.metric("Est. Chance of Profit", f"~{approx_win:.0f}%",
+                                      help="Estimated from VRP. Backtest GREEN win rate: 80%.")
+                    with c2:
+                        if rec.get("strike") and rec.get("premium"):
+                            st.metric("You Collect", f"${rec['premium'] * 100:,.0f}",
+                                      help="Premium per contract (100 shares)")
+                    with c3:
+                        if rec.get("strike") and rec.get("price"):
+                            # Max loss if assigned at strike (but you own the stock)
+                            assignment_cost = rec["strike"] * 100
+                            st.metric("If Assigned", f"${assignment_cost:,.0f}",
+                                      help=f"You'd buy 100 shares of {tick} at ${rec['strike']:.0f}")
+                    with c4:
+                        if rec.get("vrp"):
+                            st.metric("Edge (VRP)", f"{rec['vrp']:.1f} pts",
+                                      help="Volatility Risk Premium — how overpriced the option is")
+
+                    # --- Why this trade ---
+                    if rec.get("iv") and rec.get("rv"):
+                        pct_over = ((rec["iv"] - rec["rv"]) / rec["rv"] * 100)
+                        st.caption(
+                            f"**Why:** The market is pricing {tick} options as if the stock will move "
+                            f"{rec['iv']:.0f}% annualized, but our forecast says it'll only move "
+                            f"{rec['rv']:.0f}%. That {pct_over:.0f}% gap is your edge."
+                        )
+
+                    # --- Worst case ---
+                    if rec.get("strike") and rec.get("price"):
+                        drop_10 = rec["price"] * 0.90
+                        if drop_10 < rec["strike"]:
+                            intrinsic_loss = (rec["strike"] - drop_10) * 100
+                            net_loss = intrinsic_loss - (rec.get("premium", 0) or 0) * 100
+                            st.caption(
+                                f"**Worst case (10% crash):** {tick} drops to ${drop_10:.0f}. "
+                                f"You buy 100 shares at ${rec['strike']:.0f} (net cost after premium: "
+                                f"${rec['strike'] * 100 - (rec.get('premium', 0) or 0) * 100:,.0f}). "
+                                f"Paper loss: ~${net_loss:,.0f}."
+                            )
+                        else:
+                            st.caption(
+                                f"**Worst case (10% crash):** {tick} drops to ${drop_10:.0f}. "
+                                f"Put expires worthless — you keep the ${(rec.get('premium', 0) or 0) * 100:.0f} premium. "
+                                f"Strike ${rec['strike']:.0f} is below the crash price."
+                            )
         else:
             st.info("No trades recommended today. The system is being selective — this is by design. "
                     "(Sinclair: discipline IS edge. We only trade when conditions strongly favor selling.)")
