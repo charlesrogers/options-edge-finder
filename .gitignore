@@ -6,3 +6,5 @@ local.db
 iv_history.db
 trades.json
 .streamlit/secrets.toml
+data/eodhd/raw/*.json
+data/eodhd/processed/*.parquet
