@@ -186,7 +186,7 @@ def _get_sqlite():
             status TEXT DEFAULT 'untested',
             layer_reached INTEGER DEFAULT 0,
             best_sharpe REAL,
-            best_rvrp REAL,
+            best_clv REAL,
             n_trades INTEGER,
             failure_reason TEXT,
             notes TEXT
@@ -383,14 +383,14 @@ def register_hypothesis(signal_id, name, tier, hypothesis):
 
 
 def update_hypothesis_result(signal_id, status, layer_reached,
-                              best_sharpe=None, best_rvrp=None, n_trades=None,
+                              best_sharpe=None, best_clv=None, n_trades=None,
                               failure_reason=None, notes=None):
     """Record test results for a hypothesis."""
     today = datetime.now().strftime("%Y-%m-%d")
     update = {
         "status": status, "layer_reached": layer_reached,
         "tested_date": today, "best_sharpe": best_sharpe,
-        "best_rvrp": best_rvrp, "n_trades": n_trades,
+        "best_clv": best_clv, "n_trades": n_trades,
         "failure_reason": failure_reason, "notes": notes,
     }
     sb = _get_supabase()
@@ -768,7 +768,7 @@ def get_prediction_scorecard():
             "std_rvrp": round(float(clv.std()), 6),
             "pct_positive_rvrp": round(float((clv > 0).mean() * 100), 2),
             "count": len(clv),
-            "best_rvrp": round(float(clv.max()), 6),
+            "best_clv": round(float(clv.max()), 6),
             "worst_rvrp": round(float(clv.min()), 6),
         }
         # CLV by signal
