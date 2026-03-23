@@ -452,7 +452,7 @@ with tab_trades:
     st.header("Today's Trades")
 
     # Default watchlist
-    DEFAULT_WATCHLIST = "SPY, QQQ, AAPL, MSFT, NVDA, TSLA, META, GOOGL, AMZN, JPM"
+    DEFAULT_WATCHLIST = "TXN, TMUS, GOOGL, AMZN, AAPL, KKR, DIS"
     if "watchlist" not in st.session_state:
         st.session_state.watchlist = DEFAULT_WATCHLIST
 
