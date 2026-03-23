@@ -1,9 +1,13 @@
 """
-Pre-register core hypotheses H01-H04 in the signal graveyard.
+Pre-register hypotheses H01-H16 in the signal graveyard.
 
 MUST be run BEFORE any testing. This is the scientific discipline that
 prevents post-hoc rationalization ("we found a pattern!"). Every hypothesis
 is documented before we look at the data.
+
+Tier 1: Core signal (if these fail, stop everything)
+Tier 2: Edge sizing (optimal thresholds)
+Tier 3: Model adjustments (incremental improvements)
 
 Usage:
   python register_hypotheses.py
@@ -62,6 +66,138 @@ HYPOTHESES = [
             "Pass: Spearman rho > 0.15, p < 0.01, CLV at VRP=6+ is 2x CLV at VRP=2-3. "
             "Fail: Flat or negative correlation (VRP magnitude doesn't matter, "
             "only its sign matters)."
+        ),
+    },
+    # --- Tier 2: Edge Sizing ---
+    {
+        "signal_id": "H05",
+        "name": "Optimal VRP Threshold",
+        "tier": 2,
+        "hypothesis": (
+            "There exists an optimal minimum VRP threshold below which Realized VRP "
+            "turns negative. Plot CLV-vs-VRP curve and find breakpoint. "
+            "Pass: clear breakpoint, stable across time halves, optimal threshold CLV > 2%. "
+            "Fail: monotonically increasing with no breakpoint (always trade higher VRP)."
+        ),
+    },
+    {
+        "signal_id": "H06",
+        "name": "IV Rank Threshold",
+        "tier": 2,
+        "hypothesis": (
+            "IV Rank has an optimal minimum below which selling premium has zero CLV. "
+            "Current threshold: 30%. May be wrong. "
+            "Pass: breakpoint between 15-40%, CLV below threshold near zero. "
+            "Fail: IV Rank has no relationship to CLV after controlling for VRP (drop it)."
+        ),
+    },
+    {
+        "signal_id": "H07",
+        "name": "IV Compression as Entry Signal",
+        "tier": 2,
+        "hypothesis": (
+            "When IV has already dropped >5% from 10-day high by signal time, "
+            "remaining VRP is smaller ('line has already moved'). "
+            "Pass: CLV(fresh high IV) > CLV(compressing) by >1%, t-test p<0.05. "
+            "Fail: no difference (IV compression speed doesn't matter)."
+        ),
+    },
+    {
+        "signal_id": "H08",
+        "name": "VRP/IV Ratio vs Absolute VRP",
+        "tier": 2,
+        "hypothesis": (
+            "VRP as percentage of IV (VRP/IV) is a better predictor than absolute VRP. "
+            "Sinclair: low-vol VRP = 19% of IV, high-vol = 13%. "
+            "Pass: Spearman rho(VRP/IV, CLV) > rho(VRP, CLV), permutation p<0.05. "
+            "Fail: absolute VRP is equally predictive (keep current system)."
+        ),
+    },
+    # --- Tier 3: Model Adjustments ---
+    {
+        "signal_id": "H09",
+        "name": "Vol Surface VRP > ATM VRP",
+        "tier": 3,
+        "hypothesis": (
+            "Selecting strikes based on VRP surface (where IV minus fair value is "
+            "richest) produces higher CLV than always selling ATM. "
+            "Pass: CLV uplift > 0.5%, works across 50%+ of tickers. "
+            "Fail: surface VRP doesn't improve over ATM (save the complexity)."
+        ),
+    },
+    {
+        "signal_id": "H10",
+        "name": "Bayesian Probability > Static Thresholds",
+        "tier": 3,
+        "hypothesis": (
+            "Bayesian logistic regression produces better-calibrated probabilities "
+            "than static point-scoring. "
+            "Pass: calibration error <5%, CLV uplift >0.5%, OOS log-likelihood +5%. "
+            "Fail: not better calibrated (static thresholds are fine)."
+        ),
+    },
+    {
+        "signal_id": "H11",
+        "name": "HAR-RV + GARCH Blend",
+        "tier": 3,
+        "hypothesis": (
+            "Blended forecast (GARCH + HAR-RV per Module 1D) beats either alone. "
+            "Pass: blend QLIKE < min(GARCH, HAR-RV), improvement >3%, stable weights. "
+            "Fail: one model dominates (use that model alone)."
+        ),
+    },
+    {
+        "signal_id": "H12",
+        "name": "Regime Filter Adds Value",
+        "tier": 3,
+        "hypothesis": (
+            "Excluding trades during unfavorable regimes (High Vol, Crisis) improves "
+            "CLV vs trading all GREEN signals. Must beat random exclusion (Module 5C). "
+            "Pass: CLV uplift >0.5%, z-test p<0.05 vs random. "
+            "Fail: regime filter doesn't beat random exclusion (drop it)."
+        ),
+    },
+    {
+        "signal_id": "H13",
+        "name": "Earnings Exclusion",
+        "tier": 3,
+        "hypothesis": (
+            "Excluding trades within 5 days of earnings improves CLV because "
+            "event vol is often justified. "
+            "Pass: CLV(no-earnings) > CLV(near-earnings) by >1%, t-test p<0.05. "
+            "Fail: no difference (earnings vol is also overpriced — interesting!)."
+        ),
+    },
+    {
+        "signal_id": "H14",
+        "name": "FOMC Exclusion",
+        "tier": 3,
+        "hypothesis": (
+            "Excluding trades within 2 days of FOMC improves CLV. "
+            "Pass: CLV(away) significantly > CLV(near-FOMC). "
+            "Fail: no difference (FOMC risk already overpriced in IV)."
+        ),
+    },
+    {
+        "signal_id": "H15",
+        "name": "Term Structure as Independent Signal",
+        "tier": 3,
+        "hypothesis": (
+            "Term structure (contango/backwardation) provides independent predictive "
+            "power beyond VRP and IV Rank. "
+            "Pass: Fama-MacBeth coefficient significant (t>2.0), VIF<5. "
+            "Fail: redundant with VRP after controlling (drop from signal)."
+        ),
+    },
+    {
+        "signal_id": "H16",
+        "name": "Skew-Adjusted Kelly > Fixed Quarter-Kelly",
+        "tier": 3,
+        "hypothesis": (
+            "Position sizing that accounts for skewness produces better risk-adjusted "
+            "returns than fixed 25% Kelly. Sinclair: halve, halve again, adjust for skew. "
+            "Pass: Sortino improvement >0.2, max DD reduction >10%. "
+            "Fail: skew adjustment reduces P&L more than drawdown (fixed is fine)."
         ),
     },
 ]

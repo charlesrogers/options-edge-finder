@@ -44,37 +44,37 @@ DEFAULT_TICKERS = [
     "CRM", "ORCL", "ADBE", "NFLX", "AVGO", "QCOM", "MU", "AMAT", "LRCX", "KLAC",
     # More tech (20)
     "MRVL", "SNPS", "CDNS", "PANW", "CRWD", "ZS", "FTNT", "DDOG", "SNOW", "MDB",
-    "NET", "SHOP", "SQ", "UBER", "LYFT", "DASH", "ABNB", "RBLX", "U", "TWLO",
+    "NET", "SHOP", "XYZ", "UBER", "LYFT", "DASH", "ABNB", "RBLX", "U", "TWLO",
     # Finance (20)
     "JPM", "BAC", "GS", "MS", "WFC", "C", "BLK", "SCHW", "AXP", "V",
     "MA", "PYPL", "COIN", "HOOD", "ICE", "CME", "NDAQ", "BX", "KKR", "APO",
     # Healthcare (20)
     "UNH", "JNJ", "PFE", "ABBV", "MRK", "LLY", "BMY", "AMGN", "GILD", "MRNA",
-    "REGN", "VRTX", "ISRG", "DXCM", "ZTS", "CI", "HUM", "ELV", "CVS", "WBA",
+    "REGN", "VRTX", "ISRG", "DXCM", "ZTS", "CI", "HUM", "ELV", "CVS", "MCK",
     # Consumer (20)
     "WMT", "COST", "HD", "LOW", "TGT", "NKE", "SBUX", "MCD", "DIS", "CMCSA",
     "PEP", "KO", "PG", "CL", "EL", "LULU", "ROST", "TJX", "DG", "DLTR",
     # Energy (15)
     "XOM", "CVX", "COP", "SLB", "OXY", "DVN", "HAL", "MPC", "PSX", "VLO",
-    "EOG", "PXD", "FANG", "APA", "MRO",
+    "EOG", "FANG", "APA", "DINO", "TPL",
     # Industrial / Aerospace (20)
     "BA", "CAT", "DE", "GE", "UPS", "FDX", "LMT", "RTX", "HON", "MMM",
     "GD", "NOC", "WM", "RSG", "CSX", "UNP", "NSC", "DAL", "UAL", "AAL",
     # Telecom / Media (10)
-    "T", "VZ", "TMUS", "CHTR", "PARA", "WBD", "NWSA", "FOX", "LYV", "MTCH",
+    "T", "VZ", "TMUS", "CHTR", "WBD", "NWSA", "FOX", "LYV", "MTCH", "SPOT",
     # Auto / EV (10)
     "F", "GM", "RIVN", "LCID", "NIO", "LI", "XPEV", "TM", "HMC", "STLA",
     # Real estate / REITs (10)
     "AMT", "PLD", "CCI", "EQIX", "SPG", "O", "DLR", "PSA", "WELL", "AVB",
     # Biotech small-mid (10)
-    "SRPT", "ALNY", "SGEN", "BMRN", "EXAS", "HALO", "IONS", "RARE", "PCVX", "CRSP",
+    "SRPT", "ALNY", "BMRN", "EXAS", "HALO", "IONS", "RARE", "PCVX", "CRSP", "EXEL",
     # Crypto-adjacent (5)
     "MARA", "RIOT", "MSTR", "HUT", "BITF",
     # High-vol / popular options (20)
     "GME", "AMC", "PLTR", "SOFI", "SMCI", "ARM", "AI", "IONQ", "RGTI", "QUBT",
-    "AFRM", "UPST", "CLOV", "WISH", "BB", "NOK", "SNAP", "PINS", "ROKU", "Z",
+    "AFRM", "UPST", "CLOV", "BB", "NOK", "SNAP", "PINS", "ROKU", "Z", "RDDT",
     # Materials / Mining (10)
-    "FCX", "NEM", "GOLD", "BHP", "RIO", "VALE", "NUE", "STLD", "CLF", "X",
+    "FCX", "NEM", "GOLD", "BHP", "RIO", "VALE", "NUE", "STLD", "CLF", "AA",
     # Utilities (5)
     "NEE", "DUK", "SO", "D", "AEP",
     # Cannabis (5)
