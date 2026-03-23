@@ -94,8 +94,8 @@ def prepare_features(predictions_df):
         feature_cols.append("fomc_near")
 
     # Build X matrix
-    X_raw = np.column_stack([features[col] for col in feature_cols])
-    y = df["seller_won"].values.astype(float)
+    X_raw = np.column_stack([features[col] for col in feature_cols]).astype(np.float64)
+    y = df["seller_won"].values.astype(np.float64)
 
     # Standardize (z-score)
     scalers = {}
@@ -117,9 +117,9 @@ def prepare_features(predictions_df):
 
 def _log_likelihood(params, X, y, l2_lambda=1.0):
     """Negative log-likelihood with L2 penalty (equivalent to Normal prior)."""
-    intercept = params[0]
-    betas = params[1:]
-    logits = intercept + X @ betas
+    intercept = float(params[0])
+    betas = np.asarray(params[1:], dtype=np.float64)
+    logits = np.asarray(intercept + X @ betas, dtype=np.float64)
     probs = expit(logits)
 
     # Clip to avoid log(0)
