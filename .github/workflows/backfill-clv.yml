@@ -24,6 +24,25 @@
 #   ALTER TABLE predictions ADD COLUMN IF NOT EXISTS iv_at_scoring REAL;
 #   ALTER TABLE predictions ADD COLUMN IF NOT EXISTS clv_realized REAL;
 #
+# Also create vol_surface_snapshots table:
+#
+#   CREATE TABLE IF NOT EXISTS vol_surface_snapshots (
+#       ticker TEXT NOT NULL,
+#       date TEXT NOT NULL,
+#       expiration TEXT NOT NULL,
+#       sabr_alpha REAL,
+#       sabr_rho REAL,
+#       sabr_nu REAL,
+#       sabr_beta REAL DEFAULT 0.5,
+#       atm_iv REAL,
+#       calibration_rmse REAL,
+#       n_strikes INTEGER,
+#       dte INTEGER,
+#       richest_strike REAL,
+#       richest_vrp REAL,
+#       PRIMARY KEY (ticker, date, expiration)
+#   );
+#
 name: Backfill CLV + Register Hypotheses
 on:
   workflow_dispatch:

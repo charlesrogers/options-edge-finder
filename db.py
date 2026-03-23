@@ -192,6 +192,25 @@ def _get_sqlite():
             notes TEXT
         )
     """)
+    # Vol surface snapshots — SABR params per ticker/expiry/date
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS vol_surface_snapshots (
+            ticker TEXT NOT NULL,
+            date TEXT NOT NULL,
+            expiration TEXT NOT NULL,
+            sabr_alpha REAL,
+            sabr_rho REAL,
+            sabr_nu REAL,
+            sabr_beta REAL DEFAULT 0.5,
+            atm_iv REAL,
+            calibration_rmse REAL,
+            n_strikes INTEGER,
+            dte INTEGER,
+            richest_strike REAL,
+            richest_vrp REAL,
+            PRIMARY KEY (ticker, date, expiration)
+        )
+    """)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -294,6 +313,45 @@ def get_iv_on_date(ticker, date_str):
             if row and row["atm_iv"] is not None:
                 return float(row["atm_iv"])
     return None
+
+
+# ============================================================
+# VOL SURFACE SNAPSHOTS — SABR params per ticker/expiry/date
+# ============================================================
+
+def record_surface(ticker, expiry, sabr_params, richest_strike=None, richest_vrp=None):
+    """Store SABR calibration results for one ticker/expiration."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    if not sabr_params:
+        return
+    row = _sanitize_row({
+        "ticker": ticker, "date": today, "expiration": expiry,
+        "sabr_alpha": sabr_params.get("alpha"),
+        "sabr_rho": sabr_params.get("rho"),
+        "sabr_nu": sabr_params.get("nu"),
+        "sabr_beta": sabr_params.get("beta", 0.5),
+        "atm_iv": sabr_params.get("atm_iv"),
+        "calibration_rmse": sabr_params.get("rmse"),
+        "n_strikes": sabr_params.get("n_strikes"),
+        "dte": sabr_params.get("dte"),
+        "richest_strike": richest_strike,
+        "richest_vrp": richest_vrp,
+    })
+    sb = _get_supabase()
+    if sb:
+        sb.table("vol_surface_snapshots").upsert(
+            row, on_conflict="ticker,date,expiration"
+        ).execute()
+    else:
+        conn = _get_sqlite()
+        cols = ", ".join(row.keys())
+        placeholders = ", ".join(["?"] * len(row))
+        conn.execute(
+            f"INSERT OR REPLACE INTO vol_surface_snapshots ({cols}) VALUES ({placeholders})",
+            tuple(row.values()),
+        )
+        conn.commit()
+        conn.close()
 
 
 # ============================================================

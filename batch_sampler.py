@@ -270,6 +270,27 @@ def sample_ticker(ticker, vix_data=None):
                 except Exception:
                     pass
 
+        # SABR vol surface calibration (Proposal 1A)
+        sabr_results = {}
+        try:
+            from sabr import calibrate_surface, compute_vrp_surface, find_richest_strike
+            from db import record_surface
+            if chains and rv_forecast:
+                sabr_results = calibrate_surface(chains, current_price)
+                for exp_str, params in sabr_results.items():
+                    # Compute VRP surface and find richest strike
+                    T = params.get("dte", 30) / 365.0
+                    rv_dec = rv_forecast / 100.0  # convert from % to decimal
+                    vrp_surface = compute_vrp_surface(params, current_price, rv_dec, T)
+                    richest = find_richest_strike(vrp_surface)
+                    record_surface(
+                        ticker, exp_str, params,
+                        richest_strike=richest["strike"] if richest else None,
+                        richest_vrp=richest["vrp"] if richest else None,
+                    )
+        except Exception:
+            pass  # SABR is non-critical — don't block the sampler
+
         # If no options IV available, use pseudo-IV for the snapshot
         if current_iv is None:
             current_iv = rv_30 * 1.1 if rv_30 else (rv_20 * 1.1 if rv_20 else None)
