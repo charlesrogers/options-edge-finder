@@ -232,32 +232,34 @@ def get_position_size(portfolio_value, strike_price, current_phase="paper"):
     return 1, "Default 1 contract"
 
 
-def size_covered_call(shares_owned, existing_calls=0, cover_pct=0.25):
+def size_put_spread(portfolio_value, spread_width, credit_per_share,
+                     current_phase="paper", max_risk_pct=0.02):
     """
-    How many covered calls to sell on shares you already own.
+    How many bull put spreads to sell.
 
     Args:
-        shares_owned: total shares of this ticker
-        existing_calls: calls already sold on this ticker
-        cover_pct: fraction of shares to cover (0.25 = conservative)
+        portfolio_value: total portfolio value
+        spread_width: distance between strikes in dollars (e.g., 10 for $10 wide)
+        credit_per_share: net credit received per share
+        current_phase: deployment phase
+        max_risk_pct: max % of portfolio at risk per position (default 2%)
 
     Returns:
-        (contracts: int, reason: str)
+        (n_spreads: int, reason: str)
     """
-    if shares_owned < 100:
-        return 0, f"Need at least 100 shares to sell covered calls (have {shares_owned})"
+    max_loss_per = (spread_width - credit_per_share) * 100
+    if max_loss_per <= 0:
+        return 0, "Spread has no risk (credit >= width)"
 
-    max_calls = shares_owned // 100
-    available = max_calls - existing_calls
-    if available <= 0:
-        return 0, f"All {max_calls * 100} shares already covered"
+    if current_phase == "paper":
+        return 0, "Paper only"
+    if current_phase == "starter":
+        return 1, "Starter: 1 spread"
 
-    target = max(1, int(max_calls * cover_pct))
-    new_calls = min(target - existing_calls, available)
-    new_calls = max(0, new_calls)
-
-    covered_shares = (existing_calls + new_calls) * 100
-    return new_calls, f"Cover {covered_shares} of {shares_owned} shares ({covered_shares/shares_owned:.0%})"
+    max_from_portfolio = int(portfolio_value * max_risk_pct / max_loss_per)
+    n_spreads = min(max(0, max_from_portfolio), 5)  # hard cap 5 per name
+    total_risk = n_spreads * max_loss_per
+    return n_spreads, f"{n_spreads} spread{'s' if n_spreads != 1 else ''} (${total_risk:,.0f} at risk)"
 
 
 def size_cash_secured_put(portfolio_value, available_cash, strike_price,

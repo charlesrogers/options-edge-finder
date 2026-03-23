@@ -2,10 +2,11 @@
 headless = true
 
 [theme]
-# House design system (oklch-based, Stripe/Robinhood-inspired)
-# Matches grade-optimizer and style-guide repo
-primaryColor = "#7c5cff"
-backgroundColor = "#0f1117"
-secondaryBackgroundColor = "#1a1c2e"
-textColor = "#e8e9ed"
+# House design system — light mode (Stripe-inspired)
+# From style-guide repo (oklch → hex)
+base = "light"
+primaryColor = "#6344df"
+backgroundColor = "#fafbfc"
+secondaryBackgroundColor = "#f0f1f5"
+textColor = "#1a1d2e"
 font = "sans serif"

@@ -627,42 +627,54 @@ with tab_trades:
                 # Holdings for this ticker
                 shares_owned = holdings.get(ticker, {}).get("shares", 0)
 
-                # Find specific strikes for both strategies
-                put_strike = None
-                put_premium = None
-                call_strike = None
-                call_premium = None
+                # Find put spread legs from the chain
+                sell_strike = None
+                sell_premium = None
+                buy_strike = None
+                buy_premium = None
                 expiry = None
+                spread_width = None
+                net_credit = None
+                max_loss_per_spread = None
 
                 if chains and expirations:
                     first_exp = expirations[0]
                     expiry = first_exp
 
-                    # Cash-secured put: ~5% OTM
                     if first_exp in chains and hasattr(chains[first_exp], 'puts') and not chains[first_exp].puts.empty:
                         puts = chains[first_exp].puts.copy()
-                        target = current_price * 0.95
-                        puts["dist"] = abs(puts["strike"] - target)
-                        best = puts.loc[puts["dist"].idxmin()]
-                        put_strike = float(best["strike"])
-                        bid = best.get("bid", 0) or 0
-                        ask = best.get("ask", 0) or 0
-                        put_premium = round((bid + ask) / 2, 2) if bid > 0 else float(best.get("lastPrice", 0))
+                        puts = puts[puts["strike"] > 0].copy()
 
-                    # Covered call: ~5% OTM (only if he owns shares)
-                    if shares_owned >= 100 and first_exp in chains and hasattr(chains[first_exp], 'calls') and not chains[first_exp].calls.empty:
-                        calls_df = chains[first_exp].calls.copy()
-                        target = current_price * 1.05
-                        calls_df["dist"] = abs(calls_df["strike"] - target)
-                        best_call = calls_df.loc[calls_df["dist"].idxmin()]
-                        call_strike = float(best_call["strike"])
-                        bid = best_call.get("bid", 0) or 0
-                        ask = best_call.get("ask", 0) or 0
-                        call_premium = round((bid + ask) / 2, 2) if bid > 0 else float(best_call.get("lastPrice", 0))
+                        # Sell leg: ~5% OTM put
+                        sell_target = current_price * 0.95
+                        puts["sell_dist"] = abs(puts["strike"] - sell_target)
+                        sell_row = puts.loc[puts["sell_dist"].idxmin()]
+                        sell_strike = float(sell_row["strike"])
+                        s_bid = sell_row.get("bid", 0) or 0
+                        s_ask = sell_row.get("ask", 0) or 0
+                        sell_premium = round((s_bid + s_ask) / 2, 2) if s_bid > 0 else float(sell_row.get("lastPrice", 0))
+
+                        # Buy leg: ~10% OTM OR $10 wide, whichever is narrower
+                        buy_target_pct = current_price * 0.90
+                        buy_target_width = sell_strike - 10
+                        buy_target = max(buy_target_pct, buy_target_width)  # narrower spread
+                        buy_candidates = puts[puts["strike"] < sell_strike].copy()
+                        if not buy_candidates.empty:
+                            buy_candidates["buy_dist"] = abs(buy_candidates["strike"] - buy_target)
+                            buy_row = buy_candidates.loc[buy_candidates["buy_dist"].idxmin()]
+                            buy_strike = float(buy_row["strike"])
+                            b_bid = buy_row.get("bid", 0) or 0
+                            b_ask = buy_row.get("ask", 0) or 0
+                            buy_premium = round((b_bid + b_ask) / 2, 2) if b_ask > 0 else float(buy_row.get("lastPrice", 0))
+
+                            spread_width = sell_strike - buy_strike
+                            net_credit = round(sell_premium - buy_premium, 2) if sell_premium and buy_premium else None
+                            if spread_width > 0 and net_credit and net_credit > 0:
+                                max_loss_per_spread = round((spread_width - net_credit) * 100, 2)
 
                 # For backward compat
-                strike_price = put_strike
-                premium = put_premium
+                strike_price = sell_strike
+                premium = net_credit
 
                 # Bayesian probability
                 prob_win = None
@@ -681,36 +693,32 @@ with tab_trades:
                 except Exception:
                     pass
 
-                # Phase-aware position sizing
-                try:
-                    from discipline import get_position_size
-                    contracts, size_reason = get_position_size(
-                        portfolio_value, strike_price or current_price, current_phase
-                    )
-                except Exception:
-                    contracts = 0 if current_phase == "paper" else 1
-                    size_reason = "Default sizing"
+                # Put spread sizing
+                n_spreads = 0
+                size_reason = ""
+                if spread_width and net_credit and net_credit > 0:
+                    try:
+                        from discipline import size_put_spread
+                        n_spreads, size_reason = size_put_spread(
+                            portfolio_value, spread_width, net_credit, current_phase
+                        )
+                    except Exception:
+                        n_spreads = 0 if current_phase == "paper" else 1
+                        size_reason = "Default 1 spread"
 
                 vrp_pct = ((current_iv - rv_forecast) / current_iv * 100) if current_iv and rv_forecast and current_iv > 0 else None
-
-                # Covered call sizing
-                cc_contracts = 0
-                cc_reason = ""
-                if shares_owned >= 100:
-                    try:
-                        from discipline import size_covered_call
-                        cc_contracts, cc_reason = size_covered_call(shares_owned, 0, 0.25)
-                    except Exception:
-                        cc_contracts = shares_owned // 400  # 25% default
 
                 recommendations.append({
                     "ticker": ticker,
                     "price": current_price,
-                    "strike": put_strike,
-                    "premium": put_premium,
-                    "call_strike": call_strike,
-                    "call_premium": call_premium,
-                    "cc_contracts": cc_contracts,
+                    "sell_strike": sell_strike,
+                    "sell_premium": sell_premium,
+                    "buy_strike": buy_strike,
+                    "buy_premium": buy_premium,
+                    "spread_width": spread_width,
+                    "net_credit": net_credit,
+                    "max_loss": max_loss_per_spread,
+                    "n_spreads": n_spreads,
                     "shares_owned": shares_owned,
                     "expiry": expiry,
                     "iv": current_iv,
@@ -718,7 +726,6 @@ with tab_trades:
                     "vrp": vrp,
                     "vrp_pct": vrp_pct,
                     "prob_win": prob_win,
-                    "contracts": contracts,
                     "signal": signal,
                 })
             except Exception:
@@ -755,49 +762,67 @@ with tab_trades:
                     else:
                         st.markdown(f"### {tick}  ${rec['price']:.2f}  {risk_badge}")
 
-                    # --- Strategy A: Covered Call (if he owns shares) ---
-                    if shares >= 100 and rec.get("call_strike") and rec.get("call_premium"):
-                        cc = rec["cc_contracts"]
-                        c_strike = rec["call_strike"]
-                        c_prem = rec["call_premium"]
-                        c_total = c_prem * 100 * max(cc, 1)
-                        covered_shares = max(cc, 1) * 100
-                        upside = (c_strike - rec["price"]) / rec["price"] * 100
+                    # --- Put Spread Recommendation (PRIMARY) ---
+                    s_sell = rec.get("sell_strike")
+                    s_buy = rec.get("buy_strike")
+                    s_credit = rec.get("net_credit")
+                    s_max_loss = rec.get("max_loss")
+                    s_expiry = rec.get("expiry")
+                    s_width = rec.get("spread_width")
+                    n_sp = max(rec.get("n_spreads", 1), 1)  # show at least 1 for display
 
-                        phase_note = " *Paper trade only.*" if current_phase == "paper" else ""
+                    if s_sell and s_buy and s_credit and s_credit > 0 and s_max_loss and s_max_loss > 0:
+                        credit_total = s_credit * 100 * n_sp
+                        loss_total = s_max_loss * n_sp
+                        ror = (s_credit * 100) / s_max_loss * 100 if s_max_loss > 0 else 0
+
+                        phase_note = " *(Paper trade — track but don't execute)*" if current_phase == "paper" else ""
+
                         st.markdown(
-                            f"**Covered Call:** Sell {max(cc, 1)} **{tick} {rec['expiry']} "
-                            f"${c_strike:.0f} Call** at **${c_prem:.2f}**/share "
-                            f"(${c_total:,.0f} premium). "
-                            f"Covers {covered_shares} of your {shares} shares.{phase_note}"
-                        )
-                        st.caption(
-                            f"You keep shares + premium unless {tick} rises above ${c_strike:.0f} "
-                            f"(+{upside:.1f}%), in which case you sell at a profit."
+                            f"**Sell ${s_sell:.0f}/${s_buy:.0f} Put Spread** | {s_expiry} expiry{phase_note}"
                         )
 
-                    # --- Strategy B: Cash-Secured Put ---
-                    if rec.get("strike") and rec.get("premium"):
-                        p_strike = rec["strike"]
-                        p_prem = rec["premium"]
-                        p_total = p_prem * 100
-                        cash_needed = p_strike * 100
+                        # Key numbers
+                        m1, m2, m3 = st.columns(3)
+                        with m1:
+                            st.metric("You Collect", f"${credit_total:,.0f}",
+                                      help=f"${s_credit:.2f}/share x 100 x {n_sp} spread{'s' if n_sp > 1 else ''}")
+                        with m2:
+                            st.metric("Max Risk", f"${loss_total:,.0f}",
+                                      help=f"${s_width:.0f} wide spread - ${s_credit:.2f} credit = ${s_max_loss/100:.2f}/share max loss")
+                        with m3:
+                            st.metric("Return on Risk", f"{ror:.0f}%",
+                                      help="Credit / max loss. Higher = better edge.")
 
-                        phase_note = " *Paper trade only.*" if current_phase == "paper" else ""
-                        st.markdown(
-                            f"**Cash-Secured Put:** Sell 1 **{tick} {rec['expiry']} "
-                            f"${p_strike:.0f} Put** at **${p_prem:.2f}**/share "
-                            f"(${p_total:,.0f} premium). "
-                            f"Requires ${cash_needed:,.0f} cash reserve.{phase_note}"
-                        )
-                        if shares > 0:
-                            st.caption(f"If assigned, you add 100 shares to your existing {shares}.")
+                        # What happens (plain English)
+                        sell_otm_pct = (rec["price"] - s_sell) / rec["price"] * 100
+                        buy_otm_pct = (rec["price"] - s_buy) / rec["price"] * 100
+
+                        # Probability estimate
+                        prob_text = ""
+                        if rec.get("prob_win"):
+                            prob_text = f"~{rec['prob_win']:.0%}"
                         else:
-                            st.caption(f"If assigned, you buy 100 shares at ${p_strike:.0f}.")
+                            prob_text = f"~{min(85, 60 + (rec.get('vrp', 0) or 0) * 2):.0f}%"
 
-                    if not (shares >= 100 and rec.get("call_strike")) and not rec.get("strike"):
+                        st.markdown(f"""
+**What happens:**
+- **{prob_text} likely:** {tick} stays above ${s_sell:.0f} → you keep ${credit_total:,.0f}. Done.
+- **{tick} drops to ${s_buy:.0f}-${s_sell:.0f}:** partial loss (up to ${loss_total:,.0f})
+- **{tick} drops below ${s_buy:.0f}:** max loss ${loss_total:,.0f}. That's it. No shares change hands.
+""")
+
+                        # Why
+                        if rec.get("iv") and rec.get("rv"):
+                            gap = rec["iv"] - rec["rv"]
+                            st.caption(
+                                f"**Why:** Market prices {tick} at {rec['iv']:.0f}% vol, we forecast {rec['rv']:.0f}%. "
+                                f"That {gap:.0f}-point gap means put buyers are overpaying."
+                            )
+
+                    else:
                         st.markdown(f"**Signal:** GREEN — conditions favor selling premium on {tick}. "
-                                    f"Check your broker for specific strikes.")
+                                    f"Check your broker for put spread opportunities.")
 
                     # --- Key numbers in columns ---
                     c1, c2, c3, c4 = st.columns(4)
