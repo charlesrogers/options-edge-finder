@@ -210,13 +210,14 @@ TIPS = {
 st.title("Options Edge Finder")
 st.caption("Know when to sell. Know when to fold.")
 
-tab_guide, tab_dashboard, tab_analyzer, tab_positions, tab_scorecard, tab_basket = st.tabs([
+tab_guide, tab_dashboard, tab_analyzer, tab_positions, tab_scorecard, tab_basket, tab_edgelab = st.tabs([
     "Getting Started",
     "Dashboard",
     "Trade Analyzer",
     "My Positions",
     "Scorecard",
     "Basket Test",
+    "Edge Lab",
 ])
 
 # Ticker input — persistent across tabs via session state
@@ -668,6 +669,45 @@ with tab_dashboard:
             st.warning(f"**MARGINAL** — {signal_reason}")
         else:
             st.error(f"**DON'T SELL** — {signal_reason}")
+
+        # --- Bayesian Probability (from trained model) ---
+        try:
+            from bayesian_signal import BayesianSignalModel
+            from db import get_all_predictions as _gap
+            _all_p = _gap()
+            _scored_p = _all_p[(_all_p["scored"] == 1) & (_all_p["clv_realized"].notna())] if not _all_p.empty and "clv_realized" in _all_p.columns else pd.DataFrame()
+            if len(_scored_p) >= 50:
+                _bm = BayesianSignalModel()
+                if _bm.train(_scored_p, n_bootstrap=50):
+                    _bp = _bm.predict(
+                        vrp=vrp or 0, iv_rank=iv_rank or 50,
+                        term_label=term_label, regime=regime,
+                        skew=data.get("skew_value") or 0,
+                        fomc_days=data.get("fomc_days") or 30,
+                    )
+                    prob = _bp["prob_seller_wins"]
+                    ci_lo = _bp["prob_ci_lower"]
+                    ci_hi = _bp["prob_ci_upper"]
+                    conf = _bp["confidence"]
+                    driver = _bp["top_driver"]
+                    bayes_signal = _bp["signal"]
+
+                    # Show alongside static signal
+                    bc1, bc2 = st.columns([2, 3])
+                    with bc1:
+                        st.metric("Bayesian P(Win)", f"{prob:.0%}",
+                                  help=f"90% CI: [{ci_lo:.0%}, {ci_hi:.0%}]. "
+                                       f"Confidence: {conf}. Top driver: {driver}")
+                    with bc2:
+                        if bayes_signal != signal:
+                            st.warning(
+                                f"Bayesian says **{bayes_signal}** ({prob:.0%}) but "
+                                f"static says **{signal}**. Disagreement — investigate."
+                            )
+                        else:
+                            st.caption(f"Bayesian agrees: {bayes_signal} ({prob:.0%} [{ci_lo:.0%}-{ci_hi:.0%}])")
+        except Exception:
+            pass
 
         # --- DB storage status ---
         db_status = data.get("db_status", [])
@@ -3074,6 +3114,207 @@ with tab_basket:
                         yaxis_title="Avg P&L %", height=350,
                     )
                     st.plotly_chart(fig_trend, use_container_width=True)
+
+
+# ============================================================
+# TAB: EDGE LAB
+# ============================================================
+with tab_edgelab:
+    st.header("Edge Lab")
+    st.caption(
+        "Research infrastructure for the Learn/Test/Trade pipeline. "
+        "Every hypothesis is pre-registered, tested through a 10-layer gate, "
+        "and tracked in the signal graveyard. Based on Sinclair & Mack (2024) "
+        "and the variance_betting pod-shop framework."
+    )
+
+    # --- Key Finding Banner ---
+    st.info(
+        "**Key Finding (H10):** On 480 real trade-level predictions, VRP is the ONLY "
+        "signal that matters. IV Rank, term structure, and regime add ZERO predictive "
+        "value after controlling for VRP. The signal should be simplified. "
+        "(Bayesian logistic regression, beta_vrp=+0.50, all other betas=0.00)"
+    )
+
+    # --- Gate Results ---
+    st.subheader("Hypothesis Testing Gate")
+    try:
+        from db import get_graveyard
+        gdf = get_graveyard()
+        if not gdf.empty:
+            # Summary metrics
+            total = len(gdf)
+            tested = len(gdf[gdf["status"] != "untested"]) if "status" in gdf.columns else 0
+            passed = len(gdf[gdf["status"].str.contains("passed", na=False)]) if "status" in gdf.columns else 0
+            failed = len(gdf[gdf["status"].str.contains("failed", na=False)]) if "status" in gdf.columns else 0
+
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Hypotheses", total)
+            m2.metric("Tested", tested)
+            m3.metric("Passed", passed, help="Signals validated through the gate")
+            m4.metric("Failed/Killed", failed,
+                      help="Failed signals are GOOD: prove the gate works, "
+                           "improve Deflated Sharpe for surviving signals")
+
+            # Gate results table
+            display_cols = ["signal_id", "name", "tier", "status", "layer_reached"]
+            if "best_clv" in gdf.columns:
+                display_cols.append("best_clv")
+            if "n_trades" in gdf.columns:
+                display_cols.append("n_trades")
+            available = [c for c in display_cols if c in gdf.columns]
+
+            # Color code status
+            def color_status(val):
+                if "passed" in str(val).lower():
+                    return "background-color: #d4edda"
+                elif "failed" in str(val).lower():
+                    return "background-color: #f8d7da"
+                elif "testing" in str(val).lower():
+                    return "background-color: #cce5ff"
+                return ""
+
+            styled = gdf[available].style.applymap(color_status, subset=["status"]) if "status" in available else gdf[available]
+            st.dataframe(styled, use_container_width=True, hide_index=True)
+        else:
+            st.warning("No hypotheses registered yet. Run register_hypotheses.py first.")
+    except Exception as e:
+        st.error(f"Could not load graveyard: {e}")
+
+    # --- VRP Decile Curve ---
+    st.subheader("VRP → Realized VRP Curve")
+    st.caption(
+        "How does VRP magnitude translate to actual edge? Higher VRP should "
+        "produce proportionally higher Realized VRP. From 480 scored predictions."
+    )
+    try:
+        from db import get_all_predictions
+        all_preds_el = get_all_predictions()
+        if not all_preds_el.empty and "clv_realized" in all_preds_el.columns:
+            scored_el = all_preds_el[(all_preds_el["scored"] == 1) & (all_preds_el["clv_realized"].notna())].copy()
+            if len(scored_el) >= 30 and "vrp" in scored_el.columns and scored_el["vrp"].notna().any():
+                from vrp_tracker import rvrp_vs_feature
+                curve = rvrp_vs_feature(scored_el, "vrp", bins=8)
+                if not curve.empty:
+                    import plotly.graph_objects as go
+                    fig = go.Figure()
+                    fig.add_trace(go.Bar(
+                        x=[f"{row['bin_center']:.1f}" for _, row in curve.iterrows()],
+                        y=[row['avg_rvrp'] * 100 for _, row in curve.iterrows()],
+                        text=[f"{row['avg_rvrp']:.1%}<br>n={int(row['count'])}<br>{row['pct_positive']:.0f}% pos"
+                              for _, row in curve.iterrows()],
+                        textposition="outside",
+                        marker_color=["#dc3545" if row['avg_rvrp'] < 0 else
+                                      "#ffc107" if row['avg_rvrp'] < 0.15 else
+                                      "#28a745" for _, row in curve.iterrows()],
+                    ))
+                    fig.update_layout(
+                        title="Realized VRP by VRP Decile",
+                        xaxis_title="VRP (vol points)",
+                        yaxis_title="Avg Realized VRP (%)",
+                        height=400,
+                        showlegend=False,
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("Insufficient data for VRP curve. Need 30+ scored predictions with VRP.")
+            else:
+                st.info("Need 30+ scored predictions with VRP and Realized VRP data.")
+        else:
+            st.info("No scored predictions with Realized VRP yet.")
+    except Exception as e:
+        st.warning(f"Could not render VRP curve: {e}")
+
+    # --- Bayesian Model Insights ---
+    st.subheader("Bayesian Signal Analysis")
+    st.caption(
+        "Logistic regression trained on scored predictions. Shows which features "
+        "actually drive edge (VRP) and which are redundant (IV Rank, term structure, regime)."
+    )
+    try:
+        scored_for_bayes = all_preds_el[(all_preds_el["scored"] == 1) & (all_preds_el["clv_realized"].notna())].copy()
+        if len(scored_for_bayes) >= 50:
+            from bayesian_signal import BayesianSignalModel
+            bmodel = BayesianSignalModel()
+            if bmodel.train(scored_for_bayes, n_bootstrap=100):
+                # Show coefficients
+                names = ["intercept"] + bmodel.feature_names
+                coefs = []
+                for i, name in enumerate(names):
+                    mean_val = bmodel.params[i]
+                    ci_lo = np.percentile(bmodel.params_samples[:, i], 5) if bmodel.params_samples is not None and len(bmodel.params_samples) > 1 else mean_val - 0.5
+                    ci_hi = np.percentile(bmodel.params_samples[:, i], 95) if bmodel.params_samples is not None and len(bmodel.params_samples) > 1 else mean_val + 0.5
+                    significant = (ci_lo > 0) or (ci_hi < 0)
+                    coefs.append({
+                        "Feature": name,
+                        "Coefficient": f"{mean_val:+.3f}",
+                        "90% CI": f"[{ci_lo:+.3f}, {ci_hi:+.3f}]",
+                        "Significant": "Yes" if significant else "No",
+                    })
+
+                import pandas as pd
+                coef_df = pd.DataFrame(coefs)
+                st.dataframe(coef_df, use_container_width=True, hide_index=True)
+
+                st.caption(
+                    "**Interpretation:** Positive coefficient = feature increases P(seller wins). "
+                    "A feature is significant if its 90% CI doesn't cross zero. "
+                    "Features with coefficient ~0 add no predictive value and could be dropped."
+                )
+
+                # Calibration
+                cal = bmodel.calibration_check(scored_for_bayes)
+                cal_err = cal.get("avg_calibration_error", 1.0)
+                if cal_err < 0.05:
+                    st.success(f"Model calibration: {cal_err:.1%} error (GOOD — under 5% threshold)")
+                else:
+                    st.warning(f"Model calibration: {cal_err:.1%} error (above 5% threshold — needs more data)")
+        else:
+            st.info(f"Need 50+ scored predictions to train Bayesian model. Currently: {len(scored_for_bayes)}.")
+    except Exception as e:
+        st.warning(f"Could not train Bayesian model: {e}")
+
+    # --- Deployment Status ---
+    st.subheader("Deployment Pipeline")
+    st.caption("Signals progress through 5 stages: Shadow → 10% → 25% → 50% → 100% capital.")
+    try:
+        from deployment import get_deployment_stage, STAGES
+        from db import get_graveyard
+        gdf2 = get_graveyard()
+        passed_signals = gdf2[gdf2["status"].str.contains("passed", na=False)]["signal_id"].tolist() if not gdf2.empty and "status" in gdf2.columns else []
+
+        if passed_signals:
+            for sig_id in passed_signals:
+                stage = get_deployment_stage(sig_id)
+                if stage:
+                    stage_num = stage.get("current_stage", 0)
+                    stage_name = STAGES.get(stage_num, {}).get("name", "Unknown")
+                    capital = stage.get("capital_pct", 0)
+                    st.write(f"**{sig_id}**: Stage {stage_num} ({stage_name}) — {capital}% capital")
+                else:
+                    st.write(f"**{sig_id}**: Passed gate, not yet in deployment. "
+                             "Run `deployment.enter_shadow('{sig_id}')` to begin shadow trading.")
+        else:
+            st.info("No signals have passed the gate yet. Signals enter deployment after passing Layers 1-7.")
+    except Exception:
+        st.info("Deployment tracking not yet active.")
+
+    # --- Quick Actions ---
+    st.subheader("Research Actions")
+    st.caption("Run these via GitHub Actions to advance the pipeline.")
+    st.code("""
+# Score predictions + run gate on live data
+gh workflow run force-score.yml
+
+# Generate historical predictions (backfill)
+gh workflow run generate-historical.yml
+
+# Investigate H03 + train Bayesian
+gh workflow run investigate.yml
+
+# Run daily monitoring stack
+gh workflow run monitoring.yml
+    """, language="bash")
 
 
 # ============================================================
