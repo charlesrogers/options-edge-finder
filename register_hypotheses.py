@@ -254,6 +254,59 @@ HYPOTHESES = [
             "Fail: single exit type is sufficient (combined adds complexity without value)."
         ),
     },
+    # --- Experiment 002: Real Price Validation ---
+    {
+        "signal_id": "H35",
+        "name": "Put Spread Profitable with Real Prices",
+        "tier": 1,
+        "hypothesis": (
+            "Bull put spread (5%/10% OTM) with GREEN signal + 25% TP exit "
+            "produces positive avg P&L after 15% bid-ask haircut using real Databento prices. "
+            "Pass: avg P&L > $0, Sharpe > 0.3. "
+            "Fail: avg P&L <= $0 (strategy doesn't survive real friction)."
+        ),
+    },
+    {
+        "signal_id": "H36",
+        "name": "BSM Matches Real Prices Within 25%",
+        "tier": 2,
+        "hypothesis": (
+            "BSM-computed option prices match Databento close prices within 25% median error. "
+            "Pass: median abs % error < 25%. "
+            "Fail: BSM is too inaccurate (Experiment 001 results unreliable)."
+        ),
+    },
+    {
+        "signal_id": "H37",
+        "name": "25% TP Still Optimal with Real Prices",
+        "tier": 2,
+        "hypothesis": (
+            "Take-profit at 25% of max still has highest Sortino when repriced with "
+            "real Databento daily OHLCV. Confirms Experiment 001 finding. "
+            "Pass: 25% TP Sortino > all other TP levels. "
+            "Fail: different TP is optimal with real prices."
+        ),
+    },
+    {
+        "signal_id": "H38",
+        "name": "Survives Holdout Validation",
+        "tier": 1,
+        "hypothesis": (
+            "Strategy trained on first 80% of data performs similarly on last 20%. "
+            "Pass: holdout Sharpe > 50% of training, holdout avg P&L > 0. "
+            "Fail: holdout degrades >50% (overfitting)."
+        ),
+    },
+    {
+        "signal_id": "H39",
+        "name": "Survives Bootstrap Stress Test",
+        "tier": 1,
+        "hypothesis": (
+            "Bootstrap resampling (1000x) of P&L shows strategy is robust. "
+            "Pass: 95% CI lower bound for avg P&L > 0, P(ruin >20% DD) < 5%. "
+            "Fail: significant ruin probability (too risky for real capital)."
+        ),
+    },
 ]
 
 
