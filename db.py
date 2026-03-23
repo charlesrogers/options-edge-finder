@@ -8,8 +8,21 @@ Environment variables:
 
 import os
 import json
+import math
 import sqlite3
 from datetime import datetime, timedelta
+
+
+def _sanitize_row(row):
+    """Replace NaN/Infinity floats with None — Supabase JSON can't handle them."""
+    cleaned = {}
+    for k, v in row.items():
+        if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+            cleaned[k] = None
+        else:
+            cleaned[k] = v
+    return cleaned
+
 
 # --- Supabase setup ---
 def _read_secret(key):
@@ -194,7 +207,7 @@ def record_iv(ticker, atm_iv, spot_price, front_exp, rv_20, term_label,
               vrp=None, signal=None, regime=None, skew=None,
               fomc_days=None, earnings_days=None):
     today = datetime.now().strftime("%Y-%m-%d")
-    row = {
+    row = _sanitize_row({
         "ticker": ticker, "date": today, "atm_iv": atm_iv,
         "spot_price": spot_price, "front_exp": front_exp,
         "rv_20": rv_20, "term_label": term_label,
@@ -203,7 +216,7 @@ def record_iv(ticker, atm_iv, spot_price, front_exp, rv_20, term_label,
         "garch_vol": garch_vol, "iv_rank": iv_rank, "iv_pctl": iv_pctl,
         "vrp": vrp, "signal": signal, "regime": regime, "skew": skew,
         "fomc_days": fomc_days, "earnings_days": earnings_days,
-    }
+    })
     sb = _get_supabase()
     if sb:
         sb.table("iv_snapshots").upsert(row).execute()
@@ -461,7 +474,7 @@ def log_prediction(ticker, signal, spot_price, atm_iv=None, rv_forecast=None,
                    earnings_days=None, fomc_days=None):
     """Log today's prediction for a ticker. One prediction per ticker per day per holding period."""
     today = datetime.now().strftime("%Y-%m-%d")
-    row = {
+    row = _sanitize_row({
         "ticker": ticker, "date": today, "signal": signal,
         "spot_price": spot_price, "atm_iv": atm_iv, "rv_forecast": rv_forecast,
         "vrp": vrp, "iv_rank": iv_rank, "term_label": term_label,
@@ -470,7 +483,7 @@ def log_prediction(ticker, signal, spot_price, atm_iv=None, rv_forecast=None,
         "rv_20": rv_20, "iv_pctl": iv_pctl, "skew_penalty": skew_penalty,
         "signal_reason": signal_reason, "earnings_days": earnings_days,
         "fomc_days": fomc_days, "scored": 0,
-    }
+    })
     sb = _get_supabase()
     if sb:
         sb.table("predictions").upsert(row, on_conflict="ticker,date,holding_days").execute()
@@ -574,7 +587,7 @@ def score_pending_predictions():
             if atm_iv_entry and outcome_rv and atm_iv_entry > 0:
                 clv_realized = round((atm_iv_entry - outcome_rv) / atm_iv_entry, 6)
 
-            update_data = {
+            update_data = _sanitize_row({
                 "outcome_price": outcome_price,
                 "outcome_return": round(outcome_return, 4),
                 "outcome_rv": round(outcome_rv, 2) if outcome_rv else None,
@@ -588,7 +601,7 @@ def score_pending_predictions():
                 "pnl_pct": round(pnl_pct, 4),
                 "iv_at_scoring": round(iv_at_scoring, 4) if iv_at_scoring else None,
                 "clv_realized": clv_realized,
-            }
+            })
 
             if sb:
                 sb.table("predictions").update(update_data).eq("id", pred["id"]).execute()
