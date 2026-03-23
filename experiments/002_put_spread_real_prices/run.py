@@ -45,8 +45,8 @@ def load_option_data(ticker):
         dfs.append(df)
 
     combined = pd.concat(dfs).sort_index()
-    # Remove duplicates (overlapping date ranges)
-    combined = combined[~combined.index.duplicated(keep='first')]
+    # Remove exact duplicates only (same date + same symbol + same publisher)
+    combined = combined.reset_index().drop_duplicates().set_index('ts_event')
     return combined
 
 
@@ -123,46 +123,43 @@ def find_put_spread(option_df, date, spot, sell_otm_pct=0.05, buy_otm_pct=0.10,
     Returns:
         dict with spread details or None
     """
-    # Filter to this date
-    date_str = pd.Timestamp(date).normalize()
-    day_data = option_df[option_df.index.normalize() == date_str]
+    # Filter to this date (handle timezone differences)
+    date_ts = pd.Timestamp(date).normalize()
+    if option_df.index.tz is not None:
+        date_ts = date_ts.tz_localize(option_df.index.tz)
+    day_data = option_df[option_df.index.normalize() == date_ts]
 
     if day_data.empty:
         return None
 
-    # Filter to puts only (symbol contains 'P' in the right position)
-    # Databento symbols: 'AAPL  260417P00240000' — P at position 12-ish
-    puts = day_data[day_data['symbol'].str.contains('P', na=False)].copy()
+    # Aggregate by symbol (multiple exchanges report same contract)
+    # Use mean close, sum volume
+    day_agg = day_data.groupby('symbol').agg({
+        'close': 'mean', 'volume': 'sum', 'open': 'mean', 'high': 'max', 'low': 'min'
+    }).reset_index()
+
+    # Filter to puts only — OCC symbol format: 'ROOT  YYMMDDP/CSSSSSSSS'
+    # P appears after the 6-digit date
+    puts = day_agg[day_agg['symbol'].str.match(r'.*\d{6}P\d+')].copy()
     if puts.empty:
         return None
 
-    # Parse strike and expiry from symbol
-    # Format: 'ROOT  YYMMDDP/CSSSSSSSS' (padded)
+    # Parse strike and expiry from OCC symbol
+    import re
     def parse_symbol(sym):
         sym = str(sym).strip()
-        # Find P or C
-        for i, c in enumerate(sym):
-            if c == 'P' and i > 4:
-                try:
-                    date_part = sym[max(0, i - 6):i]
-                    strike_part = sym[i + 1:]
-                    exp = datetime.strptime('20' + date_part, '%Y%m%d')
-                    strike = float(strike_part) / 1000
-                    return exp, strike
-                except Exception:
-                    pass
+        m = re.search(r'(\d{6})P(\d{8})', sym)
+        if m:
+            try:
+                exp = datetime.strptime('20' + m.group(1), '%Y%m%d')
+                strike = float(m.group(2)) / 1000
+                return exp, strike
+            except Exception:
+                pass
         return None, None
 
-    exps = []
-    strikes = []
-    for sym in puts['symbol']:
-        e, s = parse_symbol(sym)
-        exps.append(e)
-        strikes.append(s)
-
-    puts = puts.copy()
-    puts['expiration'] = exps
-    puts['strike'] = strikes
+    parsed = puts['symbol'].apply(lambda s: pd.Series(parse_symbol(s), index=['expiration', 'strike']))
+    puts = pd.concat([puts, parsed], axis=1)
     puts = puts.dropna(subset=['expiration', 'strike'])
 
     if puts.empty:
@@ -220,8 +217,10 @@ def find_put_spread(option_df, date, spot, sell_otm_pct=0.05, buy_otm_pct=0.10,
 
 def reprice_spread(option_df, date, sell_symbol, buy_symbol):
     """Get current spread value from real option data on a given date."""
-    date_str = pd.Timestamp(date).normalize()
-    day_data = option_df[option_df.index.normalize() == date_str]
+    date_ts = pd.Timestamp(date).normalize()
+    if option_df.index.tz is not None:
+        date_ts = date_ts.tz_localize(option_df.index.tz)
+    day_data = option_df[option_df.index.normalize() == date_ts]
 
     if day_data.empty:
         return None
@@ -232,8 +231,9 @@ def reprice_spread(option_df, date, sell_symbol, buy_symbol):
     if sell_data.empty or buy_data.empty:
         return None
 
-    sell_close = float(sell_data['close'].iloc[0])
-    buy_close = float(buy_data['close'].iloc[0])
+    # Average across exchanges
+    sell_close = float(sell_data['close'].mean())
+    buy_close = float(buy_data['close'].mean())
     return sell_close - buy_close
 
 
