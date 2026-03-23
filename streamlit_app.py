@@ -464,12 +464,44 @@ with tab_trades:
 
     watchlist = [t.strip().upper() for t in st.session_state.watchlist.split(",") if t.strip()]
 
-    # Portfolio size for position sizing
+    # Portfolio settings + phase
     portfolio_value = st.session_state.get("portfolio_value", 100000)
+    current_phase = st.session_state.get("trading_phase", "paper")
+
     with st.expander("Portfolio Settings", expanded=False):
         portfolio_value = st.number_input("Portfolio Value ($)", value=portfolio_value,
                                            min_value=10000, step=10000)
         st.session_state.portfolio_value = portfolio_value
+
+        current_phase = st.selectbox(
+            "Current Phase",
+            ["paper", "starter", "quarter_kelly", "full"],
+            index=["paper", "starter", "quarter_kelly", "full"].index(current_phase),
+            format_func=lambda x: {
+                "paper": "A: Paper Trading (no real money)",
+                "starter": "B: Starter (1 contract max, 3 positions max)",
+                "quarter_kelly": "C: Quarter-Kelly (3% per position, 6 max)",
+                "full": "D: Full Deployment (5% per position, 10 max)",
+            }.get(x, x),
+            help="Progress through phases: Paper → Starter → Quarter-Kelly → Full. "
+                 "Each phase has minimum weeks and gates before advancing."
+        )
+        st.session_state.trading_phase = current_phase
+
+    # Phase banner
+    phase_labels = {
+        "paper": ("Paper Trading", "info", "No real money. Track what WOULD happen."),
+        "starter": ("Starter", "warning", "1 contract per trade, max 3 positions."),
+        "quarter_kelly": ("Quarter-Kelly", "success", "Scaled sizing, max 3% per position."),
+        "full": ("Full Deployment", "success", "Full deployment with monitoring."),
+    }
+    p_label, p_type, p_desc = phase_labels.get(current_phase, ("Unknown", "info", ""))
+    if p_type == "info":
+        st.info(f"**Phase: {p_label}** — {p_desc}")
+    elif p_type == "warning":
+        st.warning(f"**Phase: {p_label}** — {p_desc}")
+    else:
+        st.success(f"**Phase: {p_label}** — {p_desc}")
 
     if not watchlist:
         st.info("Enter tickers in your watchlist above to see today's recommendations.")
@@ -481,6 +513,10 @@ with tab_trades:
                 vix_level = float(vix_hist["Close"].iloc[-1])
                 if vix_level > 45:
                     st.error(f"**MARKET HALTED** — VIX at {vix_level:.1f}. No new trades. Protect existing positions.")
+                    st.warning("The system will NOT show any trade recommendations when VIX > 45. "
+                               "Focus on managing existing positions.")
+                    # Hard stop — don't scan any tickers
+                    watchlist = []
                 elif vix_level > 35:
                     st.warning(f"**CAUTION** — VIX at {vix_level:.1f}. Reduce position sizes by 50%.")
                 elif vix_level > 25:
@@ -531,7 +567,8 @@ with tab_trades:
                         vix=vix_level,
                     )
                 except Exception:
-                    should_trade, filter_reasons = (signal == "GREEN"), []
+                    should_trade = False  # Safe default: if filters crash, DON'T trade
+                    filter_reasons = ["Discipline check unavailable — defaulting to NO TRADE"]
 
                 if signal != "GREEN" or not should_trade:
                     reason = filter_reasons[0] if filter_reasons else f"Signal is {signal}"
@@ -573,12 +610,15 @@ with tab_trades:
                 except Exception:
                     pass
 
-                # Position size (quarter-Kelly, max 5% of portfolio)
-                max_per_position = portfolio_value * 0.05
-                if strike_price:
-                    contracts = max(1, int(max_per_position / (strike_price * 100)))
-                else:
-                    contracts = 1
+                # Phase-aware position sizing
+                try:
+                    from discipline import get_position_size
+                    contracts, size_reason = get_position_size(
+                        portfolio_value, strike_price or current_price, current_phase
+                    )
+                except Exception:
+                    contracts = 0 if current_phase == "paper" else 1
+                    size_reason = "Default sizing"
 
                 vrp_pct = ((current_iv - rv_forecast) / current_iv * 100) if current_iv and rv_forecast and current_iv > 0 else None
 
@@ -616,7 +656,17 @@ with tab_trades:
                     col1, col2 = st.columns([3, 2])
 
                     with col1:
-                        st.markdown(f"### {rec['ticker']}  ${rec['price']:.2f}")
+                        # Tail risk badge
+                        HIGH_RISK = {"NVDA", "TSLA", "AMD", "COIN", "MSTR", "GME", "AMC", "RIVN", "LCID", "SMCI"}
+                        LOW_RISK = {"SPY", "QQQ", "DIA", "IWM", "GLD", "TLT", "XLF", "XLE", "XLK", "XLV"}
+                        tick = rec["ticker"]
+                        if tick in HIGH_RISK:
+                            risk_badge = ":red[HIGH RISK]"
+                        elif tick in LOW_RISK:
+                            risk_badge = ":green[LOW RISK]"
+                        else:
+                            risk_badge = ":orange[MODERATE]"
+                        st.markdown(f"### {tick}  ${rec['price']:.2f}  {risk_badge}")
 
                         if rec["strike"] and rec["premium"] and rec["expiry"]:
                             st.markdown(
@@ -639,12 +689,24 @@ with tab_trades:
                                 f"({rec['rv']:.1f}%). You're selling overpriced insurance."
                             )
 
+                        # Worst case warning
+                        if rec["strike"] and rec["price"]:
+                            drop_10pct = rec["price"] * 0.10
+                            loss_10pct = max(0, (rec["price"] - rec["strike"]) + drop_10pct - (rec.get("premium") or 0)) * 100
+                            st.caption(
+                                f"Worst case (10% drop): ~${loss_10pct:,.0f} loss "
+                                f"(you'd own 100 shares at ${rec['strike']:.0f})."
+                            )
+
                     with col2:
                         if rec.get("prob_win"):
                             st.metric("P(Profit)", f"{rec['prob_win']:.0%}")
                         if rec.get("vrp"):
                             st.metric("Edge (VRP)", f"{rec['vrp']:.1f} pts")
-                        st.metric("Size", f"{rec['contracts']} contract{'s' if rec['contracts'] > 1 else ''}")
+                        if current_phase == "paper":
+                            st.metric("Size", "PAPER ONLY", help="Paper trading phase — track but don't execute")
+                        else:
+                            st.metric("Size", f"{rec['contracts']} contract{'s' if rec['contracts'] > 1 else ''}")
         else:
             st.info("No trades recommended today. The system is being selective — this is by design. "
                     "(Sinclair: discipline IS edge. We only trade when conditions strongly favor selling.)")
@@ -793,6 +855,34 @@ It's not a secret. It's not a trick. It's an insurance premium.
 | **Take profit** | Close at 50% of max profit (don't get greedy). |
 | **Loss limit** | Close if loss exceeds 2x premium collected. |
 | **Daily monitoring** | Automated system checks if edge is still working. |
+""")
+
+    # --- Honest Backtest Disclaimer ---
+    st.subheader("What the Backtest Doesn't Capture")
+    st.warning("""
+**IMPORTANT:** Backtest results use estimated option prices, not real broker fills.
+
+Real-world differences you should expect:
+- **Bid-ask spreads** reduce profit by ~15-25% per trade
+- **Slippage** on entry/exit further reduces by ~5-10%
+- **Gamma risk** (fast moves hurt more than slow moves of the same size)
+- **The backtest shows best-case P&L.** Expect real returns to be roughly **HALF** of backtest returns.
+
+That's why we paper trade first — to measure the REAL gap between backtest and live performance.
+The system is designed to have you paper trade for 8 weeks before risking real money.
+""")
+
+    # --- Ticker Risk Ratings ---
+    st.subheader("Ticker Risk Ratings")
+    st.caption("Not all tickers carry the same risk. High-vol names can lose 10-20x more than index ETFs in a bad trade.")
+    st.markdown("""
+| Risk Level | Tickers | Worst Backtest Trade | Max Drawdown | Guidance |
+|---|---|---|---|---|
+| **LOW** | SPY, QQQ, DIA, IWM | -3% | -13% | Core positions. Safe for larger sizing. |
+| **MODERATE** | AAPL, MSFT, GOOGL, AMZN, JPM | -5 to -8% | -30 to -50% | Good for diversification. Standard sizing. |
+| **HIGH** | NVDA, TSLA, META, AMD, COIN | -15%+ | -100 to -286% | Small positions ONLY. 1 contract max until Phase D. |
+
+**Rule of thumb:** If you wouldn't be comfortable owning 100 shares of the stock at the strike price, don't sell the put.
 """)
 
 

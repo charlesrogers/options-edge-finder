@@ -193,3 +193,61 @@ def log_override(prediction_id, direction, reason):
         conn.close()
 
     print(f"[discipline] Override logged: {direction} (prediction {prediction_id})")
+
+
+# ============================================================
+# PHASE-AWARE POSITION SIZING
+# ============================================================
+
+PHASES = {
+    "paper": {"label": "Paper Trading", "max_contracts": 0, "max_positions": 0, "max_pct": 0, "min_weeks": 8},
+    "starter": {"label": "Starter (1 Contract)", "max_contracts": 1, "max_positions": 3, "max_pct": 0, "min_weeks": 8},
+    "quarter_kelly": {"label": "Quarter-Kelly", "max_contracts": None, "max_positions": 6, "max_pct": 0.03, "min_weeks": 16},
+    "full": {"label": "Full Deployment", "max_contracts": None, "max_positions": 10, "max_pct": 0.05, "min_weeks": 0},
+}
+
+
+def get_position_size(portfolio_value, strike_price, current_phase="paper"):
+    """
+    Enforce phase-appropriate position sizing.
+
+    Returns:
+        (contracts: int, reason: str)
+    """
+    phase = PHASES.get(current_phase, PHASES["paper"])
+
+    if current_phase == "paper":
+        return 0, "Paper trading only — no real contracts"
+
+    if current_phase == "starter":
+        return 1, "Starter phase — max 1 contract per trade"
+
+    if phase["max_pct"] > 0 and strike_price > 0:
+        max_capital = portfolio_value * phase["max_pct"]
+        contracts = max(1, int(max_capital / (strike_price * 100)))
+        # Apply max_contracts cap if set
+        if phase.get("max_contracts"):
+            contracts = min(contracts, phase["max_contracts"])
+        return contracts, f"{phase['label']} — {phase['max_pct']:.0%} of portfolio per position"
+
+    return 1, "Default 1 contract"
+
+
+def check_position_limits(open_positions, current_phase="paper"):
+    """
+    Check if adding a new position would violate phase limits.
+
+    Returns:
+        (can_add: bool, reason: str)
+    """
+    phase = PHASES.get(current_phase, PHASES["paper"])
+    max_pos = phase["max_positions"]
+
+    if current_phase == "paper":
+        return True, "Paper trading — track unlimited"
+
+    n_open = len(open_positions) if open_positions else 0
+    if n_open >= max_pos:
+        return False, f"At position limit ({n_open}/{max_pos} for {phase['label']})"
+
+    return True, f"{n_open}/{max_pos} positions open"

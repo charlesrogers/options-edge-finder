@@ -265,6 +265,45 @@ def check_performance_decay():
 
 
 # ============================================================
+# LAYER E: PORTFOLIO HEALTH (hard stops)
+# ============================================================
+
+def check_portfolio_health():
+    """Hard stops that can't be overridden — protects against over-concentration."""
+    alerts = []
+
+    try:
+        from db import get_open_trades
+        open_trades = get_open_trades()
+    except Exception:
+        open_trades = []
+
+    n_open = len(open_trades)
+
+    if n_open > 10:
+        alerts.append(Alert("CRITICAL", "E",
+            f"Too many open positions ({n_open} > 10). Do NOT add more. "
+            "Close weakest positions first."))
+    elif n_open > 6:
+        alerts.append(Alert("WARNING", "E",
+            f"{n_open} open positions. Approaching limit (10 max). Be selective."))
+    else:
+        alerts.append(Alert("INFO", "E", f"{n_open} open positions. Within limits."))
+
+    # Check sector concentration (if we can determine sector from ticker)
+    if open_trades:
+        tickers = [t.get("ticker", "") for t in open_trades]
+        TECH = {"AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "META", "NVDA", "TSLA", "AMD", "CRM", "ORCL"}
+        tech_count = sum(1 for t in tickers if t in TECH)
+        if tech_count > 3:
+            alerts.append(Alert("WARNING", "E",
+                f"{tech_count} tech positions open. Max recommended: 3. "
+                "Diversify across sectors."))
+
+    return alerts
+
+
+# ============================================================
 # FULL MONITORING STACK
 # ============================================================
 
@@ -298,6 +337,12 @@ def run_full_monitoring_stack():
     d_alerts = check_performance_decay()
     all_alerts.extend(d_alerts)
     for a in d_alerts:
+        print(f"  {a}")
+
+    print("\nLayer E: Portfolio Health")
+    e_alerts = check_portfolio_health()
+    all_alerts.extend(e_alerts)
+    for a in e_alerts:
         print(f"  {a}")
 
     # Summary

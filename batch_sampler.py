@@ -338,7 +338,7 @@ def sample_ticker(ticker, vix_data=None):
             )
             trade_severity = get_severity(filter_reasons)
         except Exception:
-            should_trade, filter_reasons, trade_severity = True, [], "TRADE"
+            should_trade, filter_reasons, trade_severity = False, ["Discipline check unavailable"], "PASS"
 
         # Log prediction
         log_prediction(
