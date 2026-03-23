@@ -200,6 +200,60 @@ HYPOTHESES = [
             "Fail: skew adjustment reduces P&L more than drawdown (fixed is fine)."
         ),
     },
+    # --- Exit Strategy Research (Experiment 001) ---
+    {
+        "signal_id": "H30",
+        "name": "Optimal Take-Profit Level",
+        "tier": 2,
+        "hypothesis": (
+            "There exists a take-profit % (25-75%) that maximizes risk-adjusted returns "
+            "for put spreads. Holding to expiry loses money due to asymmetric risk. "
+            "Pass: at least one TP level has Sortino >0.5 and avg P&L >0. "
+            "Fail: no TP level is profitable (put spread structure is not viable)."
+        ),
+    },
+    {
+        "signal_id": "H31",
+        "name": "Optimal Stop-Loss Level",
+        "tier": 2,
+        "hypothesis": (
+            "A stop-loss at 1.5-2.5x premium collected improves risk-adjusted returns "
+            "by cutting losers before max loss. "
+            "Pass: at least one SL level improves Sortino vs no stop loss. "
+            "Fail: all stop-loss levels produce worse results (whipsaw destroys value)."
+        ),
+    },
+    {
+        "signal_id": "H32",
+        "name": "Time-Based Exit (DTE Floor)",
+        "tier": 2,
+        "hypothesis": (
+            "Closing all positions at 7 DTE avoids gamma acceleration. "
+            "Pass: DTE floor of 5-14 has higher Sortino than no floor. "
+            "Fail: time-based exit doesn't improve returns."
+        ),
+    },
+    {
+        "signal_id": "H33",
+        "name": "VRP-Based Exit",
+        "tier": 2,
+        "hypothesis": (
+            "Closing when VRP flips negative captures 'edge disappearance' signal. "
+            "Pass: VRP exit improves Sortino by >0.1 vs no VRP exit. "
+            "Fail: VRP flip during trade doesn't predict outcome."
+        ),
+    },
+    {
+        "signal_id": "H34",
+        "name": "Combined Exit Strategy",
+        "tier": 2,
+        "hypothesis": (
+            "The optimal combination of take-profit + stop-loss + DTE floor + VRP exit "
+            "outperforms any single exit type. Grid search over 300 combos with DSR correction. "
+            "Pass: best combo Sortino > best single-type by >0.2. "
+            "Fail: single exit type is sufficient (combined adds complexity without value)."
+        ),
+    },
 ]
 
 

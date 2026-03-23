@@ -3916,6 +3916,55 @@ with tab_edgelab:
     except Exception:
         st.info("Deployment tracking not yet active.")
 
+    # --- Research Results Blog ---
+    st.subheader("Research Results")
+    st.caption("Published findings from formal experiments. Each result is pre-registered, tested through the gate, and reviewed for multiple testing bias.")
+
+    try:
+        _results_dir = os.path.join(os.path.dirname(__file__), "results")
+        if os.path.exists(_results_dir):
+            _result_files = sorted(
+                [f for f in os.listdir(_results_dir) if f.endswith(".md")],
+                reverse=True  # reverse chronological
+            )
+            if _result_files:
+                for _rf in _result_files:
+                    _path = os.path.join(_results_dir, _rf)
+                    with open(_path) as _f:
+                        _content = _f.read()
+
+                    # Parse frontmatter
+                    _title = _rf.replace(".md", "").replace("_", " ").title()
+                    _date = ""
+                    _finding = ""
+                    if _content.startswith("---"):
+                        _parts = _content.split("---", 2)
+                        if len(_parts) >= 3:
+                            _fm = _parts[1]
+                            _body = _parts[2]
+                            for _line in _fm.strip().split("\n"):
+                                if _line.startswith("title:"):
+                                    _title = _line.split(":", 1)[1].strip().strip('"')
+                                elif _line.startswith("date:"):
+                                    _date = _line.split(":", 1)[1].strip()
+                                elif _line.startswith("finding:"):
+                                    _finding = _line.split(":", 1)[1].strip().strip('"')
+                        else:
+                            _body = _content
+                    else:
+                        _body = _content
+
+                    with st.expander(f"{_date}  —  {_title}", expanded=(_rf == _result_files[0])):
+                        if _finding:
+                            st.info(f"**Key finding:** {_finding}")
+                        st.markdown(_body)
+            else:
+                st.info("No research results published yet.")
+        else:
+            st.info("No results directory found.")
+    except Exception as e:
+        st.warning(f"Could not load research results: {e}")
+
     # --- Quick Actions ---
     st.subheader("Research Actions")
     st.caption("Run these via GitHub Actions to advance the pipeline.")
