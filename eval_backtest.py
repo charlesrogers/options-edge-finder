@@ -63,10 +63,32 @@ def _compute_signals_and_pnl(df, iv_col="iv_proxy", rv_col="rv_actual",
 
 
 def _summarize_window(df, label=""):
-    """Summarize a backtest window's results."""
+    """Summarize a backtest window's results, including Realized VRP."""
     if df.empty:
         return None
     pnl = df["pnl_pct"]
+
+    # Realized VRP: (expected_move - actual_move) / expected_move
+    rvrp = None
+    if "expected_move_pct" in df.columns and "actual_move_pct" in df.columns:
+        exp = df["expected_move_pct"]
+        act = df["actual_move_pct"]
+        valid = exp > 0
+        if valid.any():
+            rvrp_series = (exp[valid] - act[valid]) / exp[valid]
+            rvrp = float(rvrp_series.mean())
+
+    # Per-signal RVRP
+    rvrp_by_signal = {}
+    for sig in ["GREEN", "YELLOW", "RED"]:
+        sig_mask = df["signal"] == sig
+        if sig_mask.any() and "expected_move_pct" in df.columns:
+            sig_exp = df.loc[sig_mask, "expected_move_pct"]
+            sig_act = df.loc[sig_mask, "actual_move_pct"]
+            valid = sig_exp > 0
+            if valid.any():
+                rvrp_by_signal[sig] = float(((sig_exp[valid] - sig_act[valid]) / sig_exp[valid]).mean())
+
     return {
         "label": label,
         "n_trades": len(df),
@@ -82,6 +104,8 @@ def _summarize_window(df, label=""):
         "red_count": int((df["signal"] == "RED").sum()),
         "green_win_rate": float(df[df["signal"] == "GREEN"]["seller_wins"].mean() * 100) if (df["signal"] == "GREEN").any() else None,
         "green_avg_pnl": float(df[df["signal"] == "GREEN"]["pnl_pct"].mean()) if (df["signal"] == "GREEN").any() else None,
+        "avg_rvrp": rvrp,
+        "rvrp_by_signal": rvrp_by_signal,
     }
 
 
@@ -96,24 +120,31 @@ def walk_forward_backtest(hist: pd.DataFrame,
                           holding_period: int = 20,
                           iv_rv_ratio: float = 1.2,
                           commission: float = 0.65,
-                          slippage: float = 0.025) -> dict:
+                          slippage: float = 0.025,
+                          expanding: bool = False,
+                          embargo_days: int = 0) -> dict:
     """
-    Rolling walk-forward backtest with train/test split.
+    Walk-forward backtest with train/test split.
 
-    For each window:
-      1. Use training window to establish IV quantiles for signal thresholds
-      2. Apply those thresholds on test window (out-of-sample)
-      3. Record OOS results
+    Supports two modes:
+    - Fixed window (default): train window slides forward, fixed size
+    - Expanding window (expanding=True): train starts at day 0, grows each step
+      This mimics real deployment: you always train on ALL available history.
 
     Args:
         hist: OHLCV DataFrame
-        train_days: Training window in trading days (default 756 = 3 years)
+        train_days: Training window in trading days (default 756 = 3 years).
+                    For expanding mode, this is the MINIMUM training size.
         test_days: Test window in trading days (default 126 = 6 months)
         step_days: Step size in trading days (default 63 = 3 months)
         holding_period: Holding period for each trade
         iv_rv_ratio: IV = RV * this ratio (de-biasing)
         commission: Per-contract commission
         slippage: Per-contract slippage
+        expanding: If True, use expanding window (train starts at 0, grows).
+                   If False, use fixed rolling window (original behavior).
+        embargo_days: Gap between train end and test start (default 0).
+                      Set to 5 for options (holding periods overlap).
 
     Returns:
         dict with in_sample, out_of_sample summaries and window details
@@ -134,24 +165,45 @@ def walk_forward_backtest(hist: pd.DataFrame,
         "fwd_return": fwd_return.iloc[1:].values,
     }).dropna().reset_index(drop=True)
 
-    if len(full_df) < train_days + test_days:
-        return {"error": f"Not enough data: {len(full_df)} rows, need {train_days + test_days}"}
+    min_train = train_days
+    if len(full_df) < min_train + embargo_days + test_days:
+        return {"error": f"Not enough data: {len(full_df)} rows, need {min_train + embargo_days + test_days}"}
 
     n_windows = 0
     oos_results = []
     is_results = []
     window_details = []
 
-    total_possible = (len(full_df) - train_days - test_days) // step_days + 1
-    print(f"  Walk-forward: {total_possible} windows "
-          f"(train={train_days}d, test={test_days}d, step={step_days}d)")
+    mode_str = "expanding" if expanding else f"fixed={train_days}d"
+    embargo_str = f", embargo={embargo_days}d" if embargo_days > 0 else ""
 
-    for start in range(0, len(full_df) - train_days - test_days + 1, step_days):
-        train_end = start + train_days
-        test_end = min(train_end + test_days, len(full_df))
+    # Build list of (train_slice, test_slice) pairs based on mode
+    window_pairs = []
 
-        train_df = full_df.iloc[start:train_end].copy()
-        test_df = full_df.iloc[train_end:test_end].copy()
+    if expanding:
+        total_possible = (len(full_df) - min_train - embargo_days - test_days) // step_days + 1
+        print(f"  Walk-forward ({mode_str}{embargo_str}): ~{total_possible} windows "
+              f"(min_train={min_train}d, test={test_days}d, step={step_days}d)")
+        train_end_idx = min_train
+        while train_end_idx + embargo_days + test_days <= len(full_df):
+            test_start_idx = train_end_idx + embargo_days
+            test_end_idx = min(test_start_idx + test_days, len(full_df))
+            window_pairs.append((0, train_end_idx, test_start_idx, test_end_idx))
+            train_end_idx += step_days
+    else:
+        total_possible = (len(full_df) - train_days - embargo_days - test_days) // step_days + 1
+        print(f"  Walk-forward ({mode_str}{embargo_str}): {total_possible} windows "
+              f"(train={train_days}d, test={test_days}d, step={step_days}d)")
+        for start in range(0, len(full_df) - train_days - embargo_days - test_days + 1, step_days):
+            train_end_idx = start + train_days
+            test_start_idx = train_end_idx + embargo_days
+            test_end_idx = min(test_start_idx + test_days, len(full_df))
+            window_pairs.append((start, train_end_idx, test_start_idx, test_end_idx))
+
+    # Process each window
+    for train_start, train_end_idx, test_start_idx, test_end_idx in window_pairs:
+        train_df = full_df.iloc[train_start:train_end_idx].copy()
+        test_df = full_df.iloc[test_start_idx:test_end_idx].copy()
 
         if len(test_df) < 10:
             continue
@@ -168,8 +220,8 @@ def walk_forward_backtest(hist: pd.DataFrame,
 
         test_df["vrp_proxy"] = test_df["iv_proxy"] - test_df["rv_actual"]
 
-        def classify_oos(row):
-            if row["vrp_proxy"] > 2 and row["iv_proxy"] > iv_q30_train:
+        def classify_oos(row, _thresh=iv_q30_train):
+            if row["vrp_proxy"] > 2 and row["iv_proxy"] > _thresh:
                 return "GREEN"
             elif row["vrp_proxy"] > 0:
                 return "YELLOW"
@@ -205,6 +257,7 @@ def walk_forward_backtest(hist: pd.DataFrame,
             window_details.append({
                 "window": n_windows + 1,
                 "train_start": window_start_date,
+                "train_size": len(train_df),
                 "test_start": window_test_start,
                 "test_end": window_test_end,
                 "is_win_rate": is_summary["win_rate"] if is_summary else None,
@@ -214,6 +267,7 @@ def walk_forward_backtest(hist: pd.DataFrame,
                 "is_sharpe": is_summary["sharpe_per_trade"] if is_summary else None,
                 "oos_sharpe": oos_summary["sharpe_per_trade"],
                 "oos_green_pct": oos_summary["green_count"] / oos_summary["n_trades"] * 100 if oos_summary["n_trades"] > 0 else 0,
+                "oos_avg_rvrp": oos_summary.get("avg_rvrp"),
             })
 
         n_windows += 1
@@ -227,6 +281,15 @@ def walk_forward_backtest(hist: pd.DataFrame,
     all_oos_pnl = [r["avg_pnl_pct"] for r in oos_results]
     all_is_pnl = [r["avg_pnl_pct"] for r in is_results]
 
+    # Realized VRP across OOS windows
+    all_oos_rvrp = [r["avg_rvrp"] for r in oos_results if r.get("avg_rvrp") is not None]
+    rvrp_by_signal_agg = {}
+    for sig in ["GREEN", "YELLOW", "RED"]:
+        sig_rvrps = [r["rvrp_by_signal"].get(sig) for r in oos_results
+                     if r.get("rvrp_by_signal") and sig in r["rvrp_by_signal"]]
+        if sig_rvrps:
+            rvrp_by_signal_agg[sig] = float(np.mean(sig_rvrps))
+
     oos_agg = {
         "n_windows": n_windows,
         "avg_win_rate": float(np.mean([r["win_rate"] for r in oos_results])),
@@ -236,6 +299,10 @@ def walk_forward_backtest(hist: pd.DataFrame,
         "best_window_pnl": float(np.max(all_oos_pnl)),
         "pct_profitable_windows": float(np.mean([1 for p in all_oos_pnl if p > 0]) / len(all_oos_pnl) * 100) if all_oos_pnl else 0,
         "avg_sharpe": float(np.mean([r["sharpe_per_trade"] for r in oos_results])),
+        "avg_rvrp": float(np.mean(all_oos_rvrp)) if all_oos_rvrp else None,
+        "rvrp_by_signal": rvrp_by_signal_agg,
+        "mode": "expanding" if expanding else "fixed",
+        "embargo_days": embargo_days,
     }
 
     is_agg = {
