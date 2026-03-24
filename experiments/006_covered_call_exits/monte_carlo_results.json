@@ -1,0 +1,4034 @@
+[
+  {
+    "spot": 234.0,
+    "strike": 260,
+    "dte": 30,
+    "vol": 0.28,
+    "entry_call_price": 1.8497,
+    "moneyness_pct": -10.0,
+    "p_assignment": 13.8,
+    "strategies": {
+      "immediate": {
+        "mean": 1.8497,
+        "median": 1.8497,
+        "p10": 1.8497,
+        "p90": 1.8497,
+        "p99": 1.8497,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 1.9093,
+        "median": 0.7416,
+        "p10": 0.4454,
+        "p90": 0.9146,
+        "p99": 31.6663,
+        "pct_zero": 0.8,
+        "pct_itm": 99.2
+      },
+      "75pct_captured": {
+        "mean": 1.9385,
+        "median": 0.3518,
+        "p10": 0.164,
+        "p90": 1.092,
+        "p99": 33.503,
+        "pct_zero": 2.0,
+        "pct_itm": 98.0
+      },
+      "strike_cross": {
+        "mean": 1.874,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 8.7487,
+        "p99": 12.04,
+        "pct_zero": 76.6,
+        "pct_itm": 23.4
+      },
+      "dte_floor_3": {
+        "mean": 1.9385,
+        "median": 0.0007,
+        "p10": 0.0,
+        "p90": 5.6257,
+        "p99": 30.0118,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 1.8898,
+        "median": 0.0008,
+        "p10": 0.0,
+        "p90": 8.7342,
+        "p99": 12.0374,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 1.9093,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 5.2386,
+        "p99": 33.5164,
+        "pct_zero": 86.2,
+        "pct_itm": 13.8
+      },
+      "oracle": {
+        "mean": 0.1385,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.5148,
+        "p99": 1.8497,
+        "pct_zero": 86.2,
+        "pct_itm": 13.8
+      }
+    },
+    "moneyness_label": "10% OTM"
+  },
+  {
+    "spot": 234.0,
+    "strike": 260,
+    "dte": 21,
+    "vol": 0.28,
+    "entry_call_price": 0.9913,
+    "moneyness_pct": -10.0,
+    "p_assignment": 10.2,
+    "strategies": {
+      "immediate": {
+        "mean": 0.9913,
+        "median": 0.9913,
+        "p10": 0.9913,
+        "p90": 0.9913,
+        "p99": 0.9913,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 1.0276,
+        "median": 0.3669,
+        "p10": 0.1821,
+        "p90": 0.4822,
+        "p99": 21.558,
+        "pct_zero": 1.2,
+        "pct_itm": 98.8
+      },
+      "75pct_captured": {
+        "mean": 1.0219,
+        "median": 0.1716,
+        "p10": 0.0613,
+        "p90": 0.2438,
+        "p99": 22.3367,
+        "pct_zero": 2.8,
+        "pct_itm": 97.2
+      },
+      "strike_cross": {
+        "mean": 1.0034,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 5.5516,
+        "p99": 9.8649,
+        "pct_zero": 84.0,
+        "pct_itm": 16.0
+      },
+      "dte_floor_3": {
+        "mean": 1.0461,
+        "median": 0.0006,
+        "p10": 0.0,
+        "p90": 2.3791,
+        "p99": 19.0724,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 1.0063,
+        "median": 0.0006,
+        "p10": 0.0,
+        "p90": 5.4355,
+        "p99": 9.8622,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 1.0323,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.1537,
+        "p99": 22.7146,
+        "pct_zero": 89.8,
+        "pct_itm": 10.2
+      },
+      "oracle": {
+        "mean": 0.0561,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.0113,
+        "p99": 0.9913,
+        "pct_zero": 89.8,
+        "pct_itm": 10.2
+      }
+    },
+    "moneyness_label": "10% OTM"
+  },
+  {
+    "spot": 234.0,
+    "strike": 260,
+    "dte": 14,
+    "vol": 0.28,
+    "entry_call_price": 0.4162,
+    "moneyness_pct": -10.0,
+    "p_assignment": 5.6,
+    "strategies": {
+      "immediate": {
+        "mean": 0.4162,
+        "median": 0.4162,
+        "p10": 0.4162,
+        "p90": 0.4162,
+        "p99": 0.4162,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 0.4016,
+        "median": 0.1346,
+        "p10": 0.0503,
+        "p90": 0.1977,
+        "p99": 10.3987,
+        "pct_zero": 1.9,
+        "pct_itm": 98.1
+      },
+      "75pct_captured": {
+        "mean": 0.4047,
+        "median": 0.0607,
+        "p10": 0.0144,
+        "p90": 0.099,
+        "p99": 12.0584,
+        "pct_zero": 3.6,
+        "pct_itm": 96.4
+      },
+      "strike_cross": {
+        "mean": 0.4243,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.0,
+        "p99": 7.3421,
+        "pct_zero": 91.7,
+        "pct_itm": 8.3
+      },
+      "dte_floor_3": {
+        "mean": 0.4372,
+        "median": 0.0006,
+        "p10": 0.0,
+        "p90": 0.7642,
+        "p99": 9.2793,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 0.4322,
+        "median": 0.0006,
+        "p10": 0.0,
+        "p90": 0.8281,
+        "p99": 7.1312,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 0.416,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.0,
+        "p99": 13.1901,
+        "pct_zero": 94.4,
+        "pct_itm": 5.6
+      },
+      "oracle": {
+        "mean": 0.0141,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.0,
+        "p99": 0.4162,
+        "pct_zero": 94.4,
+        "pct_itm": 5.6
+      }
+    },
+    "moneyness_label": "10% OTM"
+  },
+  {
+    "spot": 234.0,
+    "strike": 260,
+    "dte": 7,
+    "vol": 0.28,
+    "entry_call_price": 0.0514,
+    "moneyness_pct": -10.0,
+    "p_assignment": 1.2,
+    "strategies": {
+      "immediate": {
+        "mean": 0.0514,
+        "median": 0.0514,
+        "p10": 0.0514,
+        "p90": 0.0514,
+        "p99": 0.0514,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 0.0482,
+        "median": 0.0091,
+        "p10": 0.0012,
+        "p90": 0.0217,
+        "p99": 0.0256,
+        "pct_zero": 3.0,
+        "pct_itm": 97.0
+      },
+      "75pct_captured": {
+        "mean": 0.0486,
+        "median": 0.0044,
+        "p10": 0.0002,
+        "p90": 0.0109,
+        "p99": 0.0131,
+        "pct_zero": 4.4,
+        "pct_itm": 95.6
+      },
+      "strike_cross": {
+        "mean": 0.0506,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.0,
+        "p99": 2.6435,
+        "pct_zero": 98.5,
+        "pct_itm": 1.5
+      },
+      "dte_floor_3": {
+        "mean": 0.0538,
+        "median": 0.0006,
+        "p10": 0.0,
+        "p90": 0.0781,
+        "p99": 1.0628,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 0.054,
+        "median": 0.0006,
+        "p10": 0.0,
+        "p90": 0.0781,
+        "p99": 1.0628,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 0.0507,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.0,
+        "p99": 0.7989,
+        "pct_zero": 98.8,
+        "pct_itm": 1.2
+      },
+      "oracle": {
+        "mean": 0.0004,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.0,
+        "p99": 0.0127,
+        "pct_zero": 98.8,
+        "pct_itm": 1.2
+      }
+    },
+    "moneyness_label": "10% OTM"
+  },
+  {
+    "spot": 234.0,
+    "strike": 260,
+    "dte": 5,
+    "vol": 0.28,
+    "entry_call_price": 0.0122,
+    "moneyness_pct": -10.0,
+    "p_assignment": 0.4,
+    "strategies": {
+      "immediate": {
+        "mean": 0.0122,
+        "median": 0.0122,
+        "p10": 0.0122,
+        "p90": 0.0122,
+        "p99": 0.0122,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 0.0134,
+        "median": 0.0012,
+        "p10": 0.0001,
+        "p90": 0.0046,
+        "p99": 0.006,
+        "pct_zero": 2.8,
+        "pct_itm": 97.2
+      },
+      "75pct_captured": {
+        "mean": 0.0127,
+        "median": 0.0006,
+        "p10": 0.0,
+        "p90": 0.0023,
+        "p99": 0.003,
+        "pct_zero": 4.2,
+        "pct_itm": 95.8
+      },
+      "strike_cross": {
+        "mean": 0.0117,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.0,
+        "p99": 0.0,
+        "pct_zero": 99.6,
+        "pct_itm": 0.4
+      },
+      "dte_floor_3": {
+        "mean": 0.0131,
+        "median": 0.0006,
+        "p10": 0.0,
+        "p90": 0.0222,
+        "p99": 0.2168,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 0.0131,
+        "median": 0.0006,
+        "p10": 0.0,
+        "p90": 0.0222,
+        "p99": 0.2168,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 0.0124,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.0,
+        "p99": 0.0,
+        "pct_zero": 99.6,
+        "pct_itm": 0.4
+      },
+      "oracle": {
+        "mean": 0.0,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.0,
+        "p99": 0.0,
+        "pct_zero": 99.6,
+        "pct_itm": 0.4
+      }
+    },
+    "moneyness_label": "10% OTM"
+  },
+  {
+    "spot": 234.0,
+    "strike": 260,
+    "dte": 3,
+    "vol": 0.28,
+    "entry_call_price": 0.0006,
+    "moneyness_pct": -10.0,
+    "p_assignment": 0.0,
+    "strategies": {
+      "immediate": {
+        "mean": 0.0006,
+        "median": 0.0006,
+        "p10": 0.0006,
+        "p90": 0.0006,
+        "p99": 0.0006,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 0.0003,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.0001,
+        "p99": 0.0003,
+        "pct_zero": 3.2,
+        "pct_itm": 96.8
+      },
+      "75pct_captured": {
+        "mean": 0.0003,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.0001,
+        "p99": 0.0001,
+        "pct_zero": 4.3,
+        "pct_itm": 95.7
+      },
+      "strike_cross": {
+        "mean": 0.0002,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.0,
+        "p99": 0.0,
+        "pct_zero": 100.0,
+        "pct_itm": 0.0
+      },
+      "dte_floor_3": {
+        "mean": 0.0006,
+        "median": 0.0006,
+        "p10": 0.0006,
+        "p90": 0.0006,
+        "p99": 0.0006,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 0.0006,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.0008,
+        "p99": 0.01,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 0.0002,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.0,
+        "p99": 0.0,
+        "pct_zero": 100.0,
+        "pct_itm": 0.0
+      },
+      "oracle": {
+        "mean": 0.0,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.0,
+        "p99": 0.0,
+        "pct_zero": 100.0,
+        "pct_itm": 0.0
+      }
+    },
+    "moneyness_label": "10% OTM"
+  },
+  {
+    "spot": 247.0,
+    "strike": 260,
+    "dte": 30,
+    "vol": 0.28,
+    "entry_call_price": 5.0139,
+    "moneyness_pct": -5.0,
+    "p_assignment": 30.0,
+    "strategies": {
+      "immediate": {
+        "mean": 5.0139,
+        "median": 5.0139,
+        "p10": 5.0139,
+        "p90": 5.0139,
+        "p99": 5.0139,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 5.1149,
+        "median": 2.1321,
+        "p10": 1.3712,
+        "p90": 14.3563,
+        "p99": 49.0306,
+        "pct_zero": 0.4,
+        "pct_itm": 99.6
+      },
+      "75pct_captured": {
+        "mean": 5.1161,
+        "median": 1.0359,
+        "p10": 0.5297,
+        "p90": 18.8679,
+        "p99": 49.8088,
+        "pct_zero": 1.8,
+        "pct_itm": 98.2
+      },
+      "strike_cross": {
+        "mean": 5.0956,
+        "median": 5.0495,
+        "p10": 0.0,
+        "p90": 11.4796,
+        "p99": 14.5601,
+        "pct_zero": 46.6,
+        "pct_itm": 53.4
+      },
+      "dte_floor_3": {
+        "mean": 5.1526,
+        "median": 0.1708,
+        "p10": 0.0,
+        "p90": 18.7568,
+        "p99": 46.1154,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 5.096,
+        "median": 4.6669,
+        "p10": 0.0,
+        "p90": 11.4789,
+        "p99": 14.5601,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 5.0598,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 19.9741,
+        "p99": 49.8229,
+        "pct_zero": 70.0,
+        "pct_itm": 30.0
+      },
+      "oracle": {
+        "mean": 0.7673,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 3.5496,
+        "p99": 5.0139,
+        "pct_zero": 70.0,
+        "pct_itm": 30.0
+      }
+    },
+    "moneyness_label": "5% OTM"
+  },
+  {
+    "spot": 247.0,
+    "strike": 260,
+    "dte": 21,
+    "vol": 0.28,
+    "entry_call_price": 3.5137,
+    "moneyness_pct": -5.0,
+    "p_assignment": 26.8,
+    "strategies": {
+      "immediate": {
+        "mean": 3.5137,
+        "median": 3.5137,
+        "p10": 3.5137,
+        "p90": 3.5137,
+        "p99": 3.5137,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 3.5765,
+        "median": 1.4261,
+        "p10": 0.7918,
+        "p90": 9.3523,
+        "p99": 37.789,
+        "pct_zero": 0.9,
+        "pct_itm": 99.1
+      },
+      "75pct_captured": {
+        "mean": 3.6355,
+        "median": 0.6869,
+        "p10": 0.2872,
+        "p90": 13.404,
+        "p99": 38.3763,
+        "pct_zero": 2.6,
+        "pct_itm": 97.4
+      },
+      "strike_cross": {
+        "mean": 3.5596,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 9.3586,
+        "p99": 12.3733,
+        "pct_zero": 54.5,
+        "pct_itm": 45.5
+      },
+      "dte_floor_3": {
+        "mean": 3.6459,
+        "median": 0.155,
+        "p10": 0.0,
+        "p90": 12.8519,
+        "p99": 34.5383,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 3.5514,
+        "median": 0.466,
+        "p10": 0.0,
+        "p90": 9.3489,
+        "p99": 12.3733,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 3.6433,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 14.6067,
+        "p99": 38.421,
+        "pct_zero": 73.2,
+        "pct_itm": 26.8
+      },
+      "oracle": {
+        "mean": 0.5012,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 2.3607,
+        "p99": 3.5137,
+        "pct_zero": 73.2,
+        "pct_itm": 26.8
+      }
+    },
+    "moneyness_label": "5% OTM"
+  },
+  {
+    "spot": 247.0,
+    "strike": 260,
+    "dte": 14,
+    "vol": 0.28,
+    "entry_call_price": 2.231,
+    "moneyness_pct": -5.0,
+    "p_assignment": 22.1,
+    "strategies": {
+      "immediate": {
+        "mean": 2.231,
+        "median": 2.231,
+        "p10": 2.231,
+        "p90": 2.231,
+        "p99": 2.231,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 2.2333,
+        "median": 0.8347,
+        "p10": 0.3643,
+        "p90": 4.84,
+        "p99": 26.8979,
+        "pct_zero": 2.0,
+        "pct_itm": 98.0
+      },
+      "75pct_captured": {
+        "mean": 2.237,
+        "median": 0.394,
+        "p10": 0.1016,
+        "p90": 7.8138,
+        "p99": 28.2243,
+        "pct_zero": 4.1,
+        "pct_itm": 95.9
+      },
+      "strike_cross": {
+        "mean": 2.2291,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 7.2664,
+        "p99": 10.6248,
+        "pct_zero": 64.3,
+        "pct_itm": 35.7
+      },
+      "dte_floor_3": {
+        "mean": 2.2931,
+        "median": 0.1566,
+        "p10": 0.0,
+        "p90": 7.7495,
+        "p99": 23.6265,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 2.2364,
+        "median": 0.1988,
+        "p10": 0.0,
+        "p90": 7.2128,
+        "p99": 10.5861,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 2.2516,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 9.1198,
+        "p99": 28.3673,
+        "pct_zero": 77.9,
+        "pct_itm": 22.1
+      },
+      "oracle": {
+        "mean": 0.274,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 1.354,
+        "p99": 2.231,
+        "pct_zero": 77.9,
+        "pct_itm": 22.1
+      }
+    },
+    "moneyness_label": "5% OTM"
+  },
+  {
+    "spot": 247.0,
+    "strike": 260,
+    "dte": 7,
+    "vol": 0.28,
+    "entry_call_price": 0.8562,
+    "moneyness_pct": -5.0,
+    "p_assignment": 13.8,
+    "strategies": {
+      "immediate": {
+        "mean": 0.8562,
+        "median": 0.8562,
+        "p10": 0.8562,
+        "p90": 0.8562,
+        "p99": 0.8562,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 0.8765,
+        "median": 0.2356,
+        "p10": 0.0412,
+        "p90": 0.4204,
+        "p99": 14.6871,
+        "pct_zero": 4.7,
+        "pct_itm": 95.3
+      },
+      "75pct_captured": {
+        "mean": 0.8964,
+        "median": 0.1046,
+        "p10": 0.0019,
+        "p90": 1.3255,
+        "p99": 15.2732,
+        "pct_zero": 8.7,
+        "pct_itm": 91.3
+      },
+      "strike_cross": {
+        "mean": 0.8653,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 4.2507,
+        "p99": 8.067,
+        "pct_zero": 80.3,
+        "pct_itm": 19.7
+      },
+      "dte_floor_3": {
+        "mean": 0.8798,
+        "median": 0.1583,
+        "p10": 0.0018,
+        "p90": 2.5534,
+        "p99": 8.9982,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 0.876,
+        "median": 0.159,
+        "p10": 0.0018,
+        "p90": 3.0099,
+        "p99": 7.2711,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 0.8868,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 2.5011,
+        "p99": 15.2878,
+        "pct_zero": 86.2,
+        "pct_itm": 13.8
+      },
+      "oracle": {
+        "mean": 0.077,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.3114,
+        "p99": 0.8562,
+        "pct_zero": 86.2,
+        "pct_itm": 13.8
+      }
+    },
+    "moneyness_label": "5% OTM"
+  },
+  {
+    "spot": 247.0,
+    "strike": 260,
+    "dte": 5,
+    "vol": 0.28,
+    "entry_call_price": 0.4766,
+    "moneyness_pct": -5.0,
+    "p_assignment": 10.1,
+    "strategies": {
+      "immediate": {
+        "mean": 0.4766,
+        "median": 0.4766,
+        "p10": 0.4766,
+        "p90": 0.4766,
+        "p99": 0.4766,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 0.4761,
+        "median": 0.0964,
+        "p10": 0.0044,
+        "p90": 0.2254,
+        "p99": 9.9944,
+        "pct_zero": 7.2,
+        "pct_itm": 92.8
+      },
+      "75pct_captured": {
+        "mean": 0.4775,
+        "median": 0.0409,
+        "p10": 0.0,
+        "p90": 0.1156,
+        "p99": 10.2955,
+        "pct_zero": 12.3,
+        "pct_itm": 87.7
+      },
+      "strike_cross": {
+        "mean": 0.4691,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 2.3166,
+        "p99": 6.6439,
+        "pct_zero": 87.0,
+        "pct_itm": 13.0
+      },
+      "dte_floor_3": {
+        "mean": 0.4892,
+        "median": 0.1602,
+        "p10": 0.0074,
+        "p90": 1.3072,
+        "p99": 4.27,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 0.4876,
+        "median": 0.1602,
+        "p10": 0.0074,
+        "p90": 1.3084,
+        "p99": 4.2488,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 0.4747,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.0688,
+        "p99": 10.2955,
+        "pct_zero": 89.9,
+        "pct_itm": 10.1
+      },
+      "oracle": {
+        "mean": 0.0344,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.0107,
+        "p99": 0.4766,
+        "pct_zero": 89.9,
+        "pct_itm": 10.1
+      }
+    },
+    "moneyness_label": "5% OTM"
+  },
+  {
+    "spot": 247.0,
+    "strike": 260,
+    "dte": 3,
+    "vol": 0.28,
+    "entry_call_price": 0.1554,
+    "moneyness_pct": -5.0,
+    "p_assignment": 4.6,
+    "strategies": {
+      "immediate": {
+        "mean": 0.1554,
+        "median": 0.1554,
+        "p10": 0.1554,
+        "p90": 0.1554,
+        "p99": 0.1554,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 0.1528,
+        "median": 0.0108,
+        "p10": 0.0,
+        "p90": 0.062,
+        "p99": 4.666,
+        "pct_zero": 12.8,
+        "pct_itm": 87.2
+      },
+      "75pct_captured": {
+        "mean": 0.1511,
+        "median": 0.0044,
+        "p10": 0.0,
+        "p90": 0.0314,
+        "p99": 4.8504,
+        "pct_zero": 19.3,
+        "pct_itm": 80.7
+      },
+      "strike_cross": {
+        "mean": 0.1515,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.0,
+        "p99": 4.3104,
+        "pct_zero": 94.8,
+        "pct_itm": 5.2
+      },
+      "dte_floor_3": {
+        "mean": 0.1554,
+        "median": 0.1554,
+        "p10": 0.1554,
+        "p90": 0.1554,
+        "p99": 0.1554,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 0.1548,
+        "median": 0.0475,
+        "p10": 0.0028,
+        "p90": 0.4082,
+        "p99": 1.4703,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 0.1512,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.0,
+        "p99": 4.9572,
+        "pct_zero": 95.4,
+        "pct_itm": 4.6
+      },
+      "oracle": {
+        "mean": 0.0059,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.0,
+        "p99": 0.1554,
+        "pct_zero": 95.4,
+        "pct_itm": 4.6
+      }
+    },
+    "moneyness_label": "5% OTM"
+  },
+  {
+    "spot": 252.2,
+    "strike": 260,
+    "dte": 30,
+    "vol": 0.28,
+    "entry_call_price": 6.9645,
+    "moneyness_pct": -3.0,
+    "p_assignment": 38.4,
+    "strategies": {
+      "immediate": {
+        "mean": 6.9645,
+        "median": 6.9645,
+        "p10": 6.9645,
+        "p90": 6.9645,
+        "p99": 6.9645,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 7.0909,
+        "median": 3.0327,
+        "p10": 2.0136,
+        "p90": 21.7612,
+        "p99": 55.7549,
+        "pct_zero": 0.2,
+        "pct_itm": 99.8
+      },
+      "75pct_captured": {
+        "mean": 7.0673,
+        "median": 1.4915,
+        "p10": 0.8082,
+        "p90": 25.1445,
+        "p99": 56.3311,
+        "pct_zero": 1.3,
+        "pct_itm": 98.7
+      },
+      "strike_cross": {
+        "mean": 7.0142,
+        "median": 9.415,
+        "p10": 0.0,
+        "p90": 12.4076,
+        "p99": 15.3082,
+        "pct_zero": 31.9,
+        "pct_itm": 68.0
+      },
+      "dte_floor_3": {
+        "mean": 7.1253,
+        "median": 0.7296,
+        "p10": 0.0,
+        "p90": 24.5933,
+        "p99": 52.557,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 7.0133,
+        "median": 9.4125,
+        "p10": 0.0,
+        "p90": 12.4056,
+        "p99": 15.3082,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 7.0353,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 25.8683,
+        "p99": 56.3455,
+        "pct_zero": 61.6,
+        "pct_itm": 38.4
+      },
+      "oracle": {
+        "mean": 1.3437,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 5.5493,
+        "p99": 6.9645,
+        "pct_zero": 61.6,
+        "pct_itm": 38.4
+      }
+    },
+    "moneyness_label": "3% OTM"
+  },
+  {
+    "spot": 252.2,
+    "strike": 260,
+    "dte": 21,
+    "vol": 0.28,
+    "entry_call_price": 5.2724,
+    "moneyness_pct": -3.0,
+    "p_assignment": 35.6,
+    "strategies": {
+      "immediate": {
+        "mean": 5.2724,
+        "median": 5.2724,
+        "p10": 5.2724,
+        "p90": 5.2724,
+        "p99": 5.2724,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 5.3337,
+        "median": 2.2111,
+        "p10": 1.3002,
+        "p90": 16.6606,
+        "p99": 44.1185,
+        "pct_zero": 0.7,
+        "pct_itm": 99.3
+      },
+      "75pct_captured": {
+        "mean": 5.4599,
+        "median": 1.0928,
+        "p10": 0.4684,
+        "p90": 19.663,
+        "p99": 44.7035,
+        "pct_zero": 2.3,
+        "pct_itm": 97.7
+      },
+      "strike_cross": {
+        "mean": 5.3182,
+        "median": 7.0165,
+        "p10": 0.0,
+        "p90": 10.4199,
+        "p99": 13.4129,
+        "pct_zero": 38.0,
+        "pct_itm": 62.0
+      },
+      "dte_floor_3": {
+        "mean": 5.4355,
+        "median": 0.676,
+        "p10": 0.0,
+        "p90": 18.415,
+        "p99": 40.7362,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 5.3252,
+        "median": 6.9866,
+        "p10": 0.0001,
+        "p90": 10.4151,
+        "p99": 13.4129,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 5.4318,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 20.3878,
+        "p99": 44.7035,
+        "pct_zero": 64.4,
+        "pct_itm": 35.6
+      },
+      "oracle": {
+        "mean": 0.9923,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 4.1849,
+        "p99": 5.2724,
+        "pct_zero": 64.4,
+        "pct_itm": 35.6
+      }
+    },
+    "moneyness_label": "3% OTM"
+  },
+  {
+    "spot": 252.2,
+    "strike": 260,
+    "dte": 14,
+    "vol": 0.28,
+    "entry_call_price": 3.7527,
+    "moneyness_pct": -3.0,
+    "p_assignment": 32.8,
+    "strategies": {
+      "immediate": {
+        "mean": 3.7527,
+        "median": 3.7527,
+        "p10": 3.7527,
+        "p90": 3.7527,
+        "p99": 3.7527,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 3.7778,
+        "median": 1.4864,
+        "p10": 0.7202,
+        "p90": 11.9351,
+        "p99": 33.9988,
+        "pct_zero": 1.1,
+        "pct_itm": 98.9
+      },
+      "75pct_captured": {
+        "mean": 3.7716,
+        "median": 0.7185,
+        "p10": 0.2242,
+        "p90": 14.0207,
+        "p99": 34.3281,
+        "pct_zero": 3.5,
+        "pct_itm": 96.5
+      },
+      "strike_cross": {
+        "mean": 3.7618,
+        "median": 4.0005,
+        "p10": 0.0,
+        "p90": 8.4493,
+        "p99": 11.5892,
+        "pct_zero": 45.5,
+        "pct_itm": 54.5
+      },
+      "dte_floor_3": {
+        "mean": 3.8308,
+        "median": 0.6817,
+        "p10": 0.0005,
+        "p90": 12.7065,
+        "p99": 29.5896,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 3.7717,
+        "median": 2.9195,
+        "p10": 0.0007,
+        "p90": 8.4424,
+        "p99": 11.5521,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 3.7888,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 14.7855,
+        "p99": 34.4382,
+        "pct_zero": 67.2,
+        "pct_itm": 32.8
+      },
+      "oracle": {
+        "mean": 0.6695,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 2.9785,
+        "p99": 3.7527,
+        "pct_zero": 67.2,
+        "pct_itm": 32.8
+      }
+    },
+    "moneyness_label": "3% OTM"
+  },
+  {
+    "spot": 252.2,
+    "strike": 260,
+    "dte": 7,
+    "vol": 0.28,
+    "entry_call_price": 1.9305,
+    "moneyness_pct": -3.0,
+    "p_assignment": 25.8,
+    "strategies": {
+      "immediate": {
+        "mean": 1.9305,
+        "median": 1.9305,
+        "p10": 1.9305,
+        "p90": 1.9305,
+        "p99": 1.9305,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 1.9595,
+        "median": 0.6318,
+        "p10": 0.1415,
+        "p90": 6.0264,
+        "p99": 20.8976,
+        "pct_zero": 4.5,
+        "pct_itm": 95.5
+      },
+      "75pct_captured": {
+        "mean": 1.9777,
+        "median": 0.2849,
+        "p10": 0.008,
+        "p90": 7.6258,
+        "p99": 21.0833,
+        "pct_zero": 9.1,
+        "pct_itm": 90.9
+      },
+      "strike_cross": {
+        "mean": 1.9308,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 5.8101,
+        "p99": 9.5009,
+        "pct_zero": 60.8,
+        "pct_itm": 39.2
+      },
+      "dte_floor_3": {
+        "mean": 1.9673,
+        "median": 0.6874,
+        "p10": 0.0175,
+        "p90": 5.6856,
+        "p99": 14.1626,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 1.9366,
+        "median": 0.7305,
+        "p10": 0.0175,
+        "p90": 5.5644,
+        "p99": 8.9437,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 1.9642,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 8.0274,
+        "p99": 21.0833,
+        "pct_zero": 74.2,
+        "pct_itm": 25.8
+      },
+      "oracle": {
+        "mean": 0.3083,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 1.6101,
+        "p99": 1.9305,
+        "pct_zero": 74.2,
+        "pct_itm": 25.8
+      }
+    },
+    "moneyness_label": "3% OTM"
+  },
+  {
+    "spot": 252.2,
+    "strike": 260,
+    "dte": 5,
+    "vol": 0.28,
+    "entry_call_price": 1.3248,
+    "moneyness_pct": -3.0,
+    "p_assignment": 22.2,
+    "strategies": {
+      "immediate": {
+        "mean": 1.3248,
+        "median": 1.3248,
+        "p10": 1.3248,
+        "p90": 1.3248,
+        "p99": 1.3248,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 1.3441,
+        "median": 0.3533,
+        "p10": 0.0264,
+        "p90": 4.2145,
+        "p99": 15.8375,
+        "pct_zero": 7.3,
+        "pct_itm": 92.7
+      },
+      "75pct_captured": {
+        "mean": 1.3415,
+        "median": 0.1566,
+        "p10": 0.0,
+        "p90": 5.182,
+        "p99": 15.9859,
+        "pct_zero": 13.3,
+        "pct_itm": 86.7
+      },
+      "strike_cross": {
+        "mean": 1.3416,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 4.7283,
+        "p99": 8.5951,
+        "pct_zero": 68.2,
+        "pct_itm": 31.8
+      },
+      "dte_floor_3": {
+        "mean": 1.3512,
+        "median": 0.694,
+        "p10": 0.0578,
+        "p90": 3.4688,
+        "p99": 8.2617,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 1.3529,
+        "median": 0.6956,
+        "p10": 0.0578,
+        "p90": 3.8899,
+        "p99": 7.2658,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 1.338,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 5.5439,
+        "p99": 15.9859,
+        "pct_zero": 77.8,
+        "pct_itm": 22.2
+      },
+      "oracle": {
+        "mean": 0.1981,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 1.1806,
+        "p99": 1.3248,
+        "pct_zero": 77.8,
+        "pct_itm": 22.2
+      }
+    },
+    "moneyness_label": "3% OTM"
+  },
+  {
+    "spot": 252.2,
+    "strike": 260,
+    "dte": 3,
+    "vol": 0.28,
+    "entry_call_price": 0.6774,
+    "moneyness_pct": -3.0,
+    "p_assignment": 16.0,
+    "strategies": {
+      "immediate": {
+        "mean": 0.6774,
+        "median": 0.6774,
+        "p10": 0.6774,
+        "p90": 0.6774,
+        "p99": 0.6774,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 0.6588,
+        "median": 0.0951,
+        "p10": 0.0,
+        "p90": 1.2547,
+        "p99": 10.4443,
+        "pct_zero": 14.6,
+        "pct_itm": 85.4
+      },
+      "75pct_captured": {
+        "mean": 0.6603,
+        "median": 0.0356,
+        "p10": 0.0,
+        "p90": 1.7917,
+        "p99": 10.5353,
+        "pct_zero": 23.9,
+        "pct_itm": 76.1
+      },
+      "strike_cross": {
+        "mean": 0.6672,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 3.0078,
+        "p99": 7.1627,
+        "pct_zero": 80.0,
+        "pct_itm": 20.0
+      },
+      "dte_floor_3": {
+        "mean": 0.6774,
+        "median": 0.6774,
+        "p10": 0.6774,
+        "p90": 0.6774,
+        "p99": 0.6774,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 0.6753,
+        "median": 0.3512,
+        "p10": 0.0391,
+        "p90": 1.7208,
+        "p99": 4.2294,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 0.6612,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 2.2028,
+        "p99": 10.5353,
+        "pct_zero": 84.0,
+        "pct_itm": 16.0
+      },
+      "oracle": {
+        "mean": 0.081,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 0.5165,
+        "p99": 0.6774,
+        "pct_zero": 84.0,
+        "pct_itm": 16.0
+      }
+    },
+    "moneyness_label": "3% OTM"
+  },
+  {
+    "spot": 257.4,
+    "strike": 260,
+    "dte": 30,
+    "vol": 0.28,
+    "entry_call_price": 9.3463,
+    "moneyness_pct": -1.0,
+    "p_assignment": 46.7,
+    "strategies": {
+      "immediate": {
+        "mean": 9.3463,
+        "median": 9.3463,
+        "p10": 9.3463,
+        "p90": 9.3463,
+        "p99": 9.3463,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 9.5235,
+        "median": 4.1798,
+        "p10": 2.8615,
+        "p90": 28.5745,
+        "p99": 62.4156,
+        "pct_zero": 0.2,
+        "pct_itm": 99.8
+      },
+      "75pct_captured": {
+        "mean": 9.4742,
+        "median": 2.0967,
+        "p10": 1.1733,
+        "p90": 31.3319,
+        "p99": 62.8533,
+        "pct_zero": 1.0,
+        "pct_itm": 99.0
+      },
+      "strike_cross": {
+        "mean": 9.3581,
+        "median": 10.8928,
+        "p10": 0.0,
+        "p90": 13.4357,
+        "p99": 16.3627,
+        "pct_zero": 16.7,
+        "pct_itm": 83.3
+      },
+      "dte_floor_3": {
+        "mean": 9.5318,
+        "median": 2.194,
+        "p10": 0.0,
+        "p90": 30.4549,
+        "p99": 58.9986,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 9.3569,
+        "median": 10.8928,
+        "p10": 0.0044,
+        "p90": 13.4357,
+        "p99": 16.3627,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 9.4616,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 31.7625,
+        "p99": 62.8681,
+        "pct_zero": 53.3,
+        "pct_itm": 46.7
+      },
+      "oracle": {
+        "mean": 2.2034,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 8.0272,
+        "p99": 9.3463,
+        "pct_zero": 53.3,
+        "pct_itm": 46.7
+      }
+    },
+    "moneyness_label": "1% OTM"
+  },
+  {
+    "spot": 257.4,
+    "strike": 260,
+    "dte": 21,
+    "vol": 0.28,
+    "entry_call_price": 7.536,
+    "moneyness_pct": -1.0,
+    "p_assignment": 45.3,
+    "strategies": {
+      "immediate": {
+        "mean": 7.536,
+        "median": 7.536,
+        "p10": 7.536,
+        "p90": 7.536,
+        "p99": 7.536,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 7.6759,
+        "median": 3.2741,
+        "p10": 2.0245,
+        "p90": 23.6237,
+        "p99": 50.5787,
+        "pct_zero": 0.3,
+        "pct_itm": 99.7
+      },
+      "75pct_captured": {
+        "mean": 7.7967,
+        "median": 1.6576,
+        "p10": 0.7885,
+        "p90": 25.6745,
+        "p99": 50.9861,
+        "pct_zero": 1.6,
+        "pct_itm": 98.4
+      },
+      "strike_cross": {
+        "mean": 7.5718,
+        "median": 8.9722,
+        "p10": 0.0,
+        "p90": 11.5568,
+        "p99": 14.6247,
+        "pct_zero": 20.3,
+        "pct_itm": 79.7
+      },
+      "dte_floor_3": {
+        "mean": 7.723,
+        "median": 2.0699,
+        "p10": 0.0005,
+        "p90": 24.1202,
+        "p99": 46.934,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 7.5777,
+        "median": 8.97,
+        "p10": 0.0057,
+        "p90": 11.5563,
+        "p99": 14.6247,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 7.7113,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 26.169,
+        "p99": 50.9861,
+        "pct_zero": 54.7,
+        "pct_itm": 45.3
+      },
+      "oracle": {
+        "mean": 1.8033,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 6.5983,
+        "p99": 7.536,
+        "pct_zero": 54.7,
+        "pct_itm": 45.3
+      }
+    },
+    "moneyness_label": "1% OTM"
+  },
+  {
+    "spot": 257.4,
+    "strike": 260,
+    "dte": 14,
+    "vol": 0.28,
+    "entry_call_price": 5.8705,
+    "moneyness_pct": -1.0,
+    "p_assignment": 44.3,
+    "strategies": {
+      "immediate": {
+        "mean": 5.8705,
+        "median": 5.8705,
+        "p10": 5.8705,
+        "p90": 5.8705,
+        "p99": 5.8705,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 5.8694,
+        "median": 2.4604,
+        "p10": 1.3209,
+        "p90": 18.5395,
+        "p99": 40.1069,
+        "pct_zero": 0.7,
+        "pct_itm": 99.3
+      },
+      "75pct_captured": {
+        "mean": 5.9241,
+        "median": 1.2295,
+        "p10": 0.442,
+        "p90": 20.0533,
+        "p99": 40.5091,
+        "pct_zero": 2.7,
+        "pct_itm": 97.3
+      },
+      "strike_cross": {
+        "mean": 5.8843,
+        "median": 7.1113,
+        "p10": 0.0,
+        "p90": 9.7599,
+        "p99": 12.8199,
+        "pct_zero": 24.4,
+        "pct_itm": 75.6
+      },
+      "dte_floor_3": {
+        "mean": 5.961,
+        "median": 2.0833,
+        "p10": 0.006,
+        "p90": 18.1424,
+        "p99": 35.5573,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 5.8889,
+        "median": 7.1059,
+        "p10": 0.0166,
+        "p90": 9.752,
+        "p99": 12.8199,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 5.9384,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 20.4512,
+        "p99": 40.5091,
+        "pct_zero": 55.7,
+        "pct_itm": 44.3
+      },
+      "oracle": {
+        "mean": 1.4142,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 5.3194,
+        "p99": 5.8705,
+        "pct_zero": 55.7,
+        "pct_itm": 44.3
+      }
+    },
+    "moneyness_label": "1% OTM"
+  },
+  {
+    "spot": 257.4,
+    "strike": 260,
+    "dte": 7,
+    "vol": 0.28,
+    "entry_call_price": 3.7605,
+    "moneyness_pct": -1.0,
+    "p_assignment": 41.8,
+    "strategies": {
+      "immediate": {
+        "mean": 3.7605,
+        "median": 3.7605,
+        "p10": 3.7605,
+        "p90": 3.7605,
+        "p99": 3.7605,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 3.8314,
+        "median": 1.4255,
+        "p10": 0.4531,
+        "p90": 12.6555,
+        "p99": 26.706,
+        "pct_zero": 3.1,
+        "pct_itm": 96.9
+      },
+      "75pct_captured": {
+        "mean": 3.8023,
+        "median": 0.6984,
+        "p10": 0.0647,
+        "p90": 13.3317,
+        "p99": 26.8788,
+        "pct_zero": 7.6,
+        "pct_itm": 92.4
+      },
+      "strike_cross": {
+        "mean": 3.7629,
+        "median": 4.6286,
+        "p10": 0.0,
+        "p90": 7.3792,
+        "p99": 10.851,
+        "pct_zero": 33.9,
+        "pct_itm": 66.1
+      },
+      "dte_floor_3": {
+        "mean": 3.8076,
+        "median": 2.0965,
+        "p10": 0.1134,
+        "p90": 10.0575,
+        "p99": 19.691,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 3.7606,
+        "median": 4.4226,
+        "p10": 0.1227,
+        "p90": 7.3022,
+        "p99": 10.8021,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 3.8175,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 13.5537,
+        "p99": 26.8788,
+        "pct_zero": 58.2,
+        "pct_itm": 41.8
+      },
+      "oracle": {
+        "mean": 0.9524,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 3.7605,
+        "p99": 3.7605,
+        "pct_zero": 58.2,
+        "pct_itm": 41.8
+      }
+    },
+    "moneyness_label": "1% OTM"
+  },
+  {
+    "spot": 257.4,
+    "strike": 260,
+    "dte": 5,
+    "vol": 0.28,
+    "entry_call_price": 2.9936,
+    "moneyness_pct": -1.0,
+    "p_assignment": 40.2,
+    "strategies": {
+      "immediate": {
+        "mean": 2.9936,
+        "median": 2.9936,
+        "p10": 2.9936,
+        "p90": 2.9936,
+        "p99": 2.9936,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 3.0195,
+        "median": 1.0483,
+        "p10": 0.1786,
+        "p90": 10.3622,
+        "p99": 21.6763,
+        "pct_zero": 5.4,
+        "pct_itm": 94.6
+      },
+      "75pct_captured": {
+        "mean": 3.0386,
+        "median": 0.5133,
+        "p10": 0.0,
+        "p90": 10.9363,
+        "p99": 21.6763,
+        "pct_zero": 11.4,
+        "pct_itm": 88.6
+      },
+      "strike_cross": {
+        "mean": 2.9941,
+        "median": 3.5245,
+        "p10": 0.0,
+        "p90": 6.5621,
+        "p99": 10.0901,
+        "pct_zero": 39.7,
+        "pct_itm": 60.3
+      },
+      "dte_floor_3": {
+        "mean": 3.038,
+        "median": 2.112,
+        "p10": 0.2997,
+        "p90": 7.0191,
+        "p99": 13.2,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 3.0269,
+        "median": 2.4565,
+        "p10": 0.3025,
+        "p90": 6.2854,
+        "p99": 9.8795,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 3.0222,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 11.019,
+        "p99": 21.6763,
+        "pct_zero": 59.9,
+        "pct_itm": 40.2
+      },
+      "oracle": {
+        "mean": 0.7754,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 2.9936,
+        "p99": 2.9936,
+        "pct_zero": 59.9,
+        "pct_itm": 40.2
+      }
+    },
+    "moneyness_label": "1% OTM"
+  },
+  {
+    "spot": 257.4,
+    "strike": 260,
+    "dte": 3,
+    "vol": 0.28,
+    "entry_call_price": 2.0733,
+    "moneyness_pct": -1.0,
+    "p_assignment": 37.1,
+    "strategies": {
+      "immediate": {
+        "mean": 2.0733,
+        "median": 2.0733,
+        "p10": 2.0733,
+        "p90": 2.0733,
+        "p99": 2.0733,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 2.0568,
+        "median": 0.5668,
+        "p10": 0.0,
+        "p90": 7.1839,
+        "p99": 16.1037,
+        "pct_zero": 12.2,
+        "pct_itm": 87.8
+      },
+      "75pct_captured": {
+        "mean": 2.0547,
+        "median": 0.264,
+        "p10": 0.0,
+        "p90": 7.5346,
+        "p99": 16.1133,
+        "pct_zero": 21.5,
+        "pct_itm": 78.5
+      },
+      "strike_cross": {
+        "mean": 2.0674,
+        "median": 0.4888,
+        "p10": 0.0,
+        "p90": 5.4791,
+        "p99": 9.5826,
+        "pct_zero": 48.9,
+        "pct_itm": 51.1
+      },
+      "dte_floor_3": {
+        "mean": 2.0733,
+        "median": 2.0733,
+        "p10": 2.0733,
+        "p90": 2.0733,
+        "p99": 2.0733,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 2.0674,
+        "median": 1.5057,
+        "p10": 0.292,
+        "p90": 4.6317,
+        "p99": 8.5415,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 2.0546,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 7.609,
+        "p99": 16.1133,
+        "pct_zero": 62.8,
+        "pct_itm": 37.1
+      },
+      "oracle": {
+        "mean": 0.5402,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 2.0733,
+        "p99": 2.0733,
+        "pct_zero": 62.8,
+        "pct_itm": 37.1
+      }
+    },
+    "moneyness_label": "1% OTM"
+  },
+  {
+    "spot": 260.0,
+    "strike": 260,
+    "dte": 30,
+    "vol": 0.28,
+    "entry_call_price": 10.7,
+    "moneyness_pct": 0.0,
+    "p_assignment": 51.0,
+    "strategies": {
+      "immediate": {
+        "mean": 10.7,
+        "median": 10.7,
+        "p10": 10.7,
+        "p90": 10.7,
+        "p99": 10.7,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 10.8673,
+        "median": 4.8406,
+        "p10": 3.3373,
+        "p90": 32.0086,
+        "p99": 65.6723,
+        "pct_zero": 0.1,
+        "pct_itm": 99.9
+      },
+      "75pct_captured": {
+        "mean": 10.8517,
+        "median": 2.4437,
+        "p10": 1.4024,
+        "p90": 34.4198,
+        "p99": 66.1294,
+        "pct_zero": 0.7,
+        "pct_itm": 99.3
+      },
+      "strike_cross": {
+        "mean": 10.7165,
+        "median": 11.478,
+        "p10": 0.0,
+        "p90": 14.3785,
+        "p99": 17.6812,
+        "pct_zero": 10.1,
+        "pct_itm": 89.9
+      },
+      "dte_floor_3": {
+        "mean": 10.8985,
+        "median": 3.4004,
+        "p10": 0.0001,
+        "p90": 33.3872,
+        "p99": 62.2194,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 10.7163,
+        "median": 11.478,
+        "p10": 1.0234,
+        "p90": 14.3785,
+        "p99": 17.6812,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 10.8417,
+        "median": 0.7015,
+        "p10": 0.0,
+        "p90": 34.7095,
+        "p99": 66.1294,
+        "pct_zero": 49.0,
+        "pct_itm": 51.0
+      },
+      "oracle": {
+        "mean": 2.761,
+        "median": 0.1573,
+        "p10": 0.0,
+        "p90": 9.4275,
+        "p99": 10.7,
+        "pct_zero": 49.0,
+        "pct_itm": 51.0
+      }
+    },
+    "moneyness_label": "ATM"
+  },
+  {
+    "spot": 260.0,
+    "strike": 260,
+    "dte": 21,
+    "vol": 0.28,
+    "entry_call_price": 8.8616,
+    "moneyness_pct": 0.0,
+    "p_assignment": 50.0,
+    "strategies": {
+      "immediate": {
+        "mean": 8.8616,
+        "median": 8.8616,
+        "p10": 8.8616,
+        "p90": 8.8616,
+        "p99": 8.8616,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 9.057,
+        "median": 3.9193,
+        "p10": 2.4949,
+        "p90": 27.0639,
+        "p99": 53.7542,
+        "pct_zero": 0.2,
+        "pct_itm": 99.8
+      },
+      "75pct_captured": {
+        "mean": 9.1044,
+        "median": 2.0026,
+        "p10": 0.9817,
+        "p90": 28.6227,
+        "p99": 54.1274,
+        "pct_zero": 1.4,
+        "pct_itm": 98.6
+      },
+      "strike_cross": {
+        "mean": 8.9058,
+        "median": 9.6302,
+        "p10": 0.0,
+        "p90": 12.5865,
+        "p99": 16.0837,
+        "pct_zero": 12.3,
+        "pct_itm": 87.7
+      },
+      "dte_floor_3": {
+        "mean": 9.057,
+        "median": 3.2335,
+        "p10": 0.0018,
+        "p90": 26.9856,
+        "p99": 50.033,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 8.9083,
+        "median": 9.6284,
+        "p10": 0.2791,
+        "p90": 12.5817,
+        "p99": 16.0837,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 9.0389,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 29.0596,
+        "p99": 54.1274,
+        "pct_zero": 50.0,
+        "pct_itm": 50.0
+      },
+      "oracle": {
+        "mean": 2.3516,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 8.025,
+        "p99": 8.8616,
+        "pct_zero": 50.0,
+        "pct_itm": 50.0
+      }
+    },
+    "moneyness_label": "ATM"
+  },
+  {
+    "spot": 260.0,
+    "strike": 260,
+    "dte": 14,
+    "vol": 0.28,
+    "entry_call_price": 7.1652,
+    "moneyness_pct": 0.0,
+    "p_assignment": 50.3,
+    "strategies": {
+      "immediate": {
+        "mean": 7.1652,
+        "median": 7.1652,
+        "p10": 7.1652,
+        "p90": 7.1652,
+        "p99": 7.1652,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 7.1744,
+        "median": 3.0734,
+        "p10": 1.6955,
+        "p90": 21.6898,
+        "p99": 43.1382,
+        "pct_zero": 0.6,
+        "pct_itm": 99.4
+      },
+      "75pct_captured": {
+        "mean": 7.2143,
+        "median": 1.5747,
+        "p10": 0.6038,
+        "p90": 22.9468,
+        "p99": 43.5446,
+        "pct_zero": 2.5,
+        "pct_itm": 97.5
+      },
+      "strike_cross": {
+        "mean": 7.1722,
+        "median": 7.7912,
+        "p10": 0.0,
+        "p90": 10.8491,
+        "p99": 14.274,
+        "pct_zero": 15.1,
+        "pct_itm": 84.9
+      },
+      "dte_floor_3": {
+        "mean": 7.2602,
+        "median": 3.2516,
+        "p10": 0.0174,
+        "p90": 20.9254,
+        "p99": 38.5413,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 7.1711,
+        "median": 7.7887,
+        "p10": 0.1412,
+        "p90": 10.8473,
+        "p99": 14.274,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 7.2412,
+        "median": 0.1663,
+        "p10": 0.0,
+        "p90": 23.284,
+        "p99": 43.5446,
+        "pct_zero": 49.6,
+        "pct_itm": 50.3
+      },
+      "oracle": {
+        "mean": 1.959,
+        "median": 0.046,
+        "p10": 0.0,
+        "p90": 6.8255,
+        "p99": 7.1652,
+        "pct_zero": 49.6,
+        "pct_itm": 50.3
+      }
+    },
+    "moneyness_label": "ATM"
+  },
+  {
+    "spot": 260.0,
+    "strike": 260,
+    "dte": 7,
+    "vol": 0.28,
+    "entry_call_price": 5.0012,
+    "moneyness_pct": 0.0,
+    "p_assignment": 50.5,
+    "strategies": {
+      "immediate": {
+        "mean": 5.0012,
+        "median": 5.0012,
+        "p10": 5.0012,
+        "p90": 5.0012,
+        "p99": 5.0012,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 5.0622,
+        "median": 2.019,
+        "p10": 0.7197,
+        "p90": 15.678,
+        "p99": 29.7613,
+        "pct_zero": 2.2,
+        "pct_itm": 97.8
+      },
+      "75pct_captured": {
+        "mean": 5.0756,
+        "median": 1.0622,
+        "p10": 0.1548,
+        "p90": 16.1946,
+        "p99": 29.7766,
+        "pct_zero": 6.0,
+        "pct_itm": 94.0
+      },
+      "strike_cross": {
+        "mean": 4.9998,
+        "median": 5.3862,
+        "p10": 0.0,
+        "p90": 8.6122,
+        "p99": 12.3671,
+        "pct_zero": 21.0,
+        "pct_itm": 79.0
+      },
+      "dte_floor_3": {
+        "mean": 5.0512,
+        "median": 3.2693,
+        "p10": 0.2491,
+        "p90": 12.5428,
+        "p99": 22.4996,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 5.0005,
+        "median": 5.3273,
+        "p10": 0.3477,
+        "p90": 8.5772,
+        "p99": 12.3272,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 5.0678,
+        "median": 0.1372,
+        "p10": 0.0,
+        "p90": 16.3169,
+        "p99": 29.7766,
+        "pct_zero": 49.5,
+        "pct_itm": 50.5
+      },
+      "oracle": {
+        "mean": 1.5175,
+        "median": 0.0876,
+        "p10": 0.0,
+        "p90": 5.0012,
+        "p99": 5.0012,
+        "pct_zero": 49.5,
+        "pct_itm": 50.5
+      }
+    },
+    "moneyness_label": "ATM"
+  },
+  {
+    "spot": 260.0,
+    "strike": 260,
+    "dte": 5,
+    "vol": 0.28,
+    "entry_call_price": 4.2059,
+    "moneyness_pct": 0.0,
+    "p_assignment": 50.0,
+    "strategies": {
+      "immediate": {
+        "mean": 4.2059,
+        "median": 4.2059,
+        "p10": 4.2059,
+        "p90": 4.2059,
+        "p99": 4.2059,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 4.2648,
+        "median": 1.6557,
+        "p10": 0.3876,
+        "p90": 13.3609,
+        "p99": 24.5216,
+        "pct_zero": 4.1,
+        "pct_itm": 95.9
+      },
+      "75pct_captured": {
+        "mean": 4.2551,
+        "median": 0.8671,
+        "p10": 0.0,
+        "p90": 13.6978,
+        "p99": 24.5216,
+        "pct_zero": 10.1,
+        "pct_itm": 89.9
+      },
+      "strike_cross": {
+        "mean": 4.2083,
+        "median": 4.4656,
+        "p10": 0.0,
+        "p90": 7.9745,
+        "p99": 11.7013,
+        "pct_zero": 24.9,
+        "pct_itm": 75.1
+      },
+      "dte_floor_3": {
+        "mean": 4.2594,
+        "median": 3.2902,
+        "p10": 0.5934,
+        "p90": 9.2218,
+        "p99": 15.8509,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 4.2356,
+        "median": 4.2414,
+        "p10": 0.6239,
+        "p90": 7.8562,
+        "p99": 11.6777,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 4.241,
+        "median": 0.0172,
+        "p10": 0.0,
+        "p90": 13.7566,
+        "p99": 24.5216,
+        "pct_zero": 50.0,
+        "pct_itm": 50.0
+      },
+      "oracle": {
+        "mean": 1.3471,
+        "median": 0.0146,
+        "p10": 0.0,
+        "p90": 4.2059,
+        "p99": 4.2059,
+        "pct_zero": 50.0,
+        "pct_itm": 50.0
+      }
+    },
+    "moneyness_label": "ATM"
+  },
+  {
+    "spot": 260.0,
+    "strike": 260,
+    "dte": 3,
+    "vol": 0.28,
+    "entry_call_price": 3.238,
+    "moneyness_pct": 0.0,
+    "p_assignment": 49.7,
+    "strategies": {
+      "immediate": {
+        "mean": 3.238,
+        "median": 3.238,
+        "p10": 3.238,
+        "p90": 3.238,
+        "p99": 3.238,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 3.2131,
+        "median": 1.1466,
+        "p10": 0.0055,
+        "p90": 10.0429,
+        "p99": 18.9023,
+        "pct_zero": 9.7,
+        "pct_itm": 90.3
+      },
+      "75pct_captured": {
+        "mean": 3.2141,
+        "median": 0.6329,
+        "p10": 0.0,
+        "p90": 10.2789,
+        "p99": 18.9023,
+        "pct_zero": 18.4,
+        "pct_itm": 81.6
+      },
+      "strike_cross": {
+        "mean": 3.2285,
+        "median": 3.1958,
+        "p10": 0.0,
+        "p90": 7.0478,
+        "p99": 11.4041,
+        "pct_zero": 31.3,
+        "pct_itm": 68.7
+      },
+      "dte_floor_3": {
+        "mean": 3.238,
+        "median": 3.238,
+        "p10": 3.238,
+        "p90": 3.238,
+        "p99": 3.238,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 3.2293,
+        "median": 2.624,
+        "p10": 0.6503,
+        "p90": 6.6696,
+        "p99": 11.0508,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 3.2159,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 10.3121,
+        "p99": 18.9023,
+        "pct_zero": 50.3,
+        "pct_itm": 49.7
+      },
+      "oracle": {
+        "mean": 1.1083,
+        "median": 0.0,
+        "p10": 0.0,
+        "p90": 3.238,
+        "p99": 3.238,
+        "pct_zero": 50.3,
+        "pct_itm": 49.7
+      }
+    },
+    "moneyness_label": "ATM"
+  },
+  {
+    "spot": 262.6,
+    "strike": 260,
+    "dte": 30,
+    "vol": 0.28,
+    "entry_call_price": 12.1605,
+    "moneyness_pct": 1.0,
+    "p_assignment": 55.1,
+    "strategies": {
+      "immediate": {
+        "mean": 12.1605,
+        "median": 12.1605,
+        "p10": 12.1605,
+        "p90": 12.1605,
+        "p99": 12.1605,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 12.3581,
+        "median": 5.5601,
+        "p10": 3.9125,
+        "p90": 35.4296,
+        "p99": 69.0986,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "75pct_captured": {
+        "mean": 12.31,
+        "median": 2.8425,
+        "p10": 1.6818,
+        "p90": 37.4077,
+        "p99": 69.3907,
+        "pct_zero": 0.7,
+        "pct_itm": 99.3
+      },
+      "strike_cross": {
+        "mean": 12.1859,
+        "median": 12.3527,
+        "p10": 10.0487,
+        "p90": 15.8391,
+        "p99": 19.4414,
+        "pct_zero": 5.1,
+        "pct_itm": 95.0
+      },
+      "dte_floor_3": {
+        "mean": 12.3722,
+        "median": 4.9428,
+        "p10": 0.0004,
+        "p90": 36.3196,
+        "p99": 65.4402,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 12.1854,
+        "median": 12.3527,
+        "p10": 10.0463,
+        "p90": 15.8391,
+        "p99": 19.4414,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 12.3314,
+        "median": 3.3085,
+        "p10": 0.0,
+        "p90": 37.6566,
+        "p99": 69.3907,
+        "pct_zero": 44.9,
+        "pct_itm": 55.1
+      },
+      "oracle": {
+        "mean": 3.4124,
+        "median": 0.9066,
+        "p10": 0.0,
+        "p90": 10.964,
+        "p99": 12.1605,
+        "pct_zero": 44.9,
+        "pct_itm": 55.1
+      }
+    },
+    "moneyness_label": "1% ITM"
+  },
+  {
+    "spot": 262.6,
+    "strike": 260,
+    "dte": 21,
+    "vol": 0.28,
+    "entry_call_price": 10.3149,
+    "moneyness_pct": 1.0,
+    "p_assignment": 54.7,
+    "strategies": {
+      "immediate": {
+        "mean": 10.3149,
+        "median": 10.3149,
+        "p10": 10.3149,
+        "p90": 10.3149,
+        "p99": 10.3149,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 10.5392,
+        "median": 4.6672,
+        "p10": 3.0187,
+        "p90": 30.1906,
+        "p99": 56.8917,
+        "pct_zero": 0.2,
+        "pct_itm": 99.8
+      },
+      "75pct_captured": {
+        "mean": 10.5337,
+        "median": 2.4007,
+        "p10": 1.2049,
+        "p90": 31.7167,
+        "p99": 57.2686,
+        "pct_zero": 1.2,
+        "pct_itm": 98.8
+      },
+      "strike_cross": {
+        "mean": 10.3203,
+        "median": 10.4897,
+        "p10": 7.701,
+        "p90": 14.0748,
+        "p99": 17.9027,
+        "pct_zero": 6.5,
+        "pct_itm": 93.5
+      },
+      "dte_floor_3": {
+        "mean": 10.516,
+        "median": 4.7333,
+        "p10": 0.0057,
+        "p90": 29.8531,
+        "p99": 53.1319,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 10.3233,
+        "median": 10.4897,
+        "p10": 7.7005,
+        "p90": 14.0748,
+        "p99": 17.9027,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 10.49,
+        "median": 2.5609,
+        "p10": 0.0,
+        "p90": 31.9502,
+        "p99": 57.2686,
+        "pct_zero": 45.3,
+        "pct_itm": 54.7
+      },
+      "oracle": {
+        "mean": 3.0104,
+        "median": 0.7553,
+        "p10": 0.0,
+        "p90": 9.5974,
+        "p99": 10.3149,
+        "pct_zero": 45.3,
+        "pct_itm": 54.7
+      }
+    },
+    "moneyness_label": "1% ITM"
+  },
+  {
+    "spot": 262.6,
+    "strike": 260,
+    "dte": 14,
+    "vol": 0.28,
+    "entry_call_price": 8.6164,
+    "moneyness_pct": 1.0,
+    "p_assignment": 56.3,
+    "strategies": {
+      "immediate": {
+        "mean": 8.6164,
+        "median": 8.6164,
+        "p10": 8.6164,
+        "p90": 8.6164,
+        "p99": 8.6164,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 8.6145,
+        "median": 3.7872,
+        "p10": 2.157,
+        "p90": 24.7877,
+        "p99": 46.1696,
+        "pct_zero": 0.4,
+        "pct_itm": 99.6
+      },
+      "75pct_captured": {
+        "mean": 8.7056,
+        "median": 1.9858,
+        "p10": 0.8127,
+        "p90": 25.9338,
+        "p99": 46.58,
+        "pct_zero": 2.2,
+        "pct_itm": 97.8
+      },
+      "strike_cross": {
+        "mean": 8.6569,
+        "median": 8.7276,
+        "p10": 5.5975,
+        "p90": 12.3977,
+        "p99": 16.2952,
+        "pct_zero": 7.4,
+        "pct_itm": 92.6
+      },
+      "dte_floor_3": {
+        "mean": 8.7148,
+        "median": 4.7561,
+        "p10": 0.0454,
+        "p90": 23.7234,
+        "p99": 41.5253,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 8.6558,
+        "median": 8.7263,
+        "p10": 5.5177,
+        "p90": 12.3977,
+        "p99": 16.2952,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 8.6997,
+        "median": 2.768,
+        "p10": 0.0,
+        "p90": 26.1169,
+        "p99": 46.58,
+        "pct_zero": 43.7,
+        "pct_itm": 56.3
+      },
+      "oracle": {
+        "mean": 2.6418,
+        "median": 0.9156,
+        "p10": 0.0,
+        "p90": 8.4673,
+        "p99": 8.6164,
+        "pct_zero": 43.7,
+        "pct_itm": 56.3
+      }
+    },
+    "moneyness_label": "1% ITM"
+  },
+  {
+    "spot": 262.6,
+    "strike": 260,
+    "dte": 7,
+    "vol": 0.28,
+    "entry_call_price": 6.463,
+    "moneyness_pct": 1.0,
+    "p_assignment": 59.0,
+    "strategies": {
+      "immediate": {
+        "mean": 6.463,
+        "median": 6.463,
+        "p10": 6.463,
+        "p90": 6.463,
+        "p99": 6.463,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 6.5203,
+        "median": 2.7976,
+        "p10": 1.1211,
+        "p90": 18.5623,
+        "p99": 32.6744,
+        "pct_zero": 1.5,
+        "pct_itm": 98.5
+      },
+      "75pct_captured": {
+        "mean": 6.5519,
+        "median": 1.5453,
+        "p10": 0.2909,
+        "p90": 18.9961,
+        "p99": 32.6744,
+        "pct_zero": 5.1,
+        "pct_itm": 95.0
+      },
+      "strike_cross": {
+        "mean": 6.4491,
+        "median": 6.429,
+        "p10": 0.0,
+        "p90": 10.358,
+        "p99": 14.547,
+        "pct_zero": 10.8,
+        "pct_itm": 89.2
+      },
+      "dte_floor_3": {
+        "mean": 6.5142,
+        "median": 4.7785,
+        "p10": 0.5,
+        "p90": 15.1397,
+        "p99": 25.3175,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 6.456,
+        "median": 6.4054,
+        "p10": 1.2543,
+        "p90": 10.3525,
+        "p99": 14.4888,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 6.5426,
+        "median": 2.7386,
+        "p10": 0.0,
+        "p90": 19.0801,
+        "p99": 32.6744,
+        "pct_zero": 41.0,
+        "pct_itm": 59.0
+      },
+      "oracle": {
+        "mean": 2.2929,
+        "median": 1.2239,
+        "p10": 0.0,
+        "p90": 6.463,
+        "p99": 6.463,
+        "pct_zero": 41.0,
+        "pct_itm": 59.0
+      }
+    },
+    "moneyness_label": "1% ITM"
+  },
+  {
+    "spot": 262.6,
+    "strike": 260,
+    "dte": 5,
+    "vol": 0.28,
+    "entry_call_price": 5.6797,
+    "moneyness_pct": 1.0,
+    "p_assignment": 59.8,
+    "strategies": {
+      "immediate": {
+        "mean": 5.6797,
+        "median": 5.6797,
+        "p10": 5.6797,
+        "p90": 5.6797,
+        "p99": 5.6797,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 5.7596,
+        "median": 2.4329,
+        "p10": 0.7284,
+        "p90": 16.2678,
+        "p99": 27.3668,
+        "pct_zero": 3.1,
+        "pct_itm": 96.9
+      },
+      "75pct_captured": {
+        "mean": 5.7246,
+        "median": 1.3865,
+        "p10": 0.0679,
+        "p90": 16.4836,
+        "p99": 27.3668,
+        "pct_zero": 8.3,
+        "pct_itm": 91.7
+      },
+      "strike_cross": {
+        "mean": 5.6909,
+        "median": 5.5731,
+        "p10": 0.0,
+        "p90": 9.7584,
+        "p99": 13.9876,
+        "pct_zero": 12.8,
+        "pct_itm": 87.2
+      },
+      "dte_floor_3": {
+        "mean": 5.7412,
+        "median": 4.8047,
+        "p10": 1.0797,
+        "p90": 11.6196,
+        "p99": 18.5576,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 5.6882,
+        "median": 5.4659,
+        "p10": 1.3193,
+        "p90": 9.7504,
+        "p99": 13.9876,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 5.7107,
+        "median": 2.6174,
+        "p10": 0.0,
+        "p90": 16.4942,
+        "p99": 27.3668,
+        "pct_zero": 40.2,
+        "pct_itm": 59.8
+      },
+      "oracle": {
+        "mean": 2.16,
+        "median": 1.2391,
+        "p10": 0.0,
+        "p90": 5.6797,
+        "p99": 5.6797,
+        "pct_zero": 40.2,
+        "pct_itm": 59.8
+      }
+    },
+    "moneyness_label": "1% ITM"
+  },
+  {
+    "spot": 262.6,
+    "strike": 260,
+    "dte": 3,
+    "vol": 0.28,
+    "entry_call_price": 4.739,
+    "moneyness_pct": 1.0,
+    "p_assignment": 62.4,
+    "strategies": {
+      "immediate": {
+        "mean": 4.739,
+        "median": 4.739,
+        "p10": 4.739,
+        "p90": 4.739,
+        "p99": 4.739,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 4.7068,
+        "median": 2.0703,
+        "p10": 0.2502,
+        "p90": 12.8808,
+        "p99": 21.6914,
+        "pct_zero": 6.6,
+        "pct_itm": 93.4
+      },
+      "75pct_captured": {
+        "mean": 4.7118,
+        "median": 1.9325,
+        "p10": 0.0,
+        "p90": 13.0022,
+        "p99": 21.6914,
+        "pct_zero": 14.3,
+        "pct_itm": 85.7
+      },
+      "strike_cross": {
+        "mean": 4.7155,
+        "median": 4.4316,
+        "p10": 0.0,
+        "p90": 9.0399,
+        "p99": 13.7044,
+        "pct_zero": 17.0,
+        "pct_itm": 83.0
+      },
+      "dte_floor_3": {
+        "mean": 4.739,
+        "median": 4.739,
+        "p10": 4.739,
+        "p90": 4.739,
+        "p99": 4.739,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 4.7271,
+        "median": 4.1525,
+        "p10": 1.283,
+        "p90": 8.9826,
+        "p99": 13.6718,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 4.711,
+        "median": 2.5502,
+        "p10": 0.0,
+        "p90": 13.0152,
+        "p99": 21.6914,
+        "pct_zero": 37.6,
+        "pct_itm": 62.4
+      },
+      "oracle": {
+        "mean": 2.0142,
+        "median": 1.4999,
+        "p10": 0.0,
+        "p90": 4.739,
+        "p99": 4.739,
+        "pct_zero": 37.6,
+        "pct_itm": 62.4
+      }
+    },
+    "moneyness_label": "1% ITM"
+  },
+  {
+    "spot": 267.8,
+    "strike": 260,
+    "dte": 30,
+    "vol": 0.28,
+    "entry_call_price": 15.3895,
+    "moneyness_pct": 3.0,
+    "p_assignment": 62.4,
+    "strategies": {
+      "immediate": {
+        "mean": 15.3895,
+        "median": 15.3895,
+        "p10": 15.3895,
+        "p90": 15.3895,
+        "p99": 15.3895,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 15.6601,
+        "median": 7.1558,
+        "p10": 5.1363,
+        "p90": 41.9109,
+        "p99": 75.8979,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "75pct_captured": {
+        "mean": 15.5667,
+        "median": 3.7361,
+        "p10": 2.2211,
+        "p90": 43.4836,
+        "p99": 75.9133,
+        "pct_zero": 0.6,
+        "pct_itm": 99.4
+      },
+      "strike_cross": {
+        "mean": 15.3937,
+        "median": 15.2491,
+        "p10": 11.739,
+        "p90": 19.519,
+        "p99": 23.6283,
+        "pct_zero": 0.9,
+        "pct_itm": 99.2
+      },
+      "dte_floor_3": {
+        "mean": 15.6277,
+        "median": 8.9016,
+        "p10": 0.0045,
+        "p90": 42.1845,
+        "p99": 71.8818,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 15.3942,
+        "median": 15.2491,
+        "p10": 11.739,
+        "p90": 19.519,
+        "p99": 23.6283,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 15.6019,
+        "median": 8.5225,
+        "p10": 0.0,
+        "p90": 43.5508,
+        "p99": 75.9133,
+        "pct_zero": 37.6,
+        "pct_itm": 62.4
+      },
+      "oracle": {
+        "mean": 4.998,
+        "median": 2.7066,
+        "p10": 0.0,
+        "p90": 14.3779,
+        "p99": 15.3895,
+        "pct_zero": 37.6,
+        "pct_itm": 62.4
+      }
+    },
+    "moneyness_label": "3% ITM"
+  },
+  {
+    "spot": 267.8,
+    "strike": 260,
+    "dte": 21,
+    "vol": 0.28,
+    "entry_call_price": 13.5889,
+    "moneyness_pct": 3.0,
+    "p_assignment": 63.9,
+    "strategies": {
+      "immediate": {
+        "mean": 13.5889,
+        "median": 13.5889,
+        "p10": 13.5889,
+        "p90": 13.5889,
+        "p99": 13.5889,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 13.9215,
+        "median": 6.3204,
+        "p10": 4.2465,
+        "p90": 36.5161,
+        "p99": 63.5028,
+        "pct_zero": 0.1,
+        "pct_itm": 99.9
+      },
+      "75pct_captured": {
+        "mean": 13.8168,
+        "median": 3.341,
+        "p10": 1.7742,
+        "p90": 37.6525,
+        "p99": 63.5512,
+        "pct_zero": 0.9,
+        "pct_itm": 99.1
+      },
+      "strike_cross": {
+        "mean": 13.6362,
+        "median": 13.3947,
+        "p10": 9.8162,
+        "p90": 17.9255,
+        "p99": 22.2918,
+        "pct_zero": 0.9,
+        "pct_itm": 99.1
+      },
+      "dte_floor_3": {
+        "mean": 13.795,
+        "median": 8.6223,
+        "p10": 0.0417,
+        "p90": 35.5896,
+        "p99": 59.3298,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 13.6364,
+        "median": 13.3947,
+        "p10": 9.8162,
+        "p90": 17.9255,
+        "p99": 22.2918,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 13.7538,
+        "median": 7.7601,
+        "p10": 0.0,
+        "p90": 37.7314,
+        "p99": 63.5512,
+        "pct_zero": 36.1,
+        "pct_itm": 63.9
+      },
+      "oracle": {
+        "mean": 4.6963,
+        "median": 2.9017,
+        "p10": 0.0,
+        "p90": 13.213,
+        "p99": 13.5889,
+        "pct_zero": 36.1,
+        "pct_itm": 63.9
+      }
+    },
+    "moneyness_label": "3% ITM"
+  },
+  {
+    "spot": 267.8,
+    "strike": 260,
+    "dte": 14,
+    "vol": 0.28,
+    "entry_call_price": 11.9655,
+    "moneyness_pct": 3.0,
+    "p_assignment": 67.6,
+    "strategies": {
+      "immediate": {
+        "mean": 11.9655,
+        "median": 11.9655,
+        "p10": 11.9655,
+        "p90": 11.9655,
+        "p99": 11.9655,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 12.0155,
+        "median": 5.5308,
+        "p10": 3.3608,
+        "p90": 30.976,
+        "p99": 52.4958,
+        "pct_zero": 0.2,
+        "pct_itm": 99.8
+      },
+      "75pct_captured": {
+        "mean": 12.0604,
+        "median": 4.5456,
+        "p10": 1.3287,
+        "p90": 31.7159,
+        "p99": 52.6509,
+        "pct_zero": 1.6,
+        "pct_itm": 98.4
+      },
+      "strike_cross": {
+        "mean": 11.999,
+        "median": 11.7491,
+        "p10": 8.1115,
+        "p90": 16.4312,
+        "p99": 20.897,
+        "pct_zero": 1.1,
+        "pct_itm": 98.9
+      },
+      "dte_floor_3": {
+        "mean": 12.0681,
+        "median": 8.6529,
+        "p10": 0.2324,
+        "p90": 29.3341,
+        "p99": 47.4933,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 11.9979,
+        "median": 11.7482,
+        "p10": 8.1077,
+        "p90": 16.4312,
+        "p99": 20.897,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 12.0641,
+        "median": 7.9713,
+        "p10": 0.0,
+        "p90": 31.7825,
+        "p99": 52.6509,
+        "pct_zero": 32.4,
+        "pct_itm": 67.6
+      },
+      "oracle": {
+        "mean": 4.4792,
+        "median": 3.3176,
+        "p10": 0.0,
+        "p90": 11.9655,
+        "p99": 11.9655,
+        "pct_zero": 32.4,
+        "pct_itm": 67.6
+      }
+    },
+    "moneyness_label": "3% ITM"
+  },
+  {
+    "spot": 267.8,
+    "strike": 260,
+    "dte": 7,
+    "vol": 0.28,
+    "entry_call_price": 10.0044,
+    "moneyness_pct": 3.0,
+    "p_assignment": 73.8,
+    "strategies": {
+      "immediate": {
+        "mean": 10.0044,
+        "median": 10.0044,
+        "p10": 10.0044,
+        "p90": 10.0044,
+        "p99": 10.0044,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 10.0767,
+        "median": 4.8112,
+        "p10": 2.2662,
+        "p90": 24.3754,
+        "p99": 38.4699,
+        "pct_zero": 0.7,
+        "pct_itm": 99.3
+      },
+      "75pct_captured": {
+        "mean": 10.1095,
+        "median": 7.3195,
+        "p10": 0.7681,
+        "p90": 24.5623,
+        "p99": 38.4699,
+        "pct_zero": 3.4,
+        "pct_itm": 96.6
+      },
+      "strike_cross": {
+        "mean": 10.0031,
+        "median": 9.7438,
+        "p10": 5.812,
+        "p90": 14.8014,
+        "p99": 19.4954,
+        "pct_zero": 1.6,
+        "pct_itm": 98.4
+      },
+      "dte_floor_3": {
+        "mean": 10.055,
+        "median": 8.6828,
+        "p10": 1.5767,
+        "p90": 20.4955,
+        "p99": 30.9621,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 10.0087,
+        "median": 9.7436,
+        "p10": 5.8046,
+        "p90": 14.8014,
+        "p99": 19.4954,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 10.0847,
+        "median": 7.9414,
+        "p10": 0.0,
+        "p90": 24.6064,
+        "p99": 38.4699,
+        "pct_zero": 26.2,
+        "pct_itm": 73.8
+      },
+      "oracle": {
+        "mean": 4.5199,
+        "median": 4.1956,
+        "p10": 0.0,
+        "p90": 10.0044,
+        "p99": 10.0044,
+        "pct_zero": 26.2,
+        "pct_itm": 73.8
+      }
+    },
+    "moneyness_label": "3% ITM"
+  },
+  {
+    "spot": 267.8,
+    "strike": 260,
+    "dte": 5,
+    "vol": 0.28,
+    "entry_call_price": 9.345,
+    "moneyness_pct": 3.0,
+    "p_assignment": 76.8,
+    "strategies": {
+      "immediate": {
+        "mean": 9.345,
+        "median": 9.345,
+        "p10": 9.345,
+        "p90": 9.345,
+        "p99": 9.345,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 9.3998,
+        "median": 4.6686,
+        "p10": 1.9169,
+        "p90": 21.8929,
+        "p99": 33.0572,
+        "pct_zero": 1.4,
+        "pct_itm": 98.7
+      },
+      "75pct_captured": {
+        "mean": 9.3648,
+        "median": 7.3966,
+        "p10": 0.5895,
+        "p90": 21.9693,
+        "p99": 33.0572,
+        "pct_zero": 4.8,
+        "pct_itm": 95.2
+      },
+      "strike_cross": {
+        "mean": 9.3511,
+        "median": 9.0575,
+        "p10": 4.8276,
+        "p90": 14.4224,
+        "p99": 19.1658,
+        "pct_zero": 2.1,
+        "pct_itm": 97.9
+      },
+      "dte_floor_3": {
+        "mean": 9.4182,
+        "median": 8.7179,
+        "p10": 2.8538,
+        "p90": 16.7521,
+        "p99": 24.0403,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 9.3557,
+        "median": 9.0546,
+        "p10": 4.7831,
+        "p90": 14.4224,
+        "p99": 19.1658,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 9.3641,
+        "median": 7.8178,
+        "p10": 0.0,
+        "p90": 21.9693,
+        "p99": 33.0572,
+        "pct_zero": 23.2,
+        "pct_itm": 76.8
+      },
+      "oracle": {
+        "mean": 4.6299,
+        "median": 4.6573,
+        "p10": 0.0,
+        "p90": 9.345,
+        "p99": 9.345,
+        "pct_zero": 23.2,
+        "pct_itm": 76.8
+      }
+    },
+    "moneyness_label": "3% ITM"
+  },
+  {
+    "spot": 267.8,
+    "strike": 260,
+    "dte": 3,
+    "vol": 0.28,
+    "entry_call_price": 8.63,
+    "moneyness_pct": 3.0,
+    "p_assignment": 83.7,
+    "strategies": {
+      "immediate": {
+        "mean": 8.63,
+        "median": 8.63,
+        "p10": 8.63,
+        "p90": 8.63,
+        "p99": 8.63,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 8.6043,
+        "median": 6.8326,
+        "p10": 1.5653,
+        "p90": 18.3707,
+        "p99": 27.2694,
+        "pct_zero": 2.4,
+        "pct_itm": 97.6
+      },
+      "75pct_captured": {
+        "mean": 8.5888,
+        "median": 7.6322,
+        "p10": 0.3675,
+        "p90": 18.4215,
+        "p99": 27.2694,
+        "pct_zero": 7.1,
+        "pct_itm": 92.9
+      },
+      "strike_cross": {
+        "mean": 8.6206,
+        "median": 8.2602,
+        "p10": 3.8093,
+        "p90": 14.0558,
+        "p99": 19.0432,
+        "pct_zero": 2.3,
+        "pct_itm": 97.7
+      },
+      "dte_floor_3": {
+        "mean": 8.63,
+        "median": 8.63,
+        "p10": 8.63,
+        "p90": 8.63,
+        "p99": 8.63,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 8.6119,
+        "median": 8.2455,
+        "p10": 3.6493,
+        "p90": 14.0558,
+        "p99": 19.0432,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 8.6005,
+        "median": 7.7492,
+        "p10": 0.0,
+        "p90": 18.4215,
+        "p99": 27.2694,
+        "pct_zero": 16.3,
+        "pct_itm": 83.7
+      },
+      "oracle": {
+        "mean": 4.9543,
+        "median": 5.4691,
+        "p10": 0.0,
+        "p90": 8.63,
+        "p99": 8.63,
+        "pct_zero": 16.3,
+        "pct_itm": 83.7
+      }
+    },
+    "moneyness_label": "3% ITM"
+  },
+  {
+    "spot": 273.0,
+    "strike": 260,
+    "dte": 30,
+    "vol": 0.28,
+    "entry_call_price": 19.0011,
+    "moneyness_pct": 5.0,
+    "p_assignment": 69.7,
+    "strategies": {
+      "immediate": {
+        "mean": 19.0011,
+        "median": 19.0011,
+        "p10": 19.0011,
+        "p90": 19.0011,
+        "p99": 19.0011,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 19.2638,
+        "median": 9.0375,
+        "p10": 6.6687,
+        "p90": 48.2224,
+        "p99": 82.4202,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "75pct_captured": {
+        "mean": 19.1827,
+        "median": 7.8045,
+        "p10": 2.9222,
+        "p90": 49.3796,
+        "p99": 82.4359,
+        "pct_zero": 0.2,
+        "pct_itm": 99.8
+      },
+      "strike_cross": {
+        "mean": 19.0249,
+        "median": 18.868,
+        "p10": 14.6403,
+        "p90": 23.6366,
+        "p99": 28.1288,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_floor_3": {
+        "mean": 19.2645,
+        "median": 13.633,
+        "p10": 0.0333,
+        "p90": 48.0495,
+        "p99": 78.3234,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 19.0249,
+        "median": 18.868,
+        "p10": 14.6403,
+        "p90": 23.6366,
+        "p99": 28.1288,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 19.2503,
+        "median": 13.7366,
+        "p10": 0.0,
+        "p90": 49.445,
+        "p99": 82.4359,
+        "pct_zero": 30.3,
+        "pct_itm": 69.7
+      },
+      "oracle": {
+        "mean": 7.0079,
+        "median": 5.1885,
+        "p10": 0.0,
+        "p90": 18.189,
+        "p99": 19.0011,
+        "pct_zero": 30.3,
+        "pct_itm": 69.7
+      }
+    },
+    "moneyness_label": "5% ITM"
+  },
+  {
+    "spot": 273.0,
+    "strike": 260,
+    "dte": 21,
+    "vol": 0.28,
+    "entry_call_price": 17.3112,
+    "moneyness_pct": 5.0,
+    "p_assignment": 72.4,
+    "strategies": {
+      "immediate": {
+        "mean": 17.3112,
+        "median": 17.3112,
+        "p10": 17.3112,
+        "p90": 17.3112,
+        "p99": 17.3112,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 17.6465,
+        "median": 8.2647,
+        "p10": 5.7405,
+        "p90": 42.7672,
+        "p99": 69.7844,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "75pct_captured": {
+        "mean": 17.5381,
+        "median": 10.4182,
+        "p10": 2.4941,
+        "p90": 43.5114,
+        "p99": 69.8337,
+        "pct_zero": 0.5,
+        "pct_itm": 99.5
+      },
+      "strike_cross": {
+        "mean": 17.363,
+        "median": 17.1241,
+        "p10": 12.7589,
+        "p90": 22.2283,
+        "p99": 27.0045,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_floor_3": {
+        "mean": 17.5177,
+        "median": 13.3132,
+        "p10": 0.2105,
+        "p90": 41.3265,
+        "p99": 65.5277,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 17.363,
+        "median": 17.1241,
+        "p10": 12.7589,
+        "p90": 22.2283,
+        "p99": 27.0045,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 17.4679,
+        "median": 12.9593,
+        "p10": 0.0,
+        "p90": 43.5126,
+        "p99": 69.8337,
+        "pct_zero": 27.6,
+        "pct_itm": 72.4
+      },
+      "oracle": {
+        "mean": 6.9028,
+        "median": 5.8298,
+        "p10": 0.0,
+        "p90": 17.2525,
+        "p99": 17.3112,
+        "pct_zero": 27.6,
+        "pct_itm": 72.4
+      }
+    },
+    "moneyness_label": "5% ITM"
+  },
+  {
+    "spot": 273.0,
+    "strike": 260,
+    "dte": 14,
+    "vol": 0.28,
+    "entry_call_price": 15.8457,
+    "moneyness_pct": 5.0,
+    "p_assignment": 77.5,
+    "strategies": {
+      "immediate": {
+        "mean": 15.8457,
+        "median": 15.8457,
+        "p10": 15.8457,
+        "p90": 15.8457,
+        "p99": 15.8457,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 15.9478,
+        "median": 7.6738,
+        "p10": 4.968,
+        "p90": 36.8411,
+        "p99": 58.6026,
+        "pct_zero": 0.1,
+        "pct_itm": 99.9
+      },
+      "75pct_captured": {
+        "mean": 15.9768,
+        "median": 12.054,
+        "p10": 2.0909,
+        "p90": 37.4154,
+        "p99": 58.7218,
+        "pct_zero": 0.7,
+        "pct_itm": 99.3
+      },
+      "strike_cross": {
+        "mean": 15.8979,
+        "median": 15.6527,
+        "p10": 11.1767,
+        "p90": 20.959,
+        "p99": 25.8291,
+        "pct_zero": 0.1,
+        "pct_itm": 99.9
+      },
+      "dte_floor_3": {
+        "mean": 15.9503,
+        "median": 13.3482,
+        "p10": 0.8448,
+        "p90": 34.9491,
+        "p99": 53.4614,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 15.898,
+        "median": 15.6527,
+        "p10": 11.1767,
+        "p90": 20.959,
+        "p99": 25.8291,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 15.9624,
+        "median": 13.1746,
+        "p10": 0.0,
+        "p90": 37.4482,
+        "p99": 58.7218,
+        "pct_zero": 22.5,
+        "pct_itm": 77.5
+      },
+      "oracle": {
+        "mean": 6.9945,
+        "median": 6.5721,
+        "p10": 0.0,
+        "p90": 15.8457,
+        "p99": 15.8457,
+        "pct_zero": 22.5,
+        "pct_itm": 77.5
+      }
+    },
+    "moneyness_label": "5% ITM"
+  },
+  {
+    "spot": 273.0,
+    "strike": 260,
+    "dte": 7,
+    "vol": 0.28,
+    "entry_call_price": 14.225,
+    "moneyness_pct": 5.0,
+    "p_assignment": 85.1,
+    "strategies": {
+      "immediate": {
+        "mean": 14.225,
+        "median": 14.225,
+        "p10": 14.225,
+        "p90": 14.225,
+        "p99": 14.225,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 14.3155,
+        "median": 10.8706,
+        "p10": 4.0271,
+        "p90": 30.018,
+        "p99": 44.2654,
+        "pct_zero": 0.3,
+        "pct_itm": 99.7
+      },
+      "75pct_captured": {
+        "mean": 14.3102,
+        "median": 12.9962,
+        "p10": 1.7427,
+        "p90": 30.1328,
+        "p99": 44.2654,
+        "pct_zero": 1.7,
+        "pct_itm": 98.3
+      },
+      "strike_cross": {
+        "mean": 14.2309,
+        "median": 14.0505,
+        "p10": 9.0248,
+        "p90": 19.7398,
+        "p99": 24.7515,
+        "pct_zero": 0.1,
+        "pct_itm": 99.9
+      },
+      "dte_floor_3": {
+        "mean": 14.2752,
+        "median": 13.3826,
+        "p10": 3.7484,
+        "p90": 25.9237,
+        "p99": 36.6089,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 14.2307,
+        "median": 14.0505,
+        "p10": 9.0248,
+        "p90": 19.7398,
+        "p99": 24.7515,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 14.3026,
+        "median": 13.1441,
+        "p10": 0.0,
+        "p90": 30.1328,
+        "p99": 44.2654,
+        "pct_zero": 14.9,
+        "pct_itm": 85.1
+      },
+      "oracle": {
+        "mean": 7.6786,
+        "median": 8.1867,
+        "p10": 0.0,
+        "p90": 14.225,
+        "p99": 14.225,
+        "pct_zero": 14.9,
+        "pct_itm": 85.1
+      }
+    },
+    "moneyness_label": "5% ITM"
+  },
+  {
+    "spot": 273.0,
+    "strike": 260,
+    "dte": 5,
+    "vol": 0.28,
+    "entry_call_price": 13.7526,
+    "moneyness_pct": 5.0,
+    "p_assignment": 89.2,
+    "strategies": {
+      "immediate": {
+        "mean": 13.7526,
+        "median": 13.7526,
+        "p10": 13.7526,
+        "p90": 13.7526,
+        "p99": 13.7526,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 13.7684,
+        "median": 11.8721,
+        "p10": 3.8574,
+        "p90": 27.4023,
+        "p99": 38.7476,
+        "pct_zero": 0.3,
+        "pct_itm": 99.7
+      },
+      "75pct_captured": {
+        "mean": 13.7645,
+        "median": 12.9543,
+        "p10": 1.869,
+        "p90": 27.4444,
+        "p99": 38.7476,
+        "pct_zero": 2.1,
+        "pct_itm": 97.9
+      },
+      "strike_cross": {
+        "mean": 13.7601,
+        "median": 13.5906,
+        "p10": 8.1415,
+        "p90": 19.5391,
+        "p99": 24.5189,
+        "pct_zero": 0.2,
+        "pct_itm": 99.8
+      },
+      "dte_floor_3": {
+        "mean": 13.8316,
+        "median": 13.4228,
+        "p10": 5.8603,
+        "p90": 22.0689,
+        "p99": 29.5487,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 13.7613,
+        "median": 13.5906,
+        "p10": 8.1415,
+        "p90": 19.5391,
+        "p99": 24.5189,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 13.7576,
+        "median": 13.0181,
+        "p10": 0.0,
+        "p90": 27.4444,
+        "p99": 38.7476,
+        "pct_zero": 10.8,
+        "pct_itm": 89.2
+      },
+      "oracle": {
+        "mean": 8.1812,
+        "median": 8.9788,
+        "p10": 0.0,
+        "p90": 13.7526,
+        "p99": 13.7526,
+        "pct_zero": 10.8,
+        "pct_itm": 89.2
+      }
+    },
+    "moneyness_label": "5% ITM"
+  },
+  {
+    "spot": 273.0,
+    "strike": 260,
+    "dte": 3,
+    "vol": 0.28,
+    "entry_call_price": 13.322,
+    "moneyness_pct": 5.0,
+    "p_assignment": 94.7,
+    "strategies": {
+      "immediate": {
+        "mean": 13.322,
+        "median": 13.322,
+        "p10": 13.322,
+        "p90": 13.322,
+        "p99": 13.322,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "50pct_captured": {
+        "mean": 13.2673,
+        "median": 12.6783,
+        "p10": 4.0919,
+        "p90": 23.8277,
+        "p99": 32.8475,
+        "pct_zero": 0.9,
+        "pct_itm": 99.1
+      },
+      "75pct_captured": {
+        "mean": 13.2926,
+        "median": 12.9311,
+        "p10": 2.5909,
+        "p90": 23.8277,
+        "p99": 32.8475,
+        "pct_zero": 2.4,
+        "pct_itm": 97.6
+      },
+      "strike_cross": {
+        "mean": 13.3018,
+        "median": 13.1348,
+        "p10": 7.4626,
+        "p90": 19.3362,
+        "p99": 24.4553,
+        "pct_zero": 0.1,
+        "pct_itm": 99.9
+      },
+      "dte_floor_3": {
+        "mean": 13.322,
+        "median": 13.322,
+        "p10": 13.322,
+        "p90": 13.322,
+        "p99": 13.322,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "dte_or_strike": {
+        "mean": 13.2999,
+        "median": 13.1348,
+        "p10": 7.4594,
+        "p90": 19.3362,
+        "p99": 24.4553,
+        "pct_zero": 0.0,
+        "pct_itm": 100.0
+      },
+      "expiry": {
+        "mean": 13.3062,
+        "median": 12.9482,
+        "p10": 2.6342,
+        "p90": 23.8277,
+        "p99": 32.8475,
+        "pct_zero": 5.3,
+        "pct_itm": 94.7
+      },
+      "oracle": {
+        "mean": 9.1327,
+        "median": 10.2837,
+        "p10": 2.2389,
+        "p90": 13.322,
+        "p99": 13.322,
+        "pct_zero": 5.3,
+        "pct_itm": 94.7
+      }
+    },
+    "moneyness_label": "5% ITM"
+  }
+]
