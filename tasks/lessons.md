@@ -199,3 +199,15 @@ Rules derived from mistakes in this project. Claude MUST review this file at the
 **Rule:** REINFORCE: Any backtest result that shows loss > capital invested on defined-risk positions is ALWAYS a bug. Never accept impossible results — debug the engine first.
 
 **Category:** positive-pattern
+
+---
+
+### 2026-03-24 — Repeatedly ignored Dad's hard constraint (only trade on stocks he owns)
+
+**What went wrong:** The user stated clearly that Dad only wants to trade options on stocks he already owns (TXN, TMUS, GOOGL, AMZN, AAPL, KKR, DIS). Despite this, I repeatedly proposed SPY straddles, index products, UVXY shorts, and VIX relative value trades — none of which involve Dad's holdings. When put spreads on his stocks failed, I jumped to "let's do what Sinclair says" (indices) instead of staying within the constraint and finding what DOES work on his stocks.
+
+**Why it's wrong:** The user's constraint IS the problem definition. Optimizing outside the constraint isn't helpful — it's ignoring the customer. Sinclair's recommendations are for general traders, not for someone with specific holdings they can't sell. The right approach is to find what works WITHIN the constraint, or honestly say "nothing works within this constraint."
+
+**Rule:** When the user states a hard constraint ("only trade on stocks Dad owns"), EVERY proposed strategy must be checked against that constraint BEFORE being developed. If a strategy requires trading different tickers or products, it violates the constraint — don't propose it. Write the constraint at the top of every plan and check each idea against it.
+
+**Category:** anti-pattern
