@@ -2329,8 +2329,122 @@ with tab_positions:
         pass
 
     if not open_trades:
-        st.info("No open positions. Log a trade above or use the Trade Analyzer to find opportunities.")
+        st.info("No open positions. Log a trade above to start monitoring.")
     else:
+        # --- COVERED CALL COPILOT (data-backed alerts) ---
+        st.subheader("Position Alerts")
+        st.caption(
+            "Thresholds from 145,099 real option observations + 480,000 Monte Carlo paths. "
+            "Priority: #1 Never get called away, #2 Don't lose money, #3 Make money."
+        )
+
+        for trade in open_trades:
+            ticker = trade["ticker"]
+            try:
+                # Fetch current data
+                hist_pos = yf_proxy.get_stock_history(ticker, period="5d")
+                if hist_pos.empty:
+                    continue
+                spot_pos = float(hist_pos["Close"].iloc[-1])
+
+                # Get current option ask price
+                opt_ask = None
+                try:
+                    chain_pos = yf_proxy.get_option_chain(ticker, trade["expiration"])
+                    if trade["option_type"] == "call":
+                        match_pos = chain_pos.calls[chain_pos.calls["strike"] == trade["strike"]]
+                    else:
+                        match_pos = chain_pos.puts[chain_pos.puts["strike"] == trade["strike"]]
+                    if not match_pos.empty:
+                        ask_val = match_pos.iloc[0].get("ask", 0) or 0
+                        bid_val = match_pos.iloc[0].get("bid", 0) or 0
+                        opt_ask = (ask_val + bid_val) / 2 if bid_val > 0 else match_pos.iloc[0].get("lastPrice", 0)
+                except Exception:
+                    pass
+
+                # Get ex-div and earnings dates
+                ex_div_str = None
+                earn_str = None
+                try:
+                    info_pos = yf_proxy.get_stock_info(ticker)
+                    ex_div_ts = info_pos.get("exDividendDate")
+                    if ex_div_ts and isinstance(ex_div_ts, (int, float)):
+                        from datetime import datetime as dt_class
+                        ex_div_str = dt_class.fromtimestamp(ex_div_ts).strftime("%Y-%m-%d")
+                    earn_ts = info_pos.get("earningsTimestampStart") or info_pos.get("earningsDate")
+                    if earn_ts:
+                        if isinstance(earn_ts, (list, tuple)):
+                            earn_ts = earn_ts[0]
+                        if isinstance(earn_ts, (int, float)):
+                            earn_str = dt_class.fromtimestamp(earn_ts).strftime("%Y-%m-%d")
+                except Exception:
+                    pass
+
+                # Run copilot assessment
+                from position_monitor import assess_position
+                alert = assess_position(
+                    ticker=ticker,
+                    strike=trade["strike"],
+                    expiry=trade["expiration"],
+                    sold_price=trade["premium_received"],
+                    contracts=trade["contracts"],
+                    current_stock=spot_pos,
+                    current_option_ask=opt_ask,
+                    ex_div_date=ex_div_str,
+                    earnings_date=earn_str,
+                )
+
+                # Display alert card
+                level_config = {
+                    "SAFE": ("success", "✅"),
+                    "WATCH": ("warning", "⚠️"),
+                    "CLOSE_SOON": ("warning", "🟠"),
+                    "CLOSE_NOW": ("error", "🔴"),
+                    "EMERGENCY": ("error", "🚨"),
+                }
+                st_func_name, icon = level_config.get(alert.level, ("info", "?"))
+
+                with st.container():
+                    # Header
+                    exdiv_str = f" | Ex-div: {alert.days_to_exdiv}d" if alert.days_to_exdiv is not None else ""
+                    st.markdown(
+                        f"### {icon} {alert.ticker} ${alert.strike:.0f} {trade['option_type'].title()} "
+                        f"(sold ${alert.sold_price:.2f}, {alert.dte} DTE)"
+                    )
+
+                    # Metrics row
+                    mc1, mc2, mc3, mc4 = st.columns(4)
+                    mc1.metric("Stock", f"${alert.current_stock:.2f}")
+                    mc2.metric("From Strike", f"{alert.pct_from_strike:+.1f}%",
+                               help="Positive = OTM (safe), Negative = ITM (danger)")
+                    mc3.metric("P(Assignment)", f"{alert.p_assignment:.0f}%")
+                    mc4.metric("Premium Captured", f"{alert.premium_captured_pct:.0f}%")
+
+                    # Alert message
+                    if alert.level == "EMERGENCY":
+                        st.error(f"**{alert.reason}**\n\n**{alert.action}**")
+                    elif alert.level == "CLOSE_NOW":
+                        st.error(f"**{alert.reason}**\n\n{alert.action}")
+                    elif alert.level == "CLOSE_SOON":
+                        st.warning(f"{alert.reason}\n\n{alert.action}")
+                    elif alert.level == "WATCH":
+                        st.warning(f"{alert.reason}\n\n{alert.action}")
+                    else:
+                        st.success(f"{alert.reason}\n\n{alert.action}")
+
+                    # Buyback details
+                    if alert.buyback_cost is not None:
+                        bc1, bc2 = st.columns(2)
+                        bc1.caption(f"Buyback cost: ${alert.buyback_cost:,.0f}")
+                        bc2.caption(f"Net P&L if close now: ${alert.net_pnl:+,.0f}" if alert.net_pnl else "")
+
+                    st.markdown("---")
+
+            except Exception:
+                st.caption(f"{ticker} ${trade['strike']} — could not assess (data unavailable)")
+
+        # --- Detailed view (existing code below) ---
+        st.subheader("Detailed Position View")
         for trade in open_trades:
             ticker = trade["ticker"]
             with st.spinner(f"Checking {ticker} {trade['strike']} {trade['option_type']}..."):
