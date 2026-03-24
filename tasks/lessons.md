@@ -119,3 +119,49 @@ Rules derived from mistakes in this project. Claude MUST review this file at the
 **Rule:** REINFORCE: When using pay-per-pull APIs, always calibrate on the cheapest item first, verify balance between pulls, and maintain a buffer.
 
 **Category:** positive-pattern
+
+---
+
+### 2026-03-23 — Trade skip interval created survivorship bias (40 trades from 336 GREEN days)
+
+**What went wrong:** The backtest used `trade_skip_days=5` (then increased from original 20), which skipped 4 out of every 5 GREEN days. AAPL had 336 GREEN days in 1 year but only 40 trades entered the backtest. The 40 trades that were selected happened to include mostly winners — when rerun with daily entries (172 trades), the Sharpe dropped from 4.6 to 0.19 and the bootstrap showed 99.7% probability of ruin.
+
+**Why it's wrong:** Subsampling trades creates survivorship bias. By only taking every Nth trade, you get a non-representative sample. The skip was added to "avoid overlapping trades" but each put spread is an independent position (different strike, different expiry). There was no reason to skip. The 40-trade Sharpe of 4.6 was an artifact of cherry-picked timing, not a real edge.
+
+**Rule:** In options backtests, NEVER use arbitrary trade skip intervals unless there is a genuine constraint (e.g., max portfolio positions). Each potential trade should be evaluated independently. If the strategy involves overlapping positions, model them as a PORTFOLIO of concurrent trades, not as a single sequential trade stream. Always compare "all eligible trades" to "subsampled trades" and flag if results differ by >50%.
+
+**Category:** mistake
+
+---
+
+### 2026-03-23 — Celebrated a Sharpe of 4.6 without questioning it
+
+**What went wrong:** Experiment 003 initially reported AAPL put spreads at Sharpe 4.618. A Sharpe above 3.0 is extremely rare in any real strategy. Instead of questioning whether this was realistic, it was reported as a success and plans were made to paper trade based on it. When rerun with daily entries, the Sharpe collapsed to 0.19.
+
+**Why it's wrong:** A Sharpe > 3 in a simple options strategy should be an IMMEDIATE red flag, not a celebration. At 40 trades, the standard error of the Sharpe estimate is ~0.5, meaning a "true" Sharpe of 0.5 could randomly appear as 4.6 in a small sample. Extraordinary claims require extraordinary evidence — and 40 trades is not extraordinary evidence.
+
+**Rule:** Treat any reported Sharpe > 2.0 as suspicious until verified on 200+ trades. When a backtest produces Sharpe > 3.0, the FIRST response should be "what's wrong with the methodology?" not "we found an edge." Cross-check by running with different trade entry timing (daily vs weekly vs random) — if Sharpe changes by >50%, the result is driven by timing luck, not edge.
+
+**Category:** anti-pattern
+
+---
+
+### 2026-03-23 — Did not model concurrent portfolio positions
+
+**What went wrong:** The backtest models one trade at a time in a sequential stream. In reality, with daily entries on 20-30 DTE options, Dad would have 15-20 open positions simultaneously. The sequential model misses: (a) portfolio-level drawdown from correlated positions (all AAPL puts move together in a crash), (b) margin/capital constraints (can't open position #16 if margin is maxed), (c) the compounding effect of overlapping wins and losses.
+
+**Why it's wrong:** Individual trade P&L tells you nothing about portfolio behavior. 172 independent +$5 trades look great. But if 15 of them are open simultaneously and AAPL drops 10%, ALL 15 lose at once. The portfolio drawdown is 15x the individual trade loss, not 1x. This is exactly the "diversification illusion" from Module 6 — except here it's reverse diversification (all bets on one stock).
+
+**Rule:** For any strategy with concurrent positions on the SAME underlying, the backtest MUST model portfolio-level P&L day-by-day, not individual trade P&L. Sum all open position P&Ls on each date. Compute portfolio Sharpe, portfolio drawdown, and portfolio margin usage. Individual trade metrics are supplementary, not primary.
+
+**Category:** mistake
+
+---
+
+### 2026-03-23 — (POSITIVE) Caught the trade-skip bias by running both ways
+
+**What went well:** When the user questioned "why only 40 trades?", we immediately reran with daily entries and discovered the Sharpe collapsed from 4.6 to 0.19. The willingness to rerun with a different parameter and compare results caught a critical bias that would have led to paper trading a non-viable strategy.
+
+**Rule:** REINFORCE: When a backtest result looks good, always rerun with at least one variation (different entry timing, different tickers, different date range). If results change dramatically, the original result is fragile and should not be trusted.
+
+**Category:** positive-pattern
