@@ -257,3 +257,15 @@ Rules derived from mistakes in this project. Claude MUST review this file at the
 **Rule:** REINFORCE: Pre-registration is intellectual rigor for strategy validation. Automated tests are code correctness validation. Both are needed — they serve different purposes.
 
 **Category:** positive-pattern
+
+---
+
+### 2026-03-24 — Optimized for one goal (zero assignments) and ignored the other two (profit, no losses)
+
+**What went wrong:** Dad's goals are tri-fold: (1) never get called away, (2) never lose money, (3) maximize profit. We declared victory when the copilot achieved zero assignments — but the default 5% OTM strategy had NET P&L of -$542. The copilot was preventing assignments while the strategy itself was bleeding money. We didn't notice because we were only measuring goal #1.
+
+**Why it's wrong:** A financial product that prevents one type of loss while creating another is not a product — it's a shell game. The user explicitly stated all three goals ("never get called away, never lose money, maximize profit"). Experiment 008 proved that 3% OTM actually works better (+$500 avg) because the higher premium absorbs buyback costs. We would never have found this without measuring all three goals simultaneously.
+
+**Rule:** When the user states multiple goals, the scorecard MUST include metrics for ALL of them. Never declare success on one goal without checking the others. For covered calls: (1) assignments = 0 (hard constraint), (2) net P&L > 0 (must be profitable), (3) premium retained % (maximize). A strategy that achieves zero assignments but loses money is NOT a success.
+
+**Category:** anti-pattern

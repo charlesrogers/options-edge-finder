@@ -114,7 +114,7 @@ def reprice_call(option_df, date, symbol):
 
 
 def simulate(ticker='AAPL', otm_pct=0.05, shares_per_contract=100,
-              unrealized_gain_per_share=150):
+              unrealized_gain_per_share=150, min_dte=20, max_dte=45):
     """
     Simulate monthly covered call selling with copilot monitoring.
 
@@ -145,7 +145,7 @@ def simulate(ticker='AAPL', otm_pct=0.05, shares_per_contract=100,
         if current_position is None:
             # Sell on ~first trading day of each month
             if len(trades) == 0 or (date_naive - pd.Timestamp(trades[-1]['entry_date'])).days >= 25:
-                call = find_monthly_call(option_df, date, spot, otm_pct)
+                call = find_monthly_call(option_df, date, spot, otm_pct, min_dte, max_dte)
                 if call:
                     current_position = {
                         'symbol': call['symbol'],

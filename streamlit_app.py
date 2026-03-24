@@ -1003,6 +1003,69 @@ All thresholds are from Experiment 006 (145,099 real observations + 480,000 Mont
     else:
         st.warning("Simulator results not found. Run `experiments/007_copilot_simulator/run.py` first.")
 
+    # --- Strategy Grid Search Results ---
+    st.markdown("---")
+    st.subheader("Which Strategy Works Best?")
+    st.caption("75 parameter combos tested across 5 tickers with real Databento prices")
+
+    _grid_path = os.path.join(os.path.dirname(__file__), "experiments", "008_strategy_grid", "results.json")
+    _grid_data = None
+    if os.path.exists(_grid_path):
+        try:
+            with open(_grid_path) as _f:
+                _grid_data = json.load(_f)
+        except Exception:
+            pass
+
+    if _grid_data:
+        _grid_df = pd.DataFrame(_grid_data)
+        _grid_df = _grid_df[_grid_df.get('num_trades', pd.Series(dtype=float)).notna()]
+        _grid_df = _grid_df[_grid_df['num_trades'] > 0]
+
+        if not _grid_df.empty:
+            # OTM% summary
+            st.markdown("#### OTM% Comparison (averaged across tickers)")
+            _otm_summary = []
+            for _otm in sorted(_grid_df['otm_pct'].unique()):
+                _sub = _grid_df[_grid_df['otm_pct'] == _otm]
+                _otm_summary.append({
+                    'Strike Distance': f"{_otm*100:.0f}% OTM",
+                    'Avg Net P&L': f"${_sub['net_pnl'].mean():+,.0f}",
+                    'Win Rate': f"{_sub['win_rate'].mean():.0f}%",
+                    'Profitable Combos': f"{len(_sub[_sub['net_pnl'] > 0])}/{len(_sub)}",
+                    'Assignments': int(_sub['assignments'].sum()),
+                })
+            st.dataframe(pd.DataFrame(_otm_summary), use_container_width=True, hide_index=True)
+
+            # Top 10 strategies
+            st.markdown("#### Top 10 Strategies (0 assignments + highest profit)")
+            _best = _grid_df[(_grid_df['assignments'] == 0) & (_grid_df['net_pnl'] > 0)]
+            if not _best.empty:
+                _top = _best.sort_values('composite_score', ascending=False).head(10)
+                _display = _top[['ticker', 'otm_pct', 'dte_label', 'num_trades',
+                                 'win_rate', 'net_pnl', 'avg_pnl', 'worst_trade',
+                                 'premium_retained_pct']].copy()
+                _display.columns = ['Ticker', 'OTM%', 'DTE', 'Trades', 'Win%',
+                                    'Net P&L', 'Avg P&L', 'Worst', 'Retained%']
+                _display['OTM%'] = _display['OTM%'].apply(lambda x: f"{x*100:.0f}%")
+                _display['Net P&L'] = _display['Net P&L'].apply(lambda x: f"${x:+,.0f}")
+                _display['Avg P&L'] = _display['Avg P&L'].apply(lambda x: f"${x:+,.0f}")
+                _display['Worst'] = _display['Worst'].apply(lambda x: f"${x:+,.0f}")
+                _display['Win%'] = _display['Win%'].apply(lambda x: f"{x:.0f}%")
+                _display['Retained%'] = _display['Retained%'].apply(lambda x: f"{x:.0f}%")
+                st.dataframe(_display, use_container_width=True, hide_index=True)
+            else:
+                st.warning("No strategy achieved both 0 assignments and positive P&L.")
+
+            # Key finding
+            st.success(
+                "**Key Finding:** 3% OTM collects enough premium to absorb buyback costs "
+                "(avg +$500/yr). 5-7% OTM is the worst of both worlds — moderate premium, expensive buybacks. "
+                "10-15% OTM is safe but collects less. The optimal strategy depends on the stock's volatility."
+            )
+    else:
+        st.info("Run `experiments/008_strategy_grid/run.py` to see strategy comparison results.")
+
 
 # ============================================================
 # TAB: THE EDGE (thesis + proof — replaces Getting Started)
