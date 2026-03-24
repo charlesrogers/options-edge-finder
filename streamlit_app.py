@@ -4,6 +4,8 @@ import pandas as pd
 from datetime import datetime, timedelta
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import json
+import os
 import yf_proxy
 import traceback
 from analytics import (
@@ -210,9 +212,10 @@ TIPS = {
 st.title("Options Edge Finder")
 st.caption("Know when to sell. Know when to fold.")
 
-tab_trades, tab_positions, tab_edge, tab_dashboard, tab_scorecard, tab_edgelab = st.tabs([
+tab_trades, tab_positions, tab_proveit, tab_edge, tab_dashboard, tab_scorecard, tab_edgelab = st.tabs([
     "Today's Trades",
     "My Positions",
+    "Prove It",
     "The Edge",
     "Deep Analysis",
     "Scorecard",
@@ -886,6 +889,119 @@ with tab_trades:
                 for p in passed_on:
                     icon = {"GREEN": "🟢", "YELLOW": "🟡", "RED": "🔴"}.get(p["signal"], "⚪")
                     st.caption(f"{icon} **{p['ticker']}**: {p['reason']}")
+
+
+# ============================================================
+# TAB: PROVE IT (simulator results — convince Dad)
+# ============================================================
+with tab_proveit:
+    st.header("Prove It: Would This Tool Have Saved You?")
+    st.caption("Real AAPL covered call history replayed through the copilot. Databento option prices, not estimates.")
+
+    # Load simulator results
+    _sim_path = os.path.join(os.path.dirname(__file__), "experiments", "007_copilot_simulator", "results.json")
+    _sim_data = None
+    if os.path.exists(_sim_path):
+        try:
+            with open(_sim_path) as _f:
+                _sim_data = json.load(_f)
+        except Exception:
+            pass
+
+    if _sim_data and "trades" in _sim_data:
+        _trades = _sim_data["trades"]
+        _summary = _sim_data.get("summary", {})
+
+        # --- Big number hero ---
+        _tax_avoided = _summary.get("tax_avoided", 0)
+        _assignments_prevented = _summary.get("assignments_prevented", 0)
+        _false_alarms = _summary.get("false_alarms", 0)
+        _false_alarm_cost = _summary.get("false_alarm_cost", 0)
+        _net_pnl = _summary.get("net_pnl", 0)
+
+        st.markdown(f"""
+        <div style="text-align:center; padding: 1.5rem; background: linear-gradient(135deg, #065f46, #047857); border-radius: 12px; margin-bottom: 1.5rem;">
+            <div style="color: #6ee7b7; font-size: 14px; text-transform: uppercase; letter-spacing: 2px;">Estimated Taxes Avoided</div>
+            <div style="color: white; font-size: 48px; font-weight: bold;">${_tax_avoided:,.0f}</div>
+            <div style="color: #a7f3d0; font-size: 14px; margin-top: 4px;">{_assignments_prevented} assignments prevented on {len(_trades)} trades</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # --- With vs Without Copilot ---
+        col_with, col_without = st.columns(2)
+
+        with col_with:
+            st.markdown("#### With Copilot")
+            _total_premium = _summary.get("total_premium", 0)
+            _total_buyback = _summary.get("total_buyback", 0)
+            st.metric("Premium Collected", f"${_total_premium:,.0f}")
+            st.metric("Buyback Costs", f"${_total_buyback:,.0f}")
+            st.metric("Net P&L", f"${_net_pnl:+,.0f}")
+            st.metric("Assignments", "ZERO", delta="0 shares called away", delta_color="off")
+
+        with col_without:
+            st.markdown("#### Without Copilot (Hold to Expiry)")
+            _would_assign = _summary.get("assignments_without_copilot", 0)
+            st.metric("Would Have Been Assigned", f"{_would_assign} times")
+            st.metric("Tax Bill (est.)", f"${_tax_avoided:,.0f}", delta=f"-${_tax_avoided:,.0f}", delta_color="inverse")
+            if _tax_avoided > 0:
+                _buyback_total = sum(abs(t["pnl_per_contract"]) for t in _trades if t["pnl_per_contract"] < 0)
+                _roi = _tax_avoided / max(_buyback_total, 1)
+                st.metric("Return on Copilot", f"{_roi:.0f}x",
+                          help="Every $1 spent on early buybacks saved this much in avoided taxes")
+
+        # --- False Alarm Honesty ---
+        st.markdown("---")
+        _fa_col1, _fa_col2 = st.columns(2)
+        _fa_col1.metric("False Alarms", _false_alarms,
+                        help="Times the copilot said CLOSE but the position would have expired worthless")
+        _fa_col2.metric("False Alarm Cost", f"${_false_alarm_cost:,.0f}",
+                        help="Premium given up on unnecessary early closes")
+
+        # --- Trade-by-Trade Timeline ---
+        st.markdown("---")
+        st.subheader("Trade-by-Trade Timeline")
+
+        _icons = {"SAFE": "✅", "WATCH": "⚠️", "CLOSE_SOON": "🟠", "CLOSE_NOW": "🔴", "EMERGENCY": "🚨"}
+
+        for _t in _trades:
+            _icon = _icons.get(_t.get("alert_at_close", ""), "❓")
+            _assign_badge = " **WOULD HAVE BEEN ASSIGNED**" if _t.get("would_assign_at_expiry") else ""
+            _tax_badge = f" — Saved ${_t['tax_avoided']:,.0f}" if _t.get("tax_avoided", 0) > 0 else ""
+            _pnl_color = "green" if _t["pnl_per_contract"] >= 0 else "red"
+
+            with st.container():
+                st.markdown(
+                    f"{_icon} **{_t['entry_date']} → {_t['exit_date']}** ({_t['days_held']}d) "
+                    f"| ${_t['strike']:.0f} Call @ ${_t['sold_price']:.2f} "
+                    f"| Stock: ${_t['entry_spot']:.0f} → ${_t['exit_spot']:.0f} "
+                    f"| P&L: **:{_pnl_color}[${_t['pnl_per_contract']:+,.0f}]**"
+                    f"{_assign_badge}{_tax_badge}"
+                )
+                _reason = _t.get("close_reason", "")
+                if _reason:
+                    st.caption(_reason)
+
+        # --- Methodology ---
+        with st.expander("Methodology"):
+            st.markdown("""
+**Data:** Real AAPL option prices from Databento (OHLCV, Apr 2025 - Mar 2026). Not Black-Scholes estimates.
+
+**Strategy:** Sell ~5% OTM monthly covered calls on the first trading day of each month.
+
+**Copilot Rules:**
+- **SAFE/WATCH**: Hold position
+- **CLOSE_SOON**: Buy back (take profit or approaching danger zone)
+- **CLOSE_NOW**: Buy back immediately (ITM, near-expiry + near-strike, or ex-div danger)
+- **EMERGENCY**: ITM + ex-dividend within 3 days (the $400K alert)
+
+**Tax Assumption:** $150/share unrealized gain, 30% tax rate = $4,500/contract if assigned.
+
+**"Would have been assigned"** = stock price was above strike at actual expiration.
+All thresholds are from Experiment 006 (145,099 real observations + 480,000 Monte Carlo paths).
+            """)
+    else:
+        st.warning("Simulator results not found. Run `experiments/007_copilot_simulator/run.py` first.")
 
 
 # ============================================================

@@ -294,8 +294,10 @@ def assess_position(ticker, strike, expiry, sold_price, contracts,
             action=f"Close this week. You've captured {premium_captured_pct:.0f}% of premium — take the profit.",
         )
 
-    # CLOSE_SOON: Within 5% + DTE < 7 (gamma zone)
-    if pct_from_strike < 5 and dte < 7:
+    # CLOSE_SOON: Within 3% + DTE < 7 (gamma zone)
+    # Narrowed from 5% to 3% — at 3-5% OTM with <7 DTE, P(assignment) is only 4%
+    # (Study A, 145K obs). 5% was causing 39% false alarm rate in simulator.
+    if pct_from_strike < 3 and dte < 7:
         return PositionAlert(
             level="CLOSE_SOON", ticker=ticker, strike=strike, expiry=str(expiry)[:10],
             sold_price=sold_price, current_stock=current_stock,

@@ -211,3 +211,49 @@ Rules derived from mistakes in this project. Claude MUST review this file at the
 **Rule:** When the user states a hard constraint ("only trade on stocks Dad owns"), EVERY proposed strategy must be checked against that constraint BEFORE being developed. If a strategy requires trading different tickers or products, it violates the constraint — don't propose it. Write the constraint at the top of every plan and check each idea against it.
 
 **Category:** anti-pattern
+
+---
+
+### 2026-03-24 — Zero automated tests for the core product (position_monitor.py)
+
+**What went wrong:** `position_monitor.py` is the product Dad will use to protect $400K+ positions. It has 5 alert levels, an empirical ITM probability table, ex-dividend logic, and gamma zone detection. None of this is tested. A typo in the probability table or a wrong comparison operator could silently downgrade EMERGENCY to SAFE. The entire project has 0 unit tests, 0 pytest files, 0 CI test gates.
+
+**Why it's wrong:** This is a financial safety system. 4 bugs in tasks/lessons.md (P&L accounting, repricing failures, DTE race condition, trade skip bias) would have been caught by basic unit tests. We shipped broken code through 4 experiments because nothing was checking correctness automatically.
+
+**Rule:** Before shipping position_monitor.py to Dad: (1) create `tests/test_position_monitor.py` with boundary tests for each alert level, (2) test ex-dividend EMERGENCY trigger, (3) test ITM probability table lookups, (4) test edge cases (0 DTE, at-the-money, deep ITM). Add `python -m pytest tests/ -v` to a CI workflow that runs on every push.
+
+**Category:** anti-pattern
+
+---
+
+### 2026-03-24 — No CI gate prevents broken pushes
+
+**What went wrong:** 9 GitHub Actions workflows run data collection, scoring, and monitoring — but none run tests before deployment. Any push to main could break imports or silently change behavior. The broken P&L accounting bug shipped through 4 commits without any automated check.
+
+**Why it's wrong:** CI without tests is build-and-pray. The daily sampler, scorer, and basket test workflows could silently fail or produce wrong results with no automated warning.
+
+**Rule:** Add a `test.yml` GitHub Actions workflow that runs `pytest` on every push/PR. At minimum: import smoke tests + core logic tests. Block merges if tests fail.
+
+**Category:** anti-pattern
+
+---
+
+### 2026-03-24 — Analysis scripts named test_*.py create illusion of test coverage
+
+**What went wrong:** `test_edge_sizing.py` has functions like `test_h05()` but contains no assertions — it only prints analysis. `basket_test.py` is a research runner. Both are named like tests but aren't.
+
+**Why it's wrong:** Creates false confidence that tests exist. If pytest discovers these, they'd either fail on missing fixtures or pass vacuously.
+
+**Rule:** Never name a script `test_*.py` unless it contains actual test assertions. Analysis scripts should be `analyze_*.py` or `evaluate_*.py`.
+
+**Category:** near-miss
+
+---
+
+### 2026-03-24 — (POSITIVE) Pre-registration provides experimental rigor
+
+**What went well:** Every experiment has a pre-registered README.md with pass/fail thresholds before results are seen. Experiments 002-005 all documented as FAILED honestly. This caught strategy failures before building products around them.
+
+**Rule:** REINFORCE: Pre-registration is intellectual rigor for strategy validation. Automated tests are code correctness validation. Both are needed — they serve different purposes.
+
+**Category:** positive-pattern
