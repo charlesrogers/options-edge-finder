@@ -1,0 +1,463 @@
+{
+  "variants": [
+    {
+      "label": "All tickers, spread, 3/ticker",
+      "metrics": {
+        "n_days": 500,
+        "n_trades": 530,
+        "total_pnl": 1469.17,
+        "daily_sharpe": 0.138,
+        "daily_sortino": 0.13,
+        "max_dd": -6612.27,
+        "max_dd_pct": -6.61,
+        "avg_positions": 5.1,
+        "max_positions": 10,
+        "win_rate": 83.2,
+        "avg_trade_pnl": 2.65,
+        "skipped_at_limit": 502,
+        "reprice_missing_pct": 18.7,
+        "exit_reasons": {
+          "take_profit": 438,
+          "dte_floor": 55,
+          "stale_data_exit": 32,
+          "end_of_data": 5
+        }
+      },
+      "holdout": {
+        "train_days": 400,
+        "test_days": 100,
+        "train_sharpe": 0.434,
+        "test_sharpe": -0.923,
+        "ratio": -2.125,
+        "train_total_pnl": 3601.6,
+        "test_total_pnl": -2132.43,
+        "passed": "False"
+      },
+      "bootstrap": {
+        "sharpe_ci_lower": -1.242,
+        "sharpe_ci_upper": 1.641,
+        "return_ci_lower": -14051.04,
+        "return_ci_upper": 16391.61,
+        "prob_negative_return": 39.7,
+        "prob_sharpe_below_zero": 39.7
+      }
+    },
+    {
+      "label": "AAPL only, spread, 3",
+      "metrics": {
+        "n_days": 500,
+        "n_trades": 100,
+        "total_pnl": -294.48,
+        "daily_sharpe": -0.058,
+        "daily_sortino": -0.035,
+        "max_dd": -3068.31,
+        "max_dd_pct": -3.07,
+        "avg_positions": 0.9,
+        "max_positions": 3,
+        "win_rate": 88.0,
+        "avg_trade_pnl": -3.18,
+        "skipped_at_limit": 73,
+        "reprice_missing_pct": 1.3,
+        "exit_reasons": {
+          "take_profit": 88,
+          "dte_floor": 9,
+          "end_of_data": 3
+        }
+      },
+      "holdout": {
+        "train_days": 400,
+        "test_days": 100,
+        "train_sharpe": 0.114,
+        "test_sharpe": -0.805,
+        "ratio": -7.073,
+        "train_total_pnl": 473.76,
+        "test_total_pnl": -768.23,
+        "passed": "False"
+      },
+      "bootstrap": {
+        "sharpe_ci_lower": -1.316,
+        "sharpe_ci_upper": 1.535,
+        "return_ci_lower": -7557.86,
+        "return_ci_upper": 6945.67,
+        "prob_negative_return": 49.9,
+        "prob_sharpe_below_zero": 49.9
+      }
+    },
+    {
+      "label": "AAPL only, CSP, 3",
+      "metrics": {
+        "n_days": 500,
+        "n_trades": 101,
+        "total_pnl": -91.62,
+        "daily_sharpe": -0.008,
+        "daily_sortino": -0.005,
+        "max_dd": -9502.19,
+        "max_dd_pct": -9.5,
+        "avg_positions": 0.9,
+        "max_positions": 3,
+        "win_rate": 90.1,
+        "avg_trade_pnl": 2.67,
+        "skipped_at_limit": 72,
+        "reprice_missing_pct": 1.4,
+        "exit_reasons": {
+          "take_profit": 89,
+          "dte_floor": 9,
+          "end_of_data": 3
+        }
+      },
+      "holdout": {
+        "train_days": 400,
+        "test_days": 100,
+        "train_sharpe": 0.087,
+        "test_sharpe": -0.574,
+        "ratio": -6.575,
+        "train_total_pnl": 888.63,
+        "test_total_pnl": -980.24,
+        "passed": "False"
+      },
+      "bootstrap": {
+        "sharpe_ci_lower": -1.399,
+        "sharpe_ci_upper": 1.429,
+        "return_ci_lower": -16616.24,
+        "return_ci_upper": 17110.43,
+        "prob_negative_return": 49.5,
+        "prob_sharpe_below_zero": 49.5
+      }
+    },
+    {
+      "label": "AAPL spread, max 1",
+      "metrics": {
+        "n_days": 500,
+        "n_trades": 42,
+        "total_pnl": 98.94,
+        "daily_sharpe": 0.046,
+        "daily_sortino": 0.028,
+        "max_dd": -1081.74,
+        "max_dd_pct": -1.08,
+        "avg_positions": 0.4,
+        "max_positions": 1,
+        "win_rate": 90.5,
+        "avg_trade_pnl": 2.15,
+        "skipped_at_limit": 131,
+        "reprice_missing_pct": 1.1,
+        "exit_reasons": {
+          "take_profit": 38,
+          "dte_floor": 3,
+          "end_of_data": 1
+        }
+      },
+      "holdout": {
+        "train_days": 400,
+        "test_days": 100,
+        "train_sharpe": 0.162,
+        "test_sharpe": -0.535,
+        "ratio": -3.304,
+        "train_total_pnl": 289.07,
+        "test_total_pnl": -190.13,
+        "passed": "False"
+      },
+      "bootstrap": {
+        "sharpe_ci_lower": -1.238,
+        "sharpe_ci_upper": 1.674,
+        "return_ci_lower": -2870.71,
+        "return_ci_upper": 3159.18,
+        "prob_negative_return": 43.9,
+        "prob_sharpe_below_zero": 43.9
+      }
+    },
+    {
+      "label": "AAPL spread, max 2",
+      "metrics": {
+        "n_days": 500,
+        "n_trades": 70,
+        "total_pnl": -355.69,
+        "daily_sharpe": -0.083,
+        "daily_sortino": -0.049,
+        "max_dd": -2163.48,
+        "max_dd_pct": -2.16,
+        "avg_positions": 0.7,
+        "max_positions": 2,
+        "win_rate": 88.6,
+        "avg_trade_pnl": -5.33,
+        "skipped_at_limit": 103,
+        "reprice_missing_pct": 1.2,
+        "exit_reasons": {
+          "take_profit": 62,
+          "dte_floor": 6,
+          "end_of_data": 2
+        }
+      },
+      "holdout": {
+        "train_days": 400,
+        "test_days": 100,
+        "train_sharpe": 0.093,
+        "test_sharpe": -0.91,
+        "ratio": -9.82,
+        "train_total_pnl": 327.99,
+        "test_total_pnl": -683.68,
+        "passed": "False"
+      },
+      "bootstrap": {
+        "sharpe_ci_lower": -1.323,
+        "sharpe_ci_upper": 1.558,
+        "return_ci_lower": -6284.19,
+        "return_ci_upper": 5933.71,
+        "prob_negative_return": 51.8,
+        "prob_sharpe_below_zero": 51.8
+      }
+    },
+    {
+      "label": "AAPL spread, max 3",
+      "metrics": {
+        "n_days": 500,
+        "n_trades": 100,
+        "total_pnl": -294.48,
+        "daily_sharpe": -0.058,
+        "daily_sortino": -0.035,
+        "max_dd": -3068.31,
+        "max_dd_pct": -3.07,
+        "avg_positions": 0.9,
+        "max_positions": 3,
+        "win_rate": 88.0,
+        "avg_trade_pnl": -3.18,
+        "skipped_at_limit": 73,
+        "reprice_missing_pct": 1.3,
+        "exit_reasons": {
+          "take_profit": 88,
+          "dte_floor": 9,
+          "end_of_data": 3
+        }
+      },
+      "holdout": {
+        "train_days": 400,
+        "test_days": 100,
+        "train_sharpe": 0.114,
+        "test_sharpe": -0.805,
+        "ratio": -7.073,
+        "train_total_pnl": 473.76,
+        "test_total_pnl": -768.23,
+        "passed": "False"
+      },
+      "bootstrap": {
+        "sharpe_ci_lower": -1.316,
+        "sharpe_ci_upper": 1.535,
+        "return_ci_lower": -7557.86,
+        "return_ci_upper": 6945.67,
+        "prob_negative_return": 49.9,
+        "prob_sharpe_below_zero": 49.9
+      }
+    },
+    {
+      "label": "AAPL spread, max 5",
+      "metrics": {
+        "n_days": 500,
+        "n_trades": 123,
+        "total_pnl": -445.47,
+        "daily_sharpe": -0.068,
+        "daily_sortino": -0.043,
+        "max_dd": -4104.14,
+        "max_dd_pct": -4.1,
+        "avg_positions": 1.3,
+        "max_positions": 5,
+        "win_rate": 87.0,
+        "avg_trade_pnl": -3.81,
+        "skipped_at_limit": 49,
+        "reprice_missing_pct": 1.0,
+        "exit_reasons": {
+          "take_profit": 106,
+          "dte_floor": 14,
+          "end_of_data": 3
+        }
+      },
+      "holdout": {
+        "train_days": 400,
+        "test_days": 100,
+        "train_sharpe": 0.121,
+        "test_sharpe": -0.864,
+        "ratio": -7.136,
+        "train_total_pnl": 641.76,
+        "test_total_pnl": -1087.24,
+        "passed": "False"
+      },
+      "bootstrap": {
+        "sharpe_ci_lower": -1.36,
+        "sharpe_ci_upper": 1.583,
+        "return_ci_lower": -9753.46,
+        "return_ci_upper": 8940.27,
+        "prob_negative_return": 51.3,
+        "prob_sharpe_below_zero": 51.3
+      }
+    },
+    {
+      "label": "AAPL spread, TP=25%",
+      "metrics": {
+        "n_days": 500,
+        "n_trades": 100,
+        "total_pnl": -294.48,
+        "daily_sharpe": -0.058,
+        "daily_sortino": -0.035,
+        "max_dd": -3068.31,
+        "max_dd_pct": -3.07,
+        "avg_positions": 0.9,
+        "max_positions": 3,
+        "win_rate": 88.0,
+        "avg_trade_pnl": -3.18,
+        "skipped_at_limit": 73,
+        "reprice_missing_pct": 1.3,
+        "exit_reasons": {
+          "take_profit": 88,
+          "dte_floor": 9,
+          "end_of_data": 3
+        }
+      },
+      "holdout": {
+        "train_days": 400,
+        "test_days": 100,
+        "train_sharpe": 0.114,
+        "test_sharpe": -0.805,
+        "ratio": -7.073,
+        "train_total_pnl": 473.76,
+        "test_total_pnl": -768.23,
+        "passed": "False"
+      },
+      "bootstrap": {
+        "sharpe_ci_lower": -1.316,
+        "sharpe_ci_upper": 1.535,
+        "return_ci_lower": -7557.86,
+        "return_ci_upper": 6945.67,
+        "prob_negative_return": 49.9,
+        "prob_sharpe_below_zero": 49.9
+      }
+    },
+    {
+      "label": "AAPL spread, TP=50%",
+      "metrics": {
+        "n_days": 500,
+        "n_trades": 70,
+        "total_pnl": 525.76,
+        "daily_sharpe": 0.11,
+        "daily_sortino": 0.069,
+        "max_dd": -3127.49,
+        "max_dd_pct": -3.13,
+        "avg_positions": 1.0,
+        "max_positions": 3,
+        "win_rate": 81.4,
+        "avg_trade_pnl": 7.39,
+        "skipped_at_limit": 102,
+        "reprice_missing_pct": 0.4,
+        "exit_reasons": {
+          "take_profit": 56,
+          "dte_floor": 13,
+          "end_of_data": 1
+        }
+      },
+      "holdout": {
+        "train_days": 400,
+        "test_days": 100,
+        "train_sharpe": 0.16,
+        "test_sharpe": -0.085,
+        "ratio": -0.534,
+        "train_total_pnl": 609.2,
+        "test_total_pnl": -83.45,
+        "passed": "False"
+      },
+      "bootstrap": {
+        "sharpe_ci_lower": -1.137,
+        "sharpe_ci_upper": 1.766,
+        "return_ci_lower": -6027.78,
+        "return_ci_upper": 7245.61,
+        "prob_negative_return": 39.9,
+        "prob_sharpe_below_zero": 39.9
+      }
+    },
+    {
+      "label": "AAPL spread, TP=75%",
+      "metrics": {
+        "n_days": 500,
+        "n_trades": 54,
+        "total_pnl": 809.01,
+        "daily_sharpe": 0.181,
+        "daily_sortino": 0.114,
+        "max_dd": -2887.73,
+        "max_dd_pct": -2.89,
+        "avg_positions": 1.1,
+        "max_positions": 3,
+        "win_rate": 77.8,
+        "avg_trade_pnl": 14.82,
+        "skipped_at_limit": 118,
+        "reprice_missing_pct": 0.4,
+        "exit_reasons": {
+          "take_profit": 36,
+          "dte_floor": 17,
+          "end_of_data": 1
+        }
+      },
+      "holdout": {
+        "train_days": 400,
+        "test_days": 100,
+        "train_sharpe": 0.28,
+        "test_sharpe": -0.194,
+        "ratio": -0.692,
+        "train_total_pnl": 990.49,
+        "test_total_pnl": -181.48,
+        "passed": "False"
+      },
+      "bootstrap": {
+        "sharpe_ci_lower": -1.06,
+        "sharpe_ci_upper": 1.772,
+        "return_ci_lower": -5133.17,
+        "return_ci_upper": 7285.12,
+        "prob_negative_return": 36.5,
+        "prob_sharpe_below_zero": 36.5
+      }
+    },
+    {
+      "label": "AAPL spread, TP=hold",
+      "metrics": {
+        "n_days": 500,
+        "n_trades": 41,
+        "total_pnl": 605.86,
+        "daily_sharpe": 0.165,
+        "daily_sortino": 0.09,
+        "max_dd": -2887.73,
+        "max_dd_pct": -2.89,
+        "avg_positions": 1.1,
+        "max_positions": 3,
+        "win_rate": 75.6,
+        "avg_trade_pnl": 14.06,
+        "skipped_at_limit": 132,
+        "reprice_missing_pct": 1.2,
+        "exit_reasons": {
+          "dte_floor": 38,
+          "end_of_data": 3
+        }
+      },
+      "holdout": {
+        "train_days": 400,
+        "test_days": 100,
+        "train_sharpe": 0.263,
+        "test_sharpe": -0.395,
+        "ratio": -1.502,
+        "train_total_pnl": 816.22,
+        "test_total_pnl": -210.36,
+        "passed": "False"
+      },
+      "bootstrap": {
+        "sharpe_ci_lower": -1.03,
+        "sharpe_ci_upper": 1.844,
+        "return_ci_lower": -4633.62,
+        "return_ci_upper": 5532.35,
+        "prob_negative_return": 36.3,
+        "prob_sharpe_below_zero": 36.3
+      }
+    }
+  ],
+  "primary_checks": {
+    "Daily Sharpe > 0.3": false,
+    "Max DD > -20%": true,
+    "Holdout passed": "False",
+    "Bootstrap CI > 0": false,
+    "Win rate > 60%": true
+  },
+  "all_passed": false
+}

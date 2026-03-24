@@ -293,11 +293,13 @@ class PortfolioBacktest:
             all_dates.update(sig_df.index)
         all_dates = sorted(all_dates)
 
+        prev_portfolio_value = 0.0  # Track previous day's total unrealized
+
         for date in all_dates:
             if date.weekday() >= 5:
                 continue
 
-            day_pnl = 0.0
+            realized_today = 0.0
 
             # 1. Reprice and check exits on all open positions
             positions_to_close = []
@@ -307,7 +309,7 @@ class PortfolioBacktest:
                 # DTE floor FIRST (priority per lessons.md)
                 if self.dte_floor > 0 and dte_remaining <= self.dte_floor:
                     pnl = self._close_position(pos, date, option_data_map, "dte_floor")
-                    positions_to_close.append((i, pnl))
+                    positions_to_close.append((i, pnl, "dte_floor", date))
                     continue
 
                 # Reprice
@@ -349,22 +351,13 @@ class PortfolioBacktest:
                     positions_to_close.append((i, pnl, "take_profit", date))
                     continue
 
-                # Mark-to-market P&L for today (unrealized)
-                day_pnl += (pos.entry_credit - current_value) * 100
-
             # Close positions (reverse order to preserve indices)
             for close_info in sorted(positions_to_close, key=lambda x: x[0], reverse=True):
                 idx = close_info[0]
                 pos = self.positions[idx]
-                if len(close_info) == 2:
-                    # DTE floor (pnl already calculated)
-                    pnl = close_info[1]
-                    reason = "dte_floor"
-                    exit_date = date
-                else:
-                    pnl = close_info[1]
-                    reason = close_info[2]
-                    exit_date = close_info[3]
+                pnl = close_info[1]
+                reason = close_info[2]
+                exit_date = close_info[3]
 
                 self.closed_trades.append(ClosedTrade(
                     ticker=pos.ticker, mode=pos.mode,
@@ -377,7 +370,7 @@ class PortfolioBacktest:
                     sell_strike=pos.sell_strike,
                     buy_strike=pos.buy_strike,
                 ))
-                day_pnl += pnl  # Realized P&L replaces unrealized
+                realized_today += pnl
                 self.positions.pop(idx)
 
             # 2. Check signals and open new positions
@@ -433,8 +426,18 @@ class PortfolioBacktest:
                 )
                 self.positions.append(pos)
 
-            # Record daily P&L
-            self.daily_pnl.append((date, day_pnl, len(self.positions)))
+            # FIX: Compute daily P&L as CHANGE in portfolio value, not level
+            # Portfolio value = sum of (entry_credit - current_spread_value) for all open positions
+            today_portfolio_value = 0.0
+            for pos in self.positions:
+                cv = pos.last_known_sell_price - pos.last_known_buy_price if pos.mode == "spread" else pos.last_known_sell_price
+                today_portfolio_value += (pos.entry_credit - cv) * 100
+
+            # Daily P&L = change in unrealized + realized closings today
+            daily_change = (today_portfolio_value - prev_portfolio_value) + realized_today
+            prev_portfolio_value = today_portfolio_value
+
+            self.daily_pnl.append((date, daily_change, len(self.positions)))
 
         # Close remaining positions at end
         for pos in self.positions:

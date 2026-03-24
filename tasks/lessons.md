@@ -165,3 +165,37 @@ Rules derived from mistakes in this project. Claude MUST review this file at the
 **Rule:** REINFORCE: When a backtest result looks good, always rerun with at least one variation (different entry timing, different tickers, different date range). If results change dramatically, the original result is fragile and should not be trusted.
 
 **Category:** positive-pattern
+
+---
+
+### 2026-03-24 — Daily P&L computed as cumulative level, not daily change (191% "loss" on $100K)
+
+**What went wrong:** In `backtest_engine.py` line 353, unrealized P&L is computed as `(entry_credit - current_value) * 100` — this is the TOTAL unrealized P&L since entry, not the CHANGE from yesterday. If a position has +$50 unrealized on day 1, the engine adds +$50 to daily P&L on day 1, then +$50 again on day 2, +$50 on day 3, etc. Over a 20-day hold, one $50 unrealized profit gets counted 20 times. Additionally, when a position closes, the realized P&L is ADDED to the daily total that already includes the unrealized — double-counting. This produced a "loss" of $191,466 on $100,000 capital — physically impossible for put spreads.
+
+**Why it's wrong:** Daily P&L must be the CHANGE in portfolio value from yesterday to today, not the cumulative mark-to-market. The correct formula is: `daily_pnl = today_portfolio_value - yesterday_portfolio_value`. Every financial backtest engine in existence uses this approach. Our engine confused "level" with "change," producing absurd results that we almost used to declare the strategy dead.
+
+**Rule:** Daily P&L in any portfolio backtest MUST be computed as: `daily_pnl = sum(position_values_today) - sum(position_values_yesterday)`. Alternatively: track `previous_day_portfolio_value` and subtract. NEVER accumulate individual position unrealized P&L levels into a running daily sum. After implementing, SANITY CHECK: total daily P&L summed should equal sum of individual trade realized P&L. If they diverge by >10%, there's an accounting bug.
+
+**Category:** mistake
+
+---
+
+### 2026-03-24 — Shipped 4 experiments with the same broken P&L accounting
+
+**What went wrong:** Experiments 001, 002, 003, and 004 each had different bugs, but the P&L computation was never validated against a known-correct answer. No sanity checks were applied (e.g., "can the strategy lose more than 100% of capital on defined-risk spreads?"). The 191% loss result was flagged as suspicious but still committed and published.
+
+**Why it's wrong:** In quantitative finance, every backtest engine must pass basic sanity checks before trusting results. "Losing more than you invested" on a defined-risk position is an obvious impossibility. The engine should have been tested against hand-calculated examples before running a single experiment.
+
+**Rule:** Before running ANY experiment with a new or modified backtest engine: (1) Run a 1-trade hand-calculated example and verify the engine matches. (2) Run a sanity check: for defined-risk positions (spreads), verify max loss never exceeds spread width × contracts. (3) Verify sum(daily_pnl) ≈ sum(trade_realized_pnl). If any check fails, the engine is broken — fix before running experiments.
+
+**Category:** anti-pattern
+
+---
+
+### 2026-03-24 — (POSITIVE) Caught the accounting bug before acting on results
+
+**What went well:** The $191K loss on $100K capital was immediately flagged as "physically impossible" and the results were not used to make strategy decisions. The instinct to question impossible numbers prevented false conclusions.
+
+**Rule:** REINFORCE: Any backtest result that shows loss > capital invested on defined-risk positions is ALWAYS a bug. Never accept impossible results — debug the engine first.
+
+**Category:** positive-pattern
