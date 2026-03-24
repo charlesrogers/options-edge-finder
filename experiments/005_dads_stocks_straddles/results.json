@@ -1,0 +1,206 @@
+[
+  {
+    "label": "Weekly straddle, TP=50%",
+    "metrics": {
+      "n_days": 500,
+      "n_trades": 263,
+      "win_rate": 56.7,
+      "total_pnl": -14396.08,
+      "sharpe": -1.348,
+      "max_dd": -16560.4,
+      "max_dd_pct": -16.6,
+      "avg_positions": 2.3,
+      "avg_trade_pnl": -55.1,
+      "sanity_pnl_divergence": 0.7,
+      "sanity_max_loss_ok": "True",
+      "sanity_sharpe_suspicious": "False"
+    },
+    "holdout": {
+      "train_sharpe": -1.671,
+      "test_sharpe": 0.082,
+      "ratio": -0.049,
+      "passed": false
+    },
+    "bootstrap": {
+      "ci_lower": -2.411,
+      "ci_upper": -0.212,
+      "prob_neg": 98.6
+    },
+    "stats": {
+      "reprice_found": 1655,
+      "reprice_missing": 145,
+      "reprice_miss_pct": 8.1,
+      "skipped_at_limit": 825
+    }
+  },
+  {
+    "label": "Weekly straddle, TP=25%",
+    "metrics": {
+      "n_days": 500,
+      "n_trades": 373,
+      "win_rate": 54.2,
+      "total_pnl": -13922.38,
+      "sharpe": -1.391,
+      "max_dd": -16485.18,
+      "max_dd_pct": -16.5,
+      "avg_positions": 2.3,
+      "avg_trade_pnl": -37.58,
+      "sanity_pnl_divergence": 0.7,
+      "sanity_max_loss_ok": "True",
+      "sanity_sharpe_suspicious": "False"
+    },
+    "holdout": {
+      "train_sharpe": -1.747,
+      "test_sharpe": 0.218,
+      "ratio": -0.125,
+      "passed": false
+    },
+    "bootstrap": {
+      "ci_lower": -2.478,
+      "ci_upper": -0.223,
+      "prob_neg": 98.6
+    },
+    "stats": {
+      "reprice_found": 1648,
+      "reprice_missing": 136,
+      "reprice_miss_pct": 7.6,
+      "skipped_at_limit": 715
+    }
+  },
+  {
+    "label": "Weekly straddle, hold",
+    "metrics": {
+      "n_days": 500,
+      "n_trades": 255,
+      "win_rate": 58.0,
+      "total_pnl": -13925.3,
+      "sharpe": -1.302,
+      "max_dd": -16244.58,
+      "max_dd_pct": -16.2,
+      "avg_positions": 2.3,
+      "avg_trade_pnl": -54.98,
+      "sanity_pnl_divergence": 0.7,
+      "sanity_max_loss_ok": "True",
+      "sanity_sharpe_suspicious": "False"
+    },
+    "holdout": {
+      "train_sharpe": -1.639,
+      "test_sharpe": 0.191,
+      "ratio": -0.117,
+      "passed": false
+    },
+    "bootstrap": {
+      "ci_lower": -2.361,
+      "ci_upper": -0.157,
+      "prob_neg": 98.4
+    },
+    "stats": {
+      "reprice_found": 1655,
+      "reprice_missing": 145,
+      "reprice_miss_pct": 8.1,
+      "skipped_at_limit": 833
+    }
+  },
+  {
+    "label": "Monthly straddle, TP=50%",
+    "metrics": {
+      "n_days": 500,
+      "n_trades": 83,
+      "win_rate": 48.2,
+      "total_pnl": -11500.67,
+      "sharpe": -1.042,
+      "max_dd": -14564.27,
+      "max_dd_pct": -14.6,
+      "avg_positions": 2.6,
+      "avg_trade_pnl": -141.94,
+      "sanity_pnl_divergence": 2.4,
+      "sanity_max_loss_ok": "True",
+      "sanity_sharpe_suspicious": "False"
+    },
+    "holdout": {
+      "train_sharpe": -0.827,
+      "test_sharpe": -1.735,
+      "ratio": 2.098,
+      "passed": "False"
+    },
+    "bootstrap": {
+      "ci_lower": -2.371,
+      "ci_upper": 0.367,
+      "prob_neg": 93.7
+    },
+    "stats": {
+      "reprice_found": 1891,
+      "reprice_missing": 603,
+      "reprice_miss_pct": 24.2,
+      "skipped_at_limit": 1004
+    }
+  },
+  {
+    "label": "Weekly strangle 5% OTM, TP=50%",
+    "metrics": {
+      "n_days": 500,
+      "n_trades": 387,
+      "win_rate": 56.8,
+      "total_pnl": -6235.78,
+      "sharpe": -0.749,
+      "max_dd": -9419.11,
+      "max_dd_pct": -9.4,
+      "avg_positions": 2.3,
+      "avg_trade_pnl": -16.18,
+      "sanity_pnl_divergence": 0.4,
+      "sanity_max_loss_ok": "True",
+      "sanity_sharpe_suspicious": "False"
+    },
+    "holdout": {
+      "train_sharpe": -1.069,
+      "test_sharpe": 1.643,
+      "ratio": -1.537,
+      "passed": false
+    },
+    "bootstrap": {
+      "ci_lower": -1.738,
+      "ci_upper": 0.756,
+      "prob_neg": 86.4
+    },
+    "stats": {
+      "reprice_found": 1603,
+      "reprice_missing": 179,
+      "reprice_miss_pct": 10.0,
+      "skipped_at_limit": 701
+    }
+  },
+  {
+    "label": "AAPL+DIS liquid only",
+    "metrics": {
+      "n_days": 500,
+      "n_trades": 85,
+      "win_rate": 57.6,
+      "total_pnl": -7958.32,
+      "sharpe": -1.483,
+      "max_dd": -8890.45,
+      "max_dd_pct": -8.9,
+      "avg_positions": 0.8,
+      "avg_trade_pnl": -93.63,
+      "sanity_pnl_divergence": 0.0,
+      "sanity_max_loss_ok": "True",
+      "sanity_sharpe_suspicious": "False"
+    },
+    "holdout": {
+      "train_sharpe": -1.901,
+      "test_sharpe": 0.463,
+      "ratio": -0.244,
+      "passed": false
+    },
+    "bootstrap": {
+      "ci_lower": -2.462,
+      "ci_upper": -0.268,
+      "prob_neg": 99.2
+    },
+    "stats": {
+      "reprice_found": 587,
+      "reprice_missing": 1,
+      "reprice_miss_pct": 0.2,
+      "skipped_at_limit": 269
+    }
+  }
+]
