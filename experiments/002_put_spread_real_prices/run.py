@@ -252,9 +252,13 @@ def backtest_ticker(ticker, option_df, stock_hist,
 
     trades = []
     skip_until = None
+    repricing_stats = {"found": 0, "missing": 0}
+
+    # BUG FIX: Use 5-day skip instead of 20-day to get more trades
+    trade_skip_days = 5  # Allow new trade every 5 calendar days (was 20)
 
     for date, row in green_days.iterrows():
-        # Don't overlap trades
+        # Don't overlap trades from same entry window
         if skip_until and date < skip_until:
             continue
 
@@ -277,8 +281,10 @@ def backtest_ticker(ticker, option_df, stock_hist,
         exit_date = None
         exit_reason = None
         exit_pnl = None
+        last_known_value = raw_credit  # BUG FIX: track last known price
+        days_since_reprice = 0
 
-        for day_offset in range(1, holding_period + 1):
+        for day_offset in range(1, holding_period + 5):  # BUG FIX: extend past holding period
             check_date = date + pd.Timedelta(days=day_offset)
             dte_remaining = spread['dte'] - day_offset
 
@@ -286,14 +292,37 @@ def backtest_ticker(ticker, option_df, stock_hist,
             if check_date.weekday() >= 5:
                 continue
 
+            # BUG FIX: DTE floor FIRST (before repricing, takes priority over everything)
+            if dte_floor > 0 and dte_remaining <= dte_floor:
+                close_cost = last_known_value * (1 + slippage_pct)
+                exit_pnl = (adj_credit - close_cost) * 100
+                exit_date = check_date
+                exit_reason = "dte_floor"
+                break
+
             # Reprice from real data
             current_value = reprice_spread(
                 option_df, check_date,
                 spread['sell_symbol'], spread['buy_symbol']
             )
 
-            if current_value is None:
-                continue  # No data for this day, skip
+            if current_value is not None:
+                last_known_value = current_value  # BUG FIX: update last known
+                repricing_stats["found"] += 1
+                days_since_reprice = 0
+            else:
+                repricing_stats["missing"] += 1
+                days_since_reprice += 1
+                # BUG FIX: Use last known value instead of skipping
+                current_value = last_known_value
+
+                # BUG FIX: If no repricing for 5+ days, close at last known
+                if days_since_reprice >= 5:
+                    close_cost = last_known_value * (1 + slippage_pct)
+                    exit_pnl = (adj_credit - close_cost) * 100
+                    exit_date = check_date
+                    exit_reason = "stale_data_exit"
+                    break
 
             # Check take profit
             if take_profit_pct < 1.0 and current_value <= tp_value:
@@ -303,37 +332,18 @@ def backtest_ticker(ticker, option_df, stock_hist,
                 exit_reason = "take_profit"
                 break
 
-            # Check DTE floor
-            if dte_floor > 0 and dte_remaining <= dte_floor:
-                close_cost = current_value * (1 + slippage_pct)
-                exit_pnl = (adj_credit - close_cost) * 100
-                exit_date = check_date
-                exit_reason = "dte_floor"
-                break
-
-        # If no exit triggered, settle at expiry
+        # If no exit triggered, settle at intrinsic
         if exit_pnl is None:
-            # At expiry, spread value = max(0, sell_strike - stock_price) - max(0, buy_strike - stock_price)
-            # We approximate by checking last available price
             final_date = entry_date + pd.Timedelta(days=holding_period)
-            final_value = reprice_spread(
-                option_df, final_date,
-                spread['sell_symbol'], spread['buy_symbol']
-            )
-            if final_value is not None:
-                close_cost = final_value * (1 + slippage_pct)
-                exit_pnl = (adj_credit - close_cost) * 100
+            final_stock = stock_hist.loc[stock_hist.index >= final_date]
+            if not final_stock.empty:
+                final_price = float(final_stock['Close'].iloc[0])
+                sell_intrinsic = max(0, spread['sell_strike'] - final_price)
+                buy_intrinsic = max(0, spread['buy_strike'] - final_price)
+                intrinsic_value = sell_intrinsic - buy_intrinsic
+                exit_pnl = (adj_credit - intrinsic_value * (1 + slippage_pct)) * 100
             else:
-                # Use intrinsic value
-                final_stock = stock_hist.loc[stock_hist.index >= final_date]
-                if not final_stock.empty:
-                    final_price = float(final_stock['Close'].iloc[0])
-                    sell_intrinsic = max(0, spread['sell_strike'] - final_price)
-                    buy_intrinsic = max(0, spread['buy_strike'] - final_price)
-                    intrinsic_value = sell_intrinsic - buy_intrinsic
-                    exit_pnl = (adj_credit - intrinsic_value) * 100
-                else:
-                    continue  # Can't determine outcome
+                exit_pnl = (adj_credit - last_known_value * (1 + slippage_pct)) * 100
             exit_date = final_date
             exit_reason = "expiry"
 
@@ -353,8 +363,14 @@ def backtest_ticker(ticker, option_df, stock_hist,
             "days_held": (exit_date - entry_date).days if exit_date else holding_period,
         })
 
-        # Skip ahead to avoid overlapping trades
-        skip_until = entry_date + pd.Timedelta(days=holding_period)
+        # BUG FIX: 5-day skip instead of 20 (allows more trades)
+        skip_until = entry_date + pd.Timedelta(days=trade_skip_days)
+
+    # Report repricing stats (per lessons.md: never silently skip)
+    total_checks = repricing_stats["found"] + repricing_stats["missing"]
+    if total_checks > 0:
+        miss_pct = repricing_stats["missing"] / total_checks * 100
+        print(f"  Repricing: {repricing_stats['found']} found, {repricing_stats['missing']} missing ({miss_pct:.0f}%)")
 
     return pd.DataFrame(trades)
 
