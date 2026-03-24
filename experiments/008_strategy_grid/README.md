@@ -2,11 +2,12 @@
 experiment: 008
 title: "Strategy Grid Search: Optimal Covered Call Parameters"
 date: 2026-03-24
-status: pre-registered
+status: completed
 hypotheses:
-  - "Selling further OTM (7-10%) reduces costly buybacks enough to offset lower premium"
-  - "There exists an OTM% sweet spot where net P&L is maximized with 0 assignments"
-  - "Optimal parameters are consistent across Dad's tickers"
+  - "Selling further OTM (7-10%) reduces costly buybacks enough to offset lower premium — REJECTED: 3% OTM is best"
+  - "There exists an OTM% sweet spot where net P&L is maximized with 0 assignments — ACCEPTED: 46/75 combos profitable"
+  - "Optimal parameters are consistent across Dad's tickers — REJECTED: ticker-dependent (TMUS 3%, DIS 7%, AAPL 15%)"
+result: "PASS — 46/75 combos profitable with 0 assignments. 3% OTM avg +$500, 5% OTM avg -$230. Per-ticker recs needed."
 ---
 
 # Experiment 008: Strategy Grid Search
