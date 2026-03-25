@@ -1,12 +1,6 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -15,31 +9,68 @@ import { LogTradeDialog } from './log-trade-dialog'
 
 type AlertWithId = PositionAlert & { tradeId?: number }
 
-const LEVEL_STYLES: Record<AlertLevel, { border: string; badge: string; label: string }> = {
+const LEVEL_STYLES: Record<
+  AlertLevel,
+  {
+    dot: string
+    border: string
+    badge: string
+    label: string
+    alertBorder: string
+    alertBg: string
+    titleColor: string
+    detailColor: string
+  }
+> = {
   SAFE: {
-    border: 'border-l-4 border-l-emerald-500',
-    badge: 'bg-emerald-500/10 text-emerald-700',
+    dot: 'bg-emerald-500',
+    border: 'border-emerald-200 dark:border-emerald-500/20',
+    badge: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
     label: 'Safe',
+    alertBorder: 'border-emerald-200 dark:border-emerald-500/20',
+    alertBg: '',
+    titleColor: 'text-emerald-800 dark:text-emerald-300',
+    detailColor: 'text-emerald-700 dark:text-emerald-400',
   },
   WATCH: {
-    border: 'border-l-4 border-l-amber-500',
-    badge: 'bg-amber-500/10 text-amber-700',
+    dot: 'bg-amber-500',
+    border: 'border-amber-200 dark:border-amber-500/20',
+    badge: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
     label: 'Watch',
+    alertBorder: 'border-amber-200 dark:border-amber-500/20',
+    alertBg: '',
+    titleColor: 'text-amber-800 dark:text-amber-300',
+    detailColor: 'text-amber-700 dark:text-amber-400',
   },
   CLOSE_SOON: {
-    border: 'border-l-4 border-l-orange-500',
-    badge: 'bg-orange-500/10 text-orange-700',
+    dot: 'bg-amber-500',
+    border: 'border-amber-200 dark:border-amber-500/20',
+    badge: 'bg-orange-500/10 text-orange-700 dark:text-orange-400',
     label: 'Close Soon',
+    alertBorder: 'border-amber-200 dark:border-amber-500/20',
+    alertBg: '',
+    titleColor: 'text-amber-800 dark:text-amber-300',
+    detailColor: 'text-amber-700 dark:text-amber-400',
   },
   CLOSE_NOW: {
-    border: 'border-l-4 border-l-red-500',
-    badge: 'bg-red-500/10 text-red-700',
+    dot: 'bg-red-500',
+    border: 'border-red-200 dark:border-red-500/20',
+    badge: 'bg-red-500/10 text-red-700 dark:text-red-400',
     label: 'Close Now',
+    alertBorder: 'border-red-200 dark:border-red-500/20',
+    alertBg: '',
+    titleColor: 'text-red-800 dark:text-red-300',
+    detailColor: 'text-red-700 dark:text-red-400',
   },
   EMERGENCY: {
-    border: 'border-l-4 border-l-red-600 animate-pulse',
-    badge: 'bg-red-600/10 text-red-700',
+    dot: 'bg-red-500 animate-pulse',
+    border: 'border-red-200 dark:border-red-500/20',
+    badge: 'bg-red-600/10 text-red-700 dark:text-red-400',
     label: 'Emergency',
+    alertBorder: 'border-red-200 dark:border-red-500/20',
+    alertBg: '',
+    titleColor: 'text-red-800 dark:text-red-300',
+    detailColor: 'text-red-700 dark:text-red-400',
   },
 }
 
@@ -81,11 +112,9 @@ export function PositionsList() {
 
   if (error) {
     return (
-      <Card>
-        <CardContent className="py-8 text-center text-[13px] text-destructive">
-          {error}
-        </CardContent>
-      </Card>
+      <div className="rounded-xl border bg-card py-8 text-center shadow-sm shadow-black/[0.04]">
+        <p className="text-[13px] text-destructive">{error}</p>
+      </div>
     )
   }
 
@@ -99,43 +128,59 @@ export function PositionsList() {
       </div>
 
       {alerts.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-[13px] text-muted-foreground">
-              No open positions. Log a trade to get started.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="rounded-xl border bg-card text-center py-16 shadow-sm shadow-black/[0.04]">
+          <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-muted mb-3">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-muted-foreground"
+            >
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
+          </div>
+          <p className="text-[15px] font-medium">No open positions</p>
+          <p className="text-[13px] text-muted-foreground mt-1">
+            Log a trade to get started.
+          </p>
+        </div>
       ) : (
         <div className="space-y-3">
           {alerts.map((alert, idx) => {
             const style = LEVEL_STYLES[alert.level]
             return (
-              <Card
+              <div
                 key={idx}
-                className={cn(
-                  'rounded-xl border bg-card shadow-sm shadow-black/[0.04] overflow-hidden',
-                  style.border
-                )}
+                className="rounded-xl border bg-card shadow-sm shadow-black/[0.04] overflow-hidden hover:shadow-md hover:shadow-black/[0.06] transition-shadow"
               >
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-[15px] font-semibold">
+                {/* Header */}
+                <div className="px-5 pt-4 pb-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[15px] font-semibold">
                       {alert.ticker} ${alert.strike} Call
-                    </CardTitle>
+                    </span>
                     <Badge className={cn('text-[10px]', style.badge)}>
                       {style.label}
                     </Badge>
                   </div>
-                </CardHeader>
+                  {alert.dte <= 7 && (
+                    <span className="text-[11px] font-medium text-red-600 dark:text-red-400">
+                      {alert.dte} DTE
+                    </span>
+                  )}
+                </div>
 
-                <CardContent className="space-y-3">
+                {/* Content */}
+                <div className="px-5 pb-4 space-y-3">
                   {/* Metrics row */}
                   <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
-                    <Metric
-                      label="DTE"
-                      value={`${alert.dte}`}
-                    />
+                    <Metric label="DTE" value={`${alert.dte}`} />
                     <Metric
                       label="% from Strike"
                       value={`${alert.pctFromStrike >= 0 ? '+' : ''}${alert.pctFromStrike.toFixed(1)}%`}
@@ -155,7 +200,10 @@ export function PositionsList() {
                     <div className="flex gap-4 text-[12px]">
                       {alert.buybackCost !== null && (
                         <span className="text-muted-foreground">
-                          Buyback: <span className="font-medium text-foreground">${alert.buybackCost.toFixed(2)}</span>
+                          Buyback:{' '}
+                          <span className="font-medium text-foreground">
+                            ${alert.buybackCost.toFixed(2)}
+                          </span>
                         </span>
                       )}
                       {alert.netPnl !== null && (
@@ -176,27 +224,72 @@ export function PositionsList() {
                     </div>
                   )}
 
-                  {/* Action banner for urgent alerts */}
+                  {/* Status alert pattern for urgent alerts */}
                   {(alert.level === 'CLOSE_NOW' ||
                     alert.level === 'EMERGENCY') && (
-                    <div className="rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 p-3">
-                      <p className="text-[12px] font-semibold text-red-700 dark:text-red-400">
-                        {alert.reason}
-                      </p>
-                      <p className="mt-1 text-[11px] text-red-600 dark:text-red-500">
-                        {alert.action}
-                      </p>
+                    <div
+                      className={cn(
+                        'rounded-lg border px-4 py-3 flex items-start gap-2',
+                        style.alertBorder
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'h-2 w-2 rounded-full mt-1.5 flex-shrink-0',
+                          style.dot
+                        )}
+                      />
+                      <div>
+                        <p
+                          className={cn(
+                            'text-[13px] font-semibold',
+                            style.titleColor
+                          )}
+                        >
+                          {alert.reason}
+                        </p>
+                        <p
+                          className={cn(
+                            'text-[12px] mt-0.5',
+                            style.detailColor
+                          )}
+                        >
+                          {alert.action}
+                        </p>
+                      </div>
                     </div>
                   )}
 
-                  {/* Reason for non-urgent */}
-                  {alert.level !== 'CLOSE_NOW' &&
-                    alert.level !== 'EMERGENCY' &&
-                    alert.level !== 'SAFE' && (
-                      <p className="text-[11px] text-muted-foreground">
-                        {alert.reason} — {alert.action}
-                      </p>
-                    )}
+                  {/* Status alert for WATCH / CLOSE_SOON */}
+                  {(alert.level === 'WATCH' ||
+                    alert.level === 'CLOSE_SOON') && (
+                    <div
+                      className={cn(
+                        'rounded-lg border px-4 py-3 flex items-start gap-2',
+                        style.alertBorder
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'h-2 w-2 rounded-full mt-1.5 flex-shrink-0',
+                          style.dot
+                        )}
+                      />
+                      <div>
+                        <p
+                          className={cn(
+                            'text-[13px] font-semibold',
+                            style.titleColor
+                          )}
+                        >
+                          {alert.reason}
+                        </p>
+                        <p className="text-[12px] text-muted-foreground mt-0.5">
+                          {alert.action}
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Close button for urgent */}
                   {(alert.level === 'CLOSE_NOW' ||
@@ -204,6 +297,7 @@ export function PositionsList() {
                     <Button
                       variant="destructive"
                       size="sm"
+                      className="active:translate-y-px"
                       onClick={async () => {
                         if (!alert.tradeId) return
                         await fetch(`/api/positions/${alert.tradeId}`, {
@@ -219,8 +313,8 @@ export function PositionsList() {
                       Mark Closed
                     </Button>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )
           })}
         </div>
@@ -232,8 +326,10 @@ export function PositionsList() {
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[11px] text-muted-foreground">{label}</p>
-      <p className="text-[13px] font-medium">{value}</p>
+      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+        {label}
+      </p>
+      <p className="text-[13px] font-medium mt-0.5">{value}</p>
     </div>
   )
 }

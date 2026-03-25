@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import type { TradeRow } from '@/lib/supabase'
 
@@ -15,8 +14,6 @@ export function TradeHistory() {
       try {
         const res = await fetch('/api/positions')
         if (res.ok) {
-          // This returns open trades; for history we'd need a separate endpoint.
-          // For now, show all trades from the same endpoint.
           const data = await res.json()
           setTrades(data)
         }
@@ -28,18 +25,20 @@ export function TradeHistory() {
   }, [])
 
   return (
-    <Card className="rounded-xl border bg-card shadow-sm shadow-black/[0.04] overflow-hidden">
-      <CardHeader className="cursor-pointer" onClick={() => setExpanded(!expanded)}>
-        <CardTitle className="flex items-center justify-between text-[14px] font-semibold">
-          <span>Trade History</span>
-          <span className="text-[12px] text-muted-foreground">
-            {expanded ? 'Collapse' : 'Expand'}
-          </span>
-        </CardTitle>
-      </CardHeader>
+    <div className="rounded-xl border bg-card shadow-sm shadow-black/[0.04] overflow-hidden">
+      {/* Header */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-accent/50 transition-colors"
+      >
+        <span className="text-[14px] font-semibold">Trade History</span>
+        <span className="text-[12px] text-muted-foreground">
+          {expanded ? 'Collapse' : 'Expand'}
+        </span>
+      </button>
 
       {expanded && (
-        <CardContent>
+        <div className="px-5 pb-4">
           {loading ? (
             <p className="text-[12px] text-muted-foreground">Loading...</p>
           ) : trades.length === 0 ? (
@@ -48,14 +47,28 @@ export function TradeHistory() {
             <div className="overflow-x-auto">
               <table className="w-full text-[12px]">
                 <thead>
-                  <tr className="border-b text-left text-[11px] text-muted-foreground">
-                    <th className="pb-2 pr-4 font-medium">Ticker</th>
-                    <th className="pb-2 pr-4 font-medium">Strike</th>
-                    <th className="pb-2 pr-4 font-medium">Expiry</th>
-                    <th className="pb-2 pr-4 font-medium">Premium</th>
-                    <th className="pb-2 pr-4 font-medium">Contracts</th>
-                    <th className="pb-2 pr-4 font-medium">Status</th>
-                    <th className="pb-2 font-medium">P&L</th>
+                  <tr className="border-b text-left">
+                    <th className="pb-2 pr-4 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      Ticker
+                    </th>
+                    <th className="pb-2 pr-4 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      Strike
+                    </th>
+                    <th className="pb-2 pr-4 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      Expiry
+                    </th>
+                    <th className="pb-2 pr-4 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      Premium
+                    </th>
+                    <th className="pb-2 pr-4 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      Contracts
+                    </th>
+                    <th className="pb-2 pr-4 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      Status
+                    </th>
+                    <th className="pb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      P&L
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -69,12 +82,14 @@ export function TradeHistory() {
                         <td className="py-2 pr-4 font-medium">{t.ticker}</td>
                         <td className="py-2 pr-4">${t.strike}</td>
                         <td className="py-2 pr-4">{t.expiry}</td>
-                        <td className="py-2 pr-4">${t.sold_price.toFixed(2)}</td>
+                        <td className="py-2 pr-4">
+                          ${t.sold_price.toFixed(2)}
+                        </td>
                         <td className="py-2 pr-4">{t.contracts}</td>
                         <td className="py-2 pr-4">
                           <span
                             className={cn(
-                              'text-[11px]',
+                              'text-[11px] font-medium',
                               t.status === 'open'
                                 ? 'text-emerald-600'
                                 : 'text-muted-foreground'
@@ -88,7 +103,9 @@ export function TradeHistory() {
                             <span
                               className={cn(
                                 'font-medium',
-                                pnl >= 0 ? 'text-emerald-600' : 'text-red-600'
+                                pnl >= 0
+                                  ? 'text-emerald-600'
+                                  : 'text-red-600'
                               )}
                             >
                               {pnl >= 0 ? '+' : ''}${pnl.toFixed(0)}
@@ -104,8 +121,8 @@ export function TradeHistory() {
               </table>
             </div>
           )}
-        </CardContent>
+        </div>
       )}
-    </Card>
+    </div>
   )
 }

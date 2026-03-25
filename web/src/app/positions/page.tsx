@@ -8,7 +8,7 @@ export default function PositionsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-[20px] font-bold">My Positions</h1>
-        <p className="text-[12px] text-muted-foreground">
+        <p className="text-[12px] text-muted-foreground mt-1">
           Real-time alerts for your open covered calls.
         </p>
       </div>

@@ -1,19 +1,18 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { TICKER_STRATEGIES, TIER_CONFIG, type TickerStrategy } from '@/lib/strategies'
 import type { HoldingRow } from '@/lib/supabase'
 
 const TIER_BADGE_COLORS: Record<string, string> = {
-  best: 'bg-emerald-500/10 text-emerald-700',
-  strong: 'bg-blue-500/10 text-blue-700',
-  good: 'bg-violet-500/10 text-violet-700',
-  conservative: 'bg-amber-500/10 text-amber-700',
-  skip: 'bg-red-500/10 text-red-700',
-  untested: 'bg-gray-500/10 text-gray-700',
+  best: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+  strong: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
+  good: 'bg-violet-500/10 text-violet-700 dark:text-violet-400',
+  conservative: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+  skip: 'bg-red-500/10 text-red-700 dark:text-red-400',
+  untested: 'bg-gray-500/10 text-gray-700 dark:text-gray-400',
 }
 
 export function SellRecommendations() {
@@ -69,30 +68,45 @@ export function SellRecommendations() {
   return (
     <div className="space-y-6">
       {/* Holdings summary */}
-      <Card className="rounded-xl border bg-card shadow-sm shadow-black/[0.04] overflow-hidden">
-        <CardContent className="py-3">
-          <p className="text-[12px] text-muted-foreground">
+      <div className="rounded-lg border px-4 py-3 flex items-start gap-2 border-blue-200 dark:border-blue-500/20">
+        <span className="h-2 w-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+        <div>
+          <p className="text-[13px] font-semibold text-blue-800 dark:text-blue-300">
             {eligible.length} ticker{eligible.length !== 1 ? 's' : ''} with 100+
             shares
-            {ineligible.length > 0 && (
-              <span>
-                {' '}
-                ({ineligible.length} below 100 shares)
-              </span>
-            )}
           </p>
-        </CardContent>
-      </Card>
+          {ineligible.length > 0 && (
+            <p className="text-[12px] text-blue-700 dark:text-blue-400 mt-0.5">
+              {ineligible.length} holding{ineligible.length !== 1 ? 's' : ''} below 100 shares (not eligible)
+            </p>
+          )}
+        </div>
+      </div>
 
       {eligible.length === 0 ? (
-        <Card className="rounded-xl border bg-card shadow-sm shadow-black/[0.04] overflow-hidden">
-          <CardContent className="py-12 text-center">
-            <p className="text-[13px] text-muted-foreground">
-              No holdings with 100+ shares found. Add holdings to get
-              recommendations.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="rounded-xl border bg-card text-center py-16 shadow-sm shadow-black/[0.04]">
+          <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-muted mb-3">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-muted-foreground"
+            >
+              <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+              <rect width="20" height="14" x="2" y="6" rx="2" />
+            </svg>
+          </div>
+          <p className="text-[15px] font-medium">No eligible holdings</p>
+          <p className="text-[13px] text-muted-foreground mt-1">
+            Add holdings with 100+ shares to get recommendations.
+          </p>
+        </div>
       ) : (
         <>
           {/* Active recommendations */}
@@ -115,26 +129,24 @@ export function SellRecommendations() {
               </h2>
               <div className="space-y-2">
                 {skipped.map(({ holding, strategy }) => (
-                  <Card
+                  <div
                     key={holding.ticker}
-                    className="rounded-xl border bg-card/50 shadow-sm shadow-black/[0.04] overflow-hidden opacity-60"
+                    className="rounded-xl border bg-card/50 shadow-sm shadow-black/[0.04] overflow-hidden opacity-60 px-5 py-3 flex items-center justify-between"
                   >
-                    <CardContent className="flex items-center justify-between py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[13px] font-medium">
-                          {holding.ticker}
-                        </span>
-                        <Badge
-                          className={cn('text-[10px]', TIER_BADGE_COLORS.skip)}
-                        >
-                          Skip
-                        </Badge>
-                      </div>
-                      <span className="text-[11px] text-muted-foreground">
-                        {strategy?.note ?? 'Not recommended for covered calls.'}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px] font-medium">
+                        {holding.ticker}
                       </span>
-                    </CardContent>
-                  </Card>
+                      <Badge
+                        className={cn('text-[10px]', TIER_BADGE_COLORS.skip)}
+                      >
+                        Skip
+                      </Badge>
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">
+                      {strategy?.note ?? 'Not recommended for covered calls.'}
+                    </span>
+                  </div>
                 ))}
               </div>
             </div>
@@ -168,48 +180,47 @@ function TickerCard({
       : '?'
 
   return (
-    <Card className="rounded-xl border bg-card shadow-sm shadow-black/[0.04] overflow-hidden hover:shadow-md hover:shadow-black/[0.06] transition-shadow">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CardTitle className="text-[15px] font-semibold">
-              {ticker}
-            </CardTitle>
-            <Badge className={cn('text-[10px]', badgeColor)}>
-              {tierConfig?.label ?? 'Untested'}
-            </Badge>
-          </div>
-          <span className="text-[11px] text-muted-foreground">
-            {shares} shares ({maxContracts} contract{maxContracts !== 1 ? 's' : ''})
-          </span>
+    <div className="rounded-xl border bg-card shadow-sm shadow-black/[0.04] overflow-hidden hover:shadow-md hover:shadow-black/[0.06] transition-shadow">
+      {/* Header */}
+      <div className="px-5 pt-4 pb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-[15px] font-semibold">{ticker}</span>
+          <Badge className={cn('text-[10px]', badgeColor)}>
+            {tierConfig?.label ?? 'Untested'}
+          </Badge>
         </div>
-      </CardHeader>
+        <span className="text-[11px] text-muted-foreground">
+          {shares} shares ({maxContracts} contract
+          {maxContracts !== 1 ? 's' : ''})
+        </span>
+      </div>
 
-      <CardContent className="space-y-3">
+      {/* Content */}
+      <div className="px-5 pb-4 space-y-3">
         {/* Strategy params */}
         <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
           <Metric label="OTM Target" value={otmPctDisplay} />
           <Metric label="DTE Range" value={dteDisplay} />
-          {strategy?.expectedPnl !== undefined && strategy.expectedPnl !== null && (
-            <Metric
-              label="Expected P&L"
-              value={`$${strategy.expectedPnl.toLocaleString()}`}
-            />
-          )}
+          {strategy?.expectedPnl !== undefined &&
+            strategy.expectedPnl !== null && (
+              <Metric
+                label="Expected P&L"
+                value={`$${strategy.expectedPnl.toLocaleString()}`}
+              />
+            )}
           {strategy?.expectedWinRate !== undefined &&
             strategy.expectedWinRate !== null && (
-              <Metric
-                label="Win Rate"
-                value={`${strategy.expectedWinRate}%`}
-              />
+              <Metric label="Win Rate" value={`${strategy.expectedWinRate}%`} />
             )}
         </div>
 
         {/* What happens */}
         {strategy?.otmPct && (
-          <div className="rounded-lg bg-muted/50 p-3">
+          <div className="rounded-lg bg-muted/50 px-4 py-3">
             <p className="text-[12px] text-muted-foreground">
-              <span className="font-medium text-foreground">What happens:</span>{' '}
+              <span className="font-medium text-foreground">
+                What happens:
+              </span>{' '}
               Sell a call {otmPctDisplay} above current price, {dteDisplay} days
               out. Collect premium. If the stock stays below the strike, you keep
               the shares and the premium.
@@ -218,17 +229,21 @@ function TickerCard({
         )}
 
         {/* Strategy note */}
-        <p className="text-[11px] text-muted-foreground">{strategy?.note}</p>
-      </CardContent>
-    </Card>
+        {strategy?.note && (
+          <p className="text-[11px] text-muted-foreground">{strategy.note}</p>
+        )}
+      </div>
+    </div>
   )
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[11px] text-muted-foreground">{label}</p>
-      <p className="text-[13px] font-medium">{value}</p>
+      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+        {label}
+      </p>
+      <p className="text-[13px] font-medium mt-0.5">{value}</p>
     </div>
   )
 }
