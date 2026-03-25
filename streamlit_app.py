@@ -580,315 +580,225 @@ with tab_trades:
         except Exception:
             vix_level = None
 
-        # --- Scan Watchlist ---
-        st.caption(f"Scanning {len(watchlist)} tickers...")
+        # --- Scan Watchlist for Covered Call Recommendations ---
+        from ticker_strategies import get_strategy, get_recommended_tickers, TIER_CONFIG
+
+        st.caption(f"Scanning {len(watchlist)} tickers for covered call opportunities...")
         progress = st.progress(0)
 
         recommendations = []
-        passed_on = []
+        skipped = []
 
         for i, ticker in enumerate(watchlist):
             progress.progress((i + 1) / len(watchlist))
+            strat = get_strategy(ticker)
+
+            # Skip tickers flagged by Experiment 008
+            if strat.get('skip'):
+                skipped.append({"ticker": ticker, "reason": strat.get('note', 'Not recommended'),
+                                "tier": strat['tier']})
+                continue
+
+            shares_owned = holdings.get(ticker, {}).get("shares", 0)
+            max_contracts = shares_owned // 100 if shares_owned >= 100 else 0
+
             try:
-                # Use existing analyze function (but we need tickers in the input box)
-                st.session_state.ticker_input = ticker
                 data = compute_analytics(ticker)
                 if not data or "error" in data:
                     continue
 
-                vrp = data.get("vrp")
-                signal = data.get("signal", "RED")
-                current_iv = data.get("current_iv")
-                rv_forecast = data.get("rv_forecast")
                 current_price = data.get("current_price")
-                iv_rank = data.get("iv_rank")
-                term_label = data.get("term_label")
-                regime = data.get("regime")
-                fomc_days = data.get("fomc_days")
-                earnings_days = data.get("earnings_days")
-                chains = data.get("chains", {})
-                expirations = data.get("expirations", [])
-
-                # Discipline filter
-                try:
-                    from discipline import check_trade_filters, get_severity
-                    should_trade, filter_reasons = check_trade_filters(
-                        vrp=vrp, iv_rank=iv_rank, term_label=term_label,
-                        regime=regime, fomc_days=fomc_days,
-                        earnings_days=earnings_days, atm_iv=current_iv,
-                        vix=vix_level,
-                    )
-                except Exception:
-                    should_trade = False  # Safe default: if filters crash, DON'T trade
-                    filter_reasons = ["Discipline check unavailable — defaulting to NO TRADE"]
-
-                if signal != "GREEN" or not should_trade:
-                    reason = filter_reasons[0] if filter_reasons else f"Signal is {signal}"
-                    passed_on.append({"ticker": ticker, "reason": reason, "signal": signal})
+                if not current_price:
                     continue
 
-                # Holdings for this ticker
-                shares_owned = holdings.get(ticker, {}).get("shares", 0)
+                chains = data.get("chains", {})
+                expirations = data.get("expirations", [])
+                current_iv = data.get("current_iv")
+                rv_forecast = data.get("rv_forecast")
+                vrp = data.get("vrp")
 
-                # Find put spread legs from the chain
-                sell_strike = None
-                sell_premium = None
-                buy_strike = None
-                buy_premium = None
-                expiry = None
-                spread_width = None
-                net_credit = None
-                max_loss_per_spread = None
+                # Find the best call to sell using per-ticker optimal OTM%
+                otm_pct = strat['otm_pct'] or 0.05
+                target_strike = current_price * (1 + otm_pct)
+                min_dte = strat.get('min_dte') or 20
+                max_dte = strat.get('max_dte') or 45
 
-                if chains and expirations:
-                    first_exp = expirations[0]
-                    expiry = first_exp
+                best_call = None
+                best_expiry = None
 
-                    if first_exp in chains and hasattr(chains[first_exp], 'puts') and not chains[first_exp].puts.empty:
-                        puts = chains[first_exp].puts.copy()
-                        puts = puts[puts["strike"] > 0].copy()
+                for exp in expirations:
+                    if exp not in chains:
+                        continue
+                    chain = chains[exp]
+                    if not hasattr(chain, 'calls') or chain.calls.empty:
+                        continue
 
-                        # Sell leg: ~5% OTM put
-                        sell_target = current_price * 0.95
-                        puts["sell_dist"] = abs(puts["strike"] - sell_target)
-                        sell_row = puts.loc[puts["sell_dist"].idxmin()]
-                        sell_strike = float(sell_row["strike"])
-                        s_bid = sell_row.get("bid", 0) or 0
-                        s_ask = sell_row.get("ask", 0) or 0
-                        sell_premium = round((s_bid + s_ask) / 2, 2) if s_bid > 0 else float(sell_row.get("lastPrice", 0))
-
-                        # Buy leg: ~10% OTM OR $10 wide, whichever is narrower
-                        buy_target_pct = current_price * 0.90
-                        buy_target_width = sell_strike - 10
-                        buy_target = max(buy_target_pct, buy_target_width)  # narrower spread
-                        buy_candidates = puts[puts["strike"] < sell_strike].copy()
-                        if not buy_candidates.empty:
-                            buy_candidates["buy_dist"] = abs(buy_candidates["strike"] - buy_target)
-                            buy_row = buy_candidates.loc[buy_candidates["buy_dist"].idxmin()]
-                            buy_strike = float(buy_row["strike"])
-                            b_bid = buy_row.get("bid", 0) or 0
-                            b_ask = buy_row.get("ask", 0) or 0
-                            buy_premium = round((b_bid + b_ask) / 2, 2) if b_ask > 0 else float(buy_row.get("lastPrice", 0))
-
-                            spread_width = sell_strike - buy_strike
-                            net_credit = round(sell_premium - buy_premium, 2) if sell_premium and buy_premium else None
-                            if spread_width > 0 and net_credit and net_credit > 0:
-                                max_loss_per_spread = round((spread_width - net_credit) * 100, 2)
-
-                # For backward compat
-                strike_price = sell_strike
-                premium = net_credit
-
-                # Bayesian probability
-                prob_win = None
-                try:
-                    from bayesian_signal import BayesianSignalModel
-                    from db import get_all_predictions as _gap2
-                    _scored2 = _gap2()
-                    if not _scored2.empty and "clv_realized" in _scored2.columns:
-                        _s2 = _scored2[(_scored2["scored"] == 1) & (_scored2["clv_realized"].notna())]
-                        if len(_s2) >= 50:
-                            _bm2 = BayesianSignalModel()
-                            if _bm2.train(_s2, n_bootstrap=30):
-                                _bp2 = _bm2.predict(vrp=vrp or 0, iv_rank=iv_rank or 50,
-                                                     term_label=term_label, regime=regime)
-                                prob_win = _bp2["prob_seller_wins"]
-                except Exception:
-                    pass
-
-                # Put spread sizing
-                n_spreads = 0
-                size_reason = ""
-                if spread_width and net_credit and net_credit > 0:
+                    # Check DTE
                     try:
-                        from discipline import size_put_spread
-                        n_spreads, size_reason = size_put_spread(
-                            portfolio_value, spread_width, net_credit, current_phase
-                        )
+                        exp_date = pd.Timestamp(exp)
+                        dte = (exp_date - pd.Timestamp.now()).days
+                        if dte < min_dte or dte > max_dte:
+                            continue
                     except Exception:
-                        n_spreads = 0 if current_phase == "paper" else 1
-                        size_reason = "Default 1 spread"
+                        continue
 
-                vrp_pct = ((current_iv - rv_forecast) / current_iv * 100) if current_iv and rv_forecast and current_iv > 0 else None
+                    calls = chain.calls[chain.calls["strike"] > 0].copy()
+                    if calls.empty:
+                        continue
 
-                recommendations.append({
-                    "ticker": ticker,
-                    "price": current_price,
-                    "sell_strike": sell_strike,
-                    "sell_premium": sell_premium,
-                    "buy_strike": buy_strike,
-                    "buy_premium": buy_premium,
-                    "spread_width": spread_width,
-                    "net_credit": net_credit,
-                    "max_loss": max_loss_per_spread,
-                    "n_spreads": n_spreads,
-                    "shares_owned": shares_owned,
-                    "expiry": expiry,
-                    "iv": current_iv,
-                    "rv": rv_forecast,
-                    "vrp": vrp,
-                    "vrp_pct": vrp_pct,
-                    "prob_win": prob_win,
-                    "signal": signal,
-                })
+                    # Find strike nearest to target
+                    calls["dist"] = abs(calls["strike"] - target_strike)
+                    best_row = calls.loc[calls["dist"].idxmin()]
+                    strike = float(best_row["strike"])
+                    bid = best_row.get("bid", 0) or 0
+                    ask = best_row.get("ask", 0) or 0
+                    premium = round((bid + ask) / 2, 2) if bid > 0 else float(best_row.get("lastPrice", 0))
+
+                    if premium <= 0:
+                        continue
+
+                    actual_otm = (strike - current_price) / current_price * 100
+
+                    if best_call is None or abs(dte - 30) < abs(best_call.get("dte", 0) - 30):
+                        best_call = {
+                            "strike": strike,
+                            "premium": premium,
+                            "dte": dte,
+                            "actual_otm": actual_otm,
+                        }
+                        best_expiry = exp
+
+                if best_call and best_call["premium"] > 0:
+                    # Sizing
+                    if current_phase == "paper":
+                        n_contracts = 0
+                    elif current_phase == "starter":
+                        n_contracts = min(1, max_contracts)
+                    else:
+                        n_contracts = min(max_contracts, 3)  # conservative max
+
+                    recommendations.append({
+                        "ticker": ticker,
+                        "price": current_price,
+                        "strike": best_call["strike"],
+                        "premium": best_call["premium"],
+                        "dte": best_call["dte"],
+                        "expiry": best_expiry,
+                        "actual_otm": best_call["actual_otm"],
+                        "target_otm": otm_pct * 100,
+                        "shares_owned": shares_owned,
+                        "max_contracts": max_contracts,
+                        "n_contracts": n_contracts,
+                        "tier": strat['tier'],
+                        "expected_pnl": strat.get('expected_pnl'),
+                        "expected_win_rate": strat.get('expected_win_rate'),
+                        "note": strat.get('note', ''),
+                        "iv": current_iv,
+                        "rv": rv_forecast,
+                        "vrp": vrp,
+                    })
             except Exception:
                 continue
 
         progress.empty()
-
-        # Restore ticker input
         st.session_state.ticker_input = ", ".join(watchlist)
 
-        # --- Display Recommendations ---
+        # --- Display Covered Call Recommendations ---
         if recommendations:
-            st.subheader(f"{len(recommendations)} Trade Recommendations")
-            # Sort by VRP (highest edge first)
-            recommendations.sort(key=lambda x: x.get("vrp") or 0, reverse=True)
+            # Sort by expected P&L (best strategies first)
+            recommendations.sort(key=lambda x: x.get("expected_pnl") or 0, reverse=True)
+
+            st.subheader(f"{len(recommendations)} Covered Call Recommendations")
+            st.caption("Per-ticker optimal strikes from Experiment 008 (75 combos, real Databento data)")
 
             for rec in recommendations:
+                tick = rec["ticker"]
+                tier = rec["tier"]
+                tc = TIER_CONFIG.get(tier, TIER_CONFIG['untested'])
+
                 with st.container():
                     st.markdown("---")
 
-                    # Tail risk badge
-                    HIGH_RISK = {"NVDA", "TSLA", "AMD", "COIN", "MSTR", "GME", "AMC", "RIVN", "LCID", "SMCI"}
-                    LOW_RISK = {"SPY", "QQQ", "DIA", "IWM", "GLD", "TLT", "XLF", "XLE", "XLK", "XLV"}
-                    tick = rec["ticker"]
-                    risk_badge = ":red[HIGH RISK]" if tick in HIGH_RISK else ":green[LOW RISK]" if tick in LOW_RISK else ":orange[MODERATE]"
-
-                    # Holdings context
+                    # Header with tier badge
                     shares = rec.get("shares_owned", 0)
+                    contracts_available = rec.get("max_contracts", 0)
+                    tier_badge = f":{tc['label'].lower().replace(' ', '')}[{tc['icon']} {tc['label']}]" if tier != 'untested' else f":gray[{tc['icon']} {tc['label']}]"
+
+                    # Map tier to streamlit color names
+                    tier_colors = {'best': 'green', 'strong': 'blue', 'good': 'violet',
+                                   'conservative': 'orange', 'untested': 'gray'}
+                    tier_color = tier_colors.get(tier, 'gray')
+                    st.markdown(f"### {tick}  ${rec['price']:.2f}  :{tier_color}[{tc['icon']} {tc['label']}]")
+
                     if shares > 0:
-                        value = shares * rec["price"]
-                        pct = value / portfolio_value * 100 if portfolio_value > 0 else 0
-                        st.markdown(f"### {tick}  ${rec['price']:.2f}  {risk_badge}")
-                        st.caption(f"You own **{shares:,} shares** (${value:,.0f}, {pct:.1f}% of portfolio)")
+                        st.caption(f"You own **{shares:,} shares** ({contracts_available} contracts available)")
                     else:
-                        st.markdown(f"### {tick}  ${rec['price']:.2f}  {risk_badge}")
+                        st.caption(f"No shares entered — add holdings above to enable sizing")
 
-                    # --- Put Spread Recommendation (PRIMARY) ---
-                    s_sell = rec.get("sell_strike")
-                    s_buy = rec.get("buy_strike")
-                    s_credit = rec.get("net_credit")
-                    s_max_loss = rec.get("max_loss")
-                    s_expiry = rec.get("expiry")
-                    s_width = rec.get("spread_width")
-                    n_sp = max(rec.get("n_spreads", 1), 1)  # show at least 1 for display
+                    # The recommendation
+                    phase_note = " *(Paper trade — track but don't execute)*" if current_phase == "paper" else ""
+                    n_c = rec.get("n_contracts", 0)
+                    contract_text = f" x {n_c} contract{'s' if n_c > 1 else ''}" if n_c > 0 else ""
 
-                    if s_sell and s_buy and s_credit and s_credit > 0 and s_max_loss and s_max_loss > 0:
-                        credit_total = s_credit * 100 * n_sp
-                        loss_total = s_max_loss * n_sp
-                        ror = (s_credit * 100) / s_max_loss * 100 if s_max_loss > 0 else 0
+                    st.markdown(
+                        f"**Sell ${rec['strike']:.0f} Call @ ${rec['premium']:.2f}** "
+                        f"| {rec['expiry']} ({rec['dte']} DTE) "
+                        f"| {rec['actual_otm']:.1f}% OTM{contract_text}{phase_note}"
+                    )
 
-                        phase_note = " *(Paper trade — track but don't execute)*" if current_phase == "paper" else ""
-
-                        st.markdown(
-                            f"**Sell ${s_sell:.0f}/${s_buy:.0f} Put Spread** | {s_expiry} expiry{phase_note}"
-                        )
-
-                        # Key numbers
-                        m1, m2, m3 = st.columns(3)
-                        with m1:
-                            st.metric("You Collect", f"${credit_total:,.0f}",
-                                      help=f"${s_credit:.2f}/share x 100 x {n_sp} spread{'s' if n_sp > 1 else ''}")
-                        with m2:
-                            st.metric("Max Risk", f"${loss_total:,.0f}",
-                                      help=f"${s_width:.0f} wide spread - ${s_credit:.2f} credit = ${s_max_loss/100:.2f}/share max loss")
-                        with m3:
-                            st.metric("Return on Risk", f"{ror:.0f}%",
-                                      help="Credit / max loss. Higher = better edge.")
-
-                        # What happens (plain English)
-                        sell_otm_pct = (rec["price"] - s_sell) / rec["price"] * 100
-                        buy_otm_pct = (rec["price"] - s_buy) / rec["price"] * 100
-
-                        # Probability estimate
-                        prob_text = ""
-                        if rec.get("prob_win"):
-                            prob_text = f"~{rec['prob_win']:.0%}"
+                    # Key numbers
+                    m1, m2, m3, m4 = st.columns(4)
+                    with m1:
+                        premium_total = rec["premium"] * 100 * max(n_c, 1)
+                        st.metric("Premium", f"${premium_total:,.0f}",
+                                  help=f"${rec['premium']:.2f}/share x 100 x {max(n_c, 1)} contract(s)")
+                    with m2:
+                        win_rate = rec.get("expected_win_rate")
+                        if win_rate:
+                            st.metric("Win Rate", f"{win_rate}%",
+                                      help="From Experiment 008 backtest on real data")
                         else:
-                            prob_text = f"~{min(85, 60 + (rec.get('vrp', 0) or 0) * 2):.0f}%"
+                            st.metric("Win Rate", "Unknown", help="Untested ticker")
+                    with m3:
+                        exp_pnl = rec.get("expected_pnl")
+                        if exp_pnl:
+                            st.metric("Expected P&L/yr", f"${exp_pnl:+,}/contract",
+                                      help="Net annual P&L from Experiment 008 (premium - buyback costs)")
+                        else:
+                            st.metric("Expected P&L/yr", "Unknown")
+                    with m4:
+                        st.metric("Strategy", f"{rec['target_otm']:.0f}% OTM",
+                                  help=f"Optimal OTM% for {tick} from Experiment 008")
 
-                        st.markdown(f"""
+                    # Plain English
+                    st.markdown(f"""
 **What happens:**
-- **{prob_text} likely:** {tick} stays above ${s_sell:.0f} → you keep ${credit_total:,.0f}. Done.
-- **{tick} drops to ${s_buy:.0f}-${s_sell:.0f}:** partial loss (up to ${loss_total:,.0f})
-- **{tick} drops below ${s_buy:.0f}:** max loss ${loss_total:,.0f}. That's it. No shares change hands.
+- **Most likely:** {tick} stays below ${rec['strike']:.0f} → call expires worthless → you keep ${premium_total:,.0f}
+- **If {tick} rises above ${rec['strike']:.0f}:** copilot alerts you to buy back before assignment
+- **Copilot guarantee:** zero assignments in 75 backtest combos across 5 tickers
 """)
 
-                        # Why
-                        if rec.get("iv") and rec.get("rv"):
-                            gap = rec["iv"] - rec["rv"]
-                            st.caption(
-                                f"**Why:** Market prices {tick} at {rec['iv']:.0f}% vol, we forecast {rec['rv']:.0f}%. "
-                                f"That {gap:.0f}-point gap means put buyers are overpaying."
-                            )
+                    # Research backing
+                    if rec.get('note'):
+                        st.caption(f"**Research:** {rec['note']}")
 
-                    else:
-                        st.markdown(f"**Signal:** GREEN — conditions favor selling premium on {tick}. "
-                                    f"Check your broker for put spread opportunities.")
-
-                    # --- Key numbers in columns ---
-                    c1, c2, c3, c4 = st.columns(4)
-                    with c1:
-                        if rec.get("prob_win"):
-                            st.metric("Chance of Profit", f"{rec['prob_win']:.0%}")
-                        elif rec.get("iv") and rec.get("rv") and rec["iv"] > 0:
-                            # Approximate from VRP: positive VRP ≈ 70-85% win rate historically
-                            approx_win = min(85, 60 + (rec.get("vrp", 0) or 0) * 2)
-                            st.metric("Est. Chance of Profit", f"~{approx_win:.0f}%",
-                                      help="Estimated from VRP. Backtest GREEN win rate: 80%.")
-                    with c2:
-                        if rec.get("strike") and rec.get("premium"):
-                            st.metric("You Collect", f"${rec['premium'] * 100:,.0f}",
-                                      help="Premium per contract (100 shares)")
-                    with c3:
-                        if rec.get("strike") and rec.get("price"):
-                            # Max loss if assigned at strike (but you own the stock)
-                            assignment_cost = rec["strike"] * 100
-                            st.metric("If Assigned", f"${assignment_cost:,.0f}",
-                                      help=f"You'd buy 100 shares of {tick} at ${rec['strike']:.0f}")
-                    with c4:
-                        if rec.get("vrp"):
-                            st.metric("Edge (VRP)", f"{rec['vrp']:.1f} pts",
-                                      help="Volatility Risk Premium — how overpriced the option is")
-
-                    # --- Why this trade ---
+                    # VRP context (secondary)
                     if rec.get("iv") and rec.get("rv"):
-                        pct_over = ((rec["iv"] - rec["rv"]) / rec["rv"] * 100)
-                        st.caption(
-                            f"**Why:** The market is pricing {tick} options as if the stock will move "
-                            f"{rec['iv']:.0f}% annualized, but our forecast says it'll only move "
-                            f"{rec['rv']:.0f}%. That {pct_over:.0f}% gap is your edge."
-                        )
-
-                    # --- Worst case ---
-                    if rec.get("strike") and rec.get("price"):
-                        drop_10 = rec["price"] * 0.90
-                        if drop_10 < rec["strike"]:
-                            intrinsic_loss = (rec["strike"] - drop_10) * 100
-                            net_loss = intrinsic_loss - (rec.get("premium", 0) or 0) * 100
+                        gap = rec["iv"] - rec["rv"]
+                        if gap > 0:
                             st.caption(
-                                f"**Worst case (10% crash):** {tick} drops to ${drop_10:.0f}. "
-                                f"You buy 100 shares at ${rec['strike']:.0f} (net cost after premium: "
-                                f"${rec['strike'] * 100 - (rec.get('premium', 0) or 0) * 100:,.0f}). "
-                                f"Paper loss: ~${net_loss:,.0f}."
-                            )
-                        else:
-                            st.caption(
-                                f"**Worst case (10% crash):** {tick} drops to ${drop_10:.0f}. "
-                                f"Put expires worthless — you keep the ${(rec.get('premium', 0) or 0) * 100:.0f} premium. "
-                                f"Strike ${rec['strike']:.0f} is below the crash price."
+                                f"**Vol edge:** IV {rec['iv']:.0f}% vs RV forecast {rec['rv']:.0f}% "
+                                f"({gap:.0f}pt gap — options are overpriced)"
                             )
         else:
-            st.info("No trades recommended today. The system is being selective — this is by design. "
-                    "(Sinclair: discipline IS edge. We only trade when conditions strongly favor selling.)")
+            st.info("No covered call recommendations today. Check that you have holdings entered above.")
 
-        # --- Passed On ---
-        if passed_on:
-            with st.expander(f"Passed on {len(passed_on)} tickers (and why)", expanded=False):
-                for p in passed_on:
-                    icon = {"GREEN": "🟢", "YELLOW": "🟡", "RED": "🔴"}.get(p["signal"], "⚪")
-                    st.caption(f"{icon} **{p['ticker']}**: {p['reason']}")
+        # --- Skipped Tickers ---
+        if skipped:
+            with st.expander(f"Skipped {len(skipped)} ticker(s)", expanded=False):
+                for s in skipped:
+                    tc = TIER_CONFIG.get(s['tier'], TIER_CONFIG['skip'])
+                    st.caption(f"{tc['icon']} **{s['ticker']}**: {s['reason']}")
 
 
 # ============================================================
@@ -2616,6 +2526,23 @@ with tab_positions:
                         bc1, bc2 = st.columns(2)
                         bc1.caption(f"Buyback cost: ${alert.buyback_cost:,.0f}")
                         bc2.caption(f"Net P&L if close now: ${alert.net_pnl:+,.0f}" if alert.net_pnl else "")
+
+                    # Strategy fitness hint from Experiment 008
+                    try:
+                        from ticker_strategies import get_strategy, TIER_CONFIG
+                        _strat = get_strategy(ticker)
+                        if _strat.get('skip'):
+                            st.caption(f"**Strategy note:** Experiment 008 found covered calls on {ticker} lose money at every OTM%. Consider not selling calls on this ticker.")
+                        elif _strat.get('otm_pct') and trade.get('option_type') == 'call' and spot_pos and trade.get('strike'):
+                            _actual_otm = (trade['strike'] - spot_pos) / spot_pos * 100
+                            _optimal_otm = _strat['otm_pct'] * 100
+                            if abs(_actual_otm - _optimal_otm) > 3:
+                                _win = _strat.get('expected_win_rate', '?')
+                                _pnl = _strat.get('expected_pnl')
+                                _pnl_str = f", +${_pnl:,}/yr" if _pnl else ""
+                                st.caption(f"**Strategy note:** This position is {_actual_otm:.0f}% OTM. Experiment 008 found {_optimal_otm:.0f}% OTM is optimal for {ticker} ({_win}% win rate{_pnl_str}).")
+                    except Exception:
+                        pass
 
                     st.markdown("---")
 
