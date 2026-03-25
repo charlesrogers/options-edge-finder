@@ -5,11 +5,11 @@ export const dynamic = 'force-dynamic'
 
 export default function PositionsPage() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-[20px] font-bold">My Positions</h1>
-        <p className="text-[12px] text-muted-foreground mt-1">
-          Real-time alerts for your open covered calls.
+        <h1 className="text-[20px] font-bold text-foreground">My Positions</h1>
+        <p className="text-[13px] text-muted-foreground mt-1">
+          Real-time copilot alerts for your open covered calls.
         </p>
       </div>
 
