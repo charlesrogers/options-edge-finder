@@ -1,0 +1,14 @@
+.git
+__pycache__
+*.pyc
+.env*
+venv/
+.venv/
+.pytest_cache/
+*.db
+data/
+experiments/
+results/
+basket_results/
+source_material/
+yfinance-proxy/node_modules/
