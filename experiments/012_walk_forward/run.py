@@ -12,20 +12,33 @@ import json
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '007_copilot_simulator'))
 
 import numpy as np
 import pandas as pd
+
+# Import from experiment 007 directly
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '007_copilot_simulator'))
 from run import load_data, find_monthly_call, reprice_call
 from position_monitor import assess_position
 
-# Reuse simulate from experiment 008
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '008_strategy_grid'))
-from run import score_trades
 
-# Import the enhanced simulator
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '007_copilot_simulator'))
-from run import simulate
+def score_trades(trades):
+    """Score trades — copied from experiment 008 to avoid circular imports."""
+    if not trades:
+        return {'num_trades': 0, 'net_pnl': 0, 'win_rate': 0, 'avg_pnl': 0, 'worst_trade': 0}
+
+    net_pnl = sum(t['pnl_per_contract'] for t in trades)
+    winners = [t for t in trades if t['pnl_per_contract'] >= 0]
+    win_rate = len(winners) / len(trades) * 100
+    worst_trade = min(t['pnl_per_contract'] for t in trades)
+
+    return {
+        'num_trades': len(trades),
+        'net_pnl': round(net_pnl, 2),
+        'win_rate': round(win_rate, 1),
+        'avg_pnl': round(net_pnl / len(trades), 2),
+        'worst_trade': round(worst_trade, 2),
+    }
 
 OTM_PCTS = [0.03, 0.05, 0.07, 0.10, 0.15]
 DTE_RANGE = (20, 45)  # Standard monthly

@@ -1,0 +1,72 @@
+[
+  {
+    "ticker": "AAPL",
+    "best_train_otm": 0.1,
+    "train_pnl": 296.88,
+    "train_win_rate": 77.8,
+    "train_trades": 9,
+    "test_pnl": 311.04,
+    "test_win_rate": 100.0,
+    "test_trades": 5,
+    "oos_ratio": 1.05,
+    "test_positive": true,
+    "exp008_rec_otm": 0.15,
+    "exp008_test_pnl": 73.81
+  },
+  {
+    "ticker": "DIS",
+    "best_train_otm": 0.03,
+    "train_pnl": 402.32,
+    "train_win_rate": 60.0,
+    "train_trades": 10,
+    "test_pnl": 294.82,
+    "test_win_rate": 60.0,
+    "test_trades": 5,
+    "oos_ratio": 0.73,
+    "test_positive": true,
+    "exp008_rec_otm": 0.07,
+    "exp008_test_pnl": 285.86
+  },
+  {
+    "ticker": "TXN",
+    "best_train_otm": 0.1,
+    "train_pnl": 326.39,
+    "train_win_rate": 66.7,
+    "train_trades": 9,
+    "test_pnl": -383.9,
+    "test_win_rate": 60.0,
+    "test_trades": 5,
+    "oos_ratio": -1.18,
+    "test_positive": false,
+    "exp008_rec_otm": null,
+    "exp008_test_pnl": -383.9
+  },
+  {
+    "ticker": "TMUS",
+    "best_train_otm": 0.03,
+    "train_pnl": 1485.31,
+    "train_win_rate": 50.0,
+    "train_trades": 10,
+    "test_pnl": 493.41,
+    "test_win_rate": 60.0,
+    "test_trades": 5,
+    "oos_ratio": 0.33,
+    "test_positive": true,
+    "exp008_rec_otm": 0.03,
+    "exp008_test_pnl": 493.41
+  },
+  {
+    "ticker": "KKR",
+    "best_train_otm": 0.15,
+    "train_pnl": 468.74,
+    "train_win_rate": 82.1,
+    "train_trades": 28,
+    "test_pnl": 262.5,
+    "test_win_rate": 76.9,
+    "test_trades": 13,
+    "oos_ratio": 0.56,
+    "test_positive": true,
+    "exp008_rec_otm": 0.03,
+    "exp008_test_pnl": 1433.2
+  }
+]
