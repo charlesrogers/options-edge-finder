@@ -1,0 +1,30 @@
+name: Daily Option Chain Capture
+
+on:
+  schedule:
+    # Run at 3:50 PM ET (19:50 UTC) weekdays — just before market close
+    - cron: '50 19 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install requests numpy pandas scipy arch supabase yfinance
+
+      - name: Capture option chains
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python3 daily_chain_capture.py
