@@ -68,6 +68,10 @@ const METRICS = [
 export default function HowItWorksPage() {
   return (
     <div className="space-y-10">
+      {/* VERSION MARKER — remove once deploy is confirmed */}
+      <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-2 text-[12px] text-amber-800 font-mono">
+        Build: 2026-03-25T18:00 · Commit: 01fd81a+marker
+      </div>
       {/* ── Hero Section ── */}
       <section className="relative overflow-hidden rounded-2xl border-0">
         {/* Blurred background orbs */}
