@@ -41,7 +41,7 @@ export function PaperTradeScorecard() {
     <div className="rounded-xl border bg-card shadow-sm shadow-black/[0.04] overflow-hidden">
       <div className="px-5 pt-4 pb-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-[14px] font-semibold text-foreground">Paper Trade Tracker</h2>
+          <a href="/paper-trades" className="text-[14px] font-semibold text-foreground hover:text-primary transition-colors">Paper Trade Tracker</a>
           <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold ring-1 ring-inset bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 ring-blue-600/20">
             {stats.total} tracked
           </span>
@@ -67,11 +67,11 @@ export function PaperTradeScorecard() {
             <div>
               <div className={cn(
                 'text-2xl font-semibold tracking-tight',
-                stats.total_pnl >= 0 ? 'text-emerald-600' : 'text-red-600'
+                stats.avg_pnl >= 0 ? 'text-emerald-600' : 'text-red-600'
               )}>
-                {stats.total_pnl >= 0 ? '+' : ''}{stats.total_pnl.toFixed(0)}%
+                {stats.avg_pnl >= 0 ? '+' : ''}{stats.avg_pnl.toFixed(1)}%
               </div>
-              <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground mt-0.5">Total P&L</div>
+              <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground mt-0.5">Avg P&L / Trade</div>
             </div>
             <div>
               <div className="text-2xl font-semibold tracking-tight text-foreground">
