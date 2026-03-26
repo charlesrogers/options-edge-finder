@@ -1,0 +1,188 @@
+{
+  "status": "inconclusive",
+  "reason": "YF only provides current option chains, not historical",
+  "valid_comparisons": 0,
+  "total_samples": 20,
+  "records": [
+    {
+      "date": "2025-03-21",
+      "spot": 217.32281494140625,
+      "strike": 215.0,
+      "dte": 21,
+      "expiration": "2025-04-11",
+      "databento_close": 6.759444444444444,
+      "yahoo_mid": null
+    },
+    {
+      "date": "2025-04-08",
+      "spot": 171.67178344726562,
+      "strike": 170.0,
+      "dte": 24,
+      "expiration": "2025-05-02",
+      "databento_close": 16.575714285714287,
+      "yahoo_mid": null
+    },
+    {
+      "date": "2025-04-25",
+      "spot": 208.371826171875,
+      "strike": 207.5,
+      "dte": 21,
+      "expiration": "2025-05-16",
+      "databento_close": 8.045,
+      "yahoo_mid": null
+    },
+    {
+      "date": "2025-05-13",
+      "spot": 212.28399658203125,
+      "strike": 210.0,
+      "dte": 24,
+      "expiration": "2025-06-06",
+      "databento_close": 7.42611111111111,
+      "yahoo_mid": null
+    },
+    {
+      "date": "2025-05-30",
+      "spot": 200.24066162109375,
+      "strike": 200.0,
+      "dte": 21,
+      "expiration": "2025-06-20",
+      "databento_close": 6.732222222222222,
+      "yahoo_mid": null
+    },
+    {
+      "date": "2025-06-17",
+      "spot": 195.04644775390625,
+      "strike": 195.0,
+      "dte": 24,
+      "expiration": "2025-07-11",
+      "databento_close": 6.303125,
+      "yahoo_mid": null
+    },
+    {
+      "date": "2025-07-07",
+      "spot": 209.3130340576172,
+      "strike": 210.0,
+      "dte": 25,
+      "expiration": "2025-08-01",
+      "databento_close": 7.057777777777778,
+      "yahoo_mid": null
+    },
+    {
+      "date": "2025-07-23",
+      "spot": 213.50030517578125,
+      "strike": 212.5,
+      "dte": 23,
+      "expiration": "2025-08-15",
+      "databento_close": 7.665555555555555,
+      "yahoo_mid": null
+    },
+    {
+      "date": "2025-08-08",
+      "spot": 228.65419006347656,
+      "strike": 230.0,
+      "dte": 21,
+      "expiration": "2025-08-29",
+      "databento_close": 5.626666666666667,
+      "yahoo_mid": null
+    },
+    {
+      "date": "2025-08-26",
+      "spot": 228.87376403808594,
+      "strike": 230.0,
+      "dte": 24,
+      "expiration": "2025-09-19",
+      "databento_close": 5.6561111111111115,
+      "yahoo_mid": null
+    },
+    {
+      "date": "2025-09-12",
+      "spot": 233.6247100830078,
+      "strike": 235.0,
+      "dte": 21,
+      "expiration": "2025-10-03",
+      "databento_close": 4.743333333333333,
+      "yahoo_mid": null
+    },
+    {
+      "date": "2025-09-30",
+      "spot": 254.14559936523438,
+      "strike": 255.0,
+      "dte": 24,
+      "expiration": "2025-10-24",
+      "databento_close": 6.073529411764706,
+      "yahoo_mid": null
+    },
+    {
+      "date": "2025-10-16",
+      "spot": 246.97926330566406,
+      "strike": 245.0,
+      "dte": 22,
+      "expiration": "2025-11-07",
+      "databento_close": 9.245625,
+      "yahoo_mid": null
+    },
+    {
+      "date": "2025-11-03",
+      "spot": 268.53814697265625,
+      "strike": 270.0,
+      "dte": 25,
+      "expiration": "2025-11-28",
+      "databento_close": 5.641111111111112,
+      "yahoo_mid": null
+    },
+    {
+      "date": "2025-11-19",
+      "spot": 268.3089294433594,
+      "strike": 270.0,
+      "dte": 23,
+      "expiration": "2025-12-12",
+      "databento_close": 7.123125,
+      "yahoo_mid": null
+    },
+    {
+      "date": "2025-12-08",
+      "spot": 277.6302185058594,
+      "strike": 280.0,
+      "dte": 25,
+      "expiration": "2026-01-02",
+      "databento_close": 4.848888888888889,
+      "yahoo_mid": null
+    },
+    {
+      "date": "2025-12-24",
+      "spot": 273.55401611328125,
+      "strike": 272.5,
+      "dte": 23,
+      "expiration": "2026-01-16",
+      "databento_close": 6.181176470588235,
+      "yahoo_mid": null
+    },
+    {
+      "date": "2026-01-13",
+      "spot": 260.8059387207031,
+      "strike": 260.0,
+      "dte": 24,
+      "expiration": "2026-02-06",
+      "databento_close": 8.022222222222222,
+      "yahoo_mid": null
+    },
+    {
+      "date": "2026-01-30",
+      "spot": 259.2374267578125,
+      "strike": 260.0,
+      "dte": 21,
+      "expiration": "2026-02-20",
+      "databento_close": 6.19,
+      "yahoo_mid": null
+    },
+    {
+      "date": "2026-02-18",
+      "spot": 264.3500061035156,
+      "strike": 265.0,
+      "dte": 23,
+      "expiration": "2026-03-13",
+      "databento_close": 7.124444444444445,
+      "yahoo_mid": null
+    }
+  ]
+}
