@@ -5,16 +5,10 @@ export const dynamic = 'force-dynamic'
 
 export default function PositionsPage() {
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-[20px] font-bold text-foreground">My Positions</h1>
-        <p className="text-[13px] text-muted-foreground mt-1">
-          Real-time copilot alerts for your open covered calls.
-        </p>
-      </div>
-
+    <div className="space-y-6">
+      {/* Dynamic headline — PositionsList handles the full experience:
+          headline, stat cards, alert feed, empty state */}
       <PositionsList />
-
       <TradeHistory />
     </div>
   )

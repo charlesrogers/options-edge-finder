@@ -7,9 +7,9 @@ import { LogTradeDialog } from './log-trade-dialog'
 
 type AlertWithId = PositionAlert & { tradeId?: number }
 
-/* ── Alert-level visual system ── */
+/* ── Colors by alert level (matches Jebbix priority system) ── */
 
-const LEVEL_ACCENT: Record<AlertLevel, string> = {
+const ACCENT: Record<AlertLevel, string> = {
   SAFE: 'bg-emerald-500',
   WATCH: 'bg-amber-500',
   CLOSE_SOON: 'bg-orange-500',
@@ -17,54 +17,99 @@ const LEVEL_ACCENT: Record<AlertLevel, string> = {
   EMERGENCY: 'bg-red-500 animate-pulse',
 }
 
-const LEVEL_BADGE: Record<AlertLevel, string> = {
+const BADGE: Record<AlertLevel, string> = {
   SAFE: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 ring-emerald-600/20',
   WATCH: 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 ring-amber-600/20',
   CLOSE_SOON: 'bg-orange-50 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400 ring-orange-600/20',
   CLOSE_NOW: 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 ring-red-600/20',
-  EMERGENCY: 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 ring-red-600/20 animate-pulse',
+  EMERGENCY: 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 ring-red-600/20',
 }
 
-const LEVEL_LABEL: Record<AlertLevel, string> = {
-  SAFE: 'Safe',
-  WATCH: 'Watch',
-  CLOSE_SOON: 'Close Soon',
-  CLOSE_NOW: 'Close Now',
-  EMERGENCY: 'Emergency',
+const LABEL: Record<AlertLevel, string> = {
+  SAFE: 'Safe', WATCH: 'Watch', CLOSE_SOON: 'Close Soon',
+  CLOSE_NOW: 'Close Now', EMERGENCY: 'Emergency',
 }
 
-const LEVEL_ALERT_STYLE: Record<AlertLevel, { border: string; bg: string; title: string; detail: string }> = {
-  SAFE: {
-    border: 'border-emerald-200 dark:border-emerald-500/20',
-    bg: 'bg-emerald-50/50 dark:bg-emerald-500/5',
-    title: 'text-emerald-800 dark:text-emerald-300',
-    detail: 'text-emerald-700 dark:text-emerald-400',
-  },
-  WATCH: {
-    border: 'border-amber-200 dark:border-amber-500/20',
-    bg: 'bg-amber-50/50 dark:bg-amber-500/5',
-    title: 'text-amber-800 dark:text-amber-300',
-    detail: 'text-amber-700 dark:text-amber-400',
-  },
-  CLOSE_SOON: {
-    border: 'border-orange-200 dark:border-orange-500/20',
-    bg: 'bg-orange-50/50 dark:bg-orange-500/5',
-    title: 'text-orange-800 dark:text-orange-300',
-    detail: 'text-orange-700 dark:text-orange-400',
-  },
-  CLOSE_NOW: {
-    border: 'border-red-200 dark:border-red-500/20',
-    bg: 'bg-red-50/50 dark:bg-red-500/5',
-    title: 'text-red-800 dark:text-red-300',
-    detail: 'text-red-700 dark:text-red-400',
-  },
-  EMERGENCY: {
-    border: 'border-red-300 dark:border-red-500/30',
-    bg: 'bg-red-50/70 dark:bg-red-500/10',
-    title: 'text-red-800 dark:text-red-300',
-    detail: 'text-red-700 dark:text-red-400',
-  },
+const ALERT_BG: Record<AlertLevel, { border: string; bg: string; dot: string; title: string; body: string }> = {
+  SAFE:       { border: 'border-emerald-200', bg: 'bg-emerald-50', dot: 'bg-emerald-500', title: 'text-emerald-900', body: 'text-emerald-800' },
+  WATCH:      { border: 'border-amber-200',   bg: 'bg-amber-50',   dot: 'bg-amber-500',   title: 'text-amber-900',   body: 'text-amber-800' },
+  CLOSE_SOON: { border: 'border-orange-200',  bg: 'bg-orange-50',  dot: 'bg-orange-500',  title: 'text-orange-900',  body: 'text-orange-800' },
+  CLOSE_NOW:  { border: 'border-red-200',     bg: 'bg-red-50',     dot: 'bg-red-500',     title: 'text-red-900',     body: 'text-red-800' },
+  EMERGENCY:  { border: 'border-red-300',     bg: 'bg-red-50',     dot: 'bg-red-500',     title: 'text-red-900',     body: 'text-red-800' },
 }
+
+
+/* ── Build dynamic headline (like Jebbix's buildHeadline) ── */
+
+function buildHeadline(alerts: AlertWithId[]): { title: string; subtitle: string; accent: 'green' | 'red' | 'default' } {
+  if (alerts.length === 0) {
+    return { title: 'No open positions', subtitle: 'Log a trade to start getting copilot alerts.', accent: 'default' }
+  }
+
+  const emergency = alerts.filter(a => a.level === 'EMERGENCY')
+  const closeNow = alerts.filter(a => a.level === 'CLOSE_NOW')
+  const closeSoon = alerts.filter(a => a.level === 'CLOSE_SOON')
+  const safe = alerts.filter(a => a.level === 'SAFE')
+
+  if (emergency.length > 0) {
+    return {
+      title: `${emergency.length} position${emergency.length > 1 ? 's need' : ' needs'} immediate action`,
+      subtitle: `${emergency[0].ticker} $${emergency[0].strike} Call is ITM near ex-dividend. Buy back NOW to avoid assignment.`,
+      accent: 'red',
+    }
+  }
+
+  if (closeNow.length > 0) {
+    return {
+      title: `${closeNow.length} position${closeNow.length > 1 ? 's' : ''} at risk — close today`,
+      subtitle: `${closeNow[0].ticker} $${closeNow[0].strike} Call is ${closeNow[0].pctFromStrike < 0 ? 'in the money' : `${closeNow[0].pctFromStrike.toFixed(1)}% from strike`}. Assignment probability: ${(closeNow[0].pAssignment * 100).toFixed(0)}%.`,
+      accent: 'red',
+    }
+  }
+
+  if (closeSoon.length > 0) {
+    return {
+      title: `${closeSoon.length} position${closeSoon.length > 1 ? 's' : ''} to close this week`,
+      subtitle: `${closeSoon[0].ticker} $${closeSoon[0].strike} Call — ${closeSoon[0].reason}`,
+      accent: 'default',
+    }
+  }
+
+  if (safe.length === alerts.length) {
+    return {
+      title: 'All positions are safe — nothing to do today',
+      subtitle: `${alerts.length} open position${alerts.length > 1 ? 's' : ''}, all well outside their strikes. Keep holding.`,
+      accent: 'green',
+    }
+  }
+
+  return {
+    title: `${alerts.length} open positions`,
+    subtitle: `${safe.length} safe, ${alerts.length - safe.length} need attention.`,
+    accent: 'default',
+  }
+}
+
+
+/* ── Stat Card (matches Jebbix StatCard exactly) ── */
+
+function StatCard({ label, value, insight, accent }: {
+  label: string; value: string; insight: string; accent?: 'green' | 'red' | 'default'
+}) {
+  const valueColor = accent === 'green' ? 'text-emerald-600' : accent === 'red' ? 'text-red-600' : 'text-foreground'
+  return (
+    <div className="rounded-xl border bg-card p-5 shadow-sm shadow-black/[0.04]">
+      <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
+      <div className="flex items-center gap-2 mt-1">
+        <p className={cn('text-2xl font-semibold tracking-tight', valueColor)}>{value}</p>
+      </div>
+      <p className="text-[12px] text-muted-foreground mt-1.5 leading-relaxed">{insight}</p>
+    </div>
+  )
+}
+
+
+/* ── Main Component ── */
 
 export function PositionsList() {
   const [alerts, setAlerts] = useState<AlertWithId[]>([])
@@ -85,65 +130,106 @@ export function PositionsList() {
     }
   }, [])
 
-  useEffect(() => {
-    fetchAlerts()
-  }, [fetchAlerts])
+  useEffect(() => { fetchAlerts() }, [fetchAlerts])
 
-  /* ── Loading skeleton ── */
+  /* ── Skeleton (matches Jebbix SkeletonDashboard) ── */
   if (loading) {
     return (
-      <div className="space-y-3">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="flex rounded-xl border bg-card overflow-hidden">
-            <div className="w-1 flex-shrink-0 bg-muted animate-pulse" />
-            <div className="flex-1 px-5 pt-4 pb-4 space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="h-5 w-32 rounded-md bg-muted animate-pulse" />
-                <div className="h-5 w-14 rounded-md bg-muted animate-pulse" />
-              </div>
-              <div className="grid grid-cols-4 gap-4">
-                {[1, 2, 3, 4].map((j) => (
-                  <div key={j} className="space-y-1.5">
-                    <div className="h-7 w-12 rounded bg-muted animate-pulse" />
-                    <div className="h-3 w-16 rounded bg-muted/60 animate-pulse" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        ))}
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <div className="h-7 w-96 bg-muted animate-pulse rounded-md" />
+          <div className="h-4 w-full max-w-lg bg-muted animate-pulse rounded-md" />
+        </div>
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map(i => <div key={i} className="h-28 bg-muted animate-pulse rounded-xl" />)}
+        </div>
+        <div className="space-y-3">
+          {[1, 2, 3].map(i => <div key={i} className="h-40 bg-muted animate-pulse rounded-xl" />)}
+        </div>
       </div>
     )
   }
 
-  /* ── Error state ── */
+  /* ── Error ── */
   if (error) {
     return (
-      <div className="rounded-xl border bg-card py-12 text-center shadow-sm shadow-black/[0.04]">
-        <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-red-50 dark:bg-red-500/10 mb-3">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
+      <div className="rounded-xl border bg-card p-8 text-center shadow-sm">
+        <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 mb-4">
+          <span className="text-destructive text-lg">!</span>
         </div>
-        <p className="text-[14px] font-medium text-foreground">Something went wrong</p>
-        <p className="text-[12px] text-muted-foreground mt-1">{error}</p>
+        <p className="text-[15px] font-medium mb-1">Something went wrong</p>
+        <p className="text-[13px] text-muted-foreground mb-4">{error}</p>
+        <button
+          onClick={fetchAlerts}
+          className="inline-flex items-center px-4 py-2 rounded-lg bg-primary text-primary-foreground text-[13px] font-medium hover:bg-primary/90 transition-colors active:translate-y-px"
+        >
+          Retry
+        </button>
       </div>
     )
   }
 
+  const headline = buildHeadline(alerts)
+  const urgent = alerts.filter(a => a.level === 'CLOSE_NOW' || a.level === 'EMERGENCY')
+  const safe = alerts.filter(a => a.level === 'SAFE')
+  const totalPnl = alerts.reduce((s, a) => s + (a.netPnl ?? 0), 0)
+  const avgCapture = alerts.length > 0 ? alerts.reduce((s, a) => s + a.premiumCapturedPct, 0) / alerts.length : 0
+
   return (
-    <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between">
-        <p className="text-[12px] text-muted-foreground">
-          {alerts.length} open position{alerts.length !== 1 ? 's' : ''}
-        </p>
+    <div className="space-y-6">
+      {/* ── Dynamic headline (like Jebbix) ── */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">{headline.title}</h1>
+          <p className="text-[13px] text-muted-foreground mt-1 max-w-2xl leading-relaxed">
+            {headline.subtitle}
+          </p>
+        </div>
         <LogTradeDialog onSuccess={fetchAlerts} />
       </div>
 
-      {/* Empty state */}
+      {/* ── Stat cards row (like Jebbix's GPA / Missing / Forecast / Actions) ── */}
+      {alerts.length > 0 && (
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            label="Open Positions"
+            value={`${alerts.length}`}
+            insight={`${safe.length} safe, ${alerts.length - safe.length} need attention`}
+            accent={urgent.length > 0 ? 'red' : 'green'}
+          />
+          <StatCard
+            label="Urgent"
+            value={`${urgent.length}`}
+            insight={urgent.length === 0 ? 'No positions need immediate action' : `${urgent[0].ticker} is ${urgent[0].pctFromStrike < 0 ? 'ITM' : 'near strike'}`}
+            accent={urgent.length > 0 ? 'red' : 'green'}
+          />
+          <StatCard
+            label="Avg Captured"
+            value={`${avgCapture.toFixed(0)}%`}
+            insight={avgCapture >= 75 ? 'Consider taking profit on mature positions' : 'Positions still have time value to decay'}
+          />
+          <StatCard
+            label="Net P&L"
+            value={`${totalPnl >= 0 ? '+' : ''}$${totalPnl.toFixed(0)}`}
+            insight="If all positions closed now at current prices"
+            accent={totalPnl >= 0 ? 'green' : 'red'}
+          />
+        </div>
+      )}
+
+      {/* ── Alert feed (like Jebbix AlertFeed — urgent first) ── */}
+      {urgent.length > 0 && (
+        <div>
+          <h2 className="text-[14px] font-semibold mb-2">Alerts</h2>
+          <div className="space-y-2">
+            {urgent.map((alert, idx) => (
+              <AlertCard key={idx} alert={alert} onClose={fetchAlerts} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Position cards ── */}
       {alerts.length === 0 ? (
         <div className="rounded-xl border bg-card text-center py-16 shadow-sm shadow-black/[0.04]">
           <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
@@ -152,199 +238,168 @@ export function PositionsList() {
             </svg>
           </div>
           <p className="text-[15px] font-semibold text-foreground">No open positions</p>
-          <p className="text-[13px] text-muted-foreground mt-1">
-            Log a trade to start getting copilot alerts.
-          </p>
+          <p className="text-[13px] text-muted-foreground mt-1">Log a trade to start getting copilot alerts.</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {alerts.map((alert, idx) => (
-            <PositionCard key={idx} alert={alert} onClose={fetchAlerts} />
-          ))}
+          {alerts
+            .filter(a => a.level !== 'CLOSE_NOW' && a.level !== 'EMERGENCY')
+            .map((alert, idx) => (
+              <PositionCard key={idx} alert={alert} onClose={fetchAlerts} />
+            ))}
         </div>
       )}
     </div>
   )
 }
 
-/* ── Position Card ── */
 
-function PositionCard({ alert, onClose }: { alert: AlertWithId; onClose: () => void }) {
-  const isUrgent = alert.level === 'CLOSE_NOW' || alert.level === 'EMERGENCY'
-  const isWarn = alert.level === 'WATCH' || alert.level === 'CLOSE_SOON'
-  const alertStyle = LEVEL_ALERT_STYLE[alert.level]
+/* ── Alert Card (urgent — like Jebbix AlertFeed items) ── */
 
+function AlertCard({ alert, onClose }: { alert: AlertWithId; onClose: () => void }) {
+  const s = ALERT_BG[alert.level]
   return (
-    <div className="rounded-xl border bg-card shadow-sm shadow-black/[0.04] overflow-hidden hover:shadow-md hover:shadow-black/[0.06] transition-shadow flex">
-      {/* Left accent bar */}
-      <div className={cn('w-1 flex-shrink-0', LEVEL_ACCENT[alert.level])} />
-
+    <div className={cn('flex items-start gap-3 px-4 py-3 rounded-xl border', s.border, s.bg)}>
+      <span className="h-5 w-5 rounded-full bg-white/60 flex items-center justify-center flex-shrink-0 mt-0.5">
+        <span className={cn('h-2 w-2 rounded-full', s.dot, alert.level === 'EMERGENCY' && 'animate-pulse')} />
+      </span>
       <div className="flex-1 min-w-0">
-        {/* Header */}
-        <div className="px-5 pt-4 pb-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <h3 className="text-[15px] font-semibold text-foreground truncate">
-              {alert.ticker} ${alert.strike} Call
-            </h3>
-            <span className={cn(
-              'inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold ring-1 ring-inset flex-shrink-0',
-              LEVEL_BADGE[alert.level]
-            )}>
-              {LEVEL_LABEL[alert.level]}
-            </span>
-          </div>
-          {alert.dte <= 7 && (
-            <span className="text-[11px] font-semibold text-red-600 dark:text-red-400 tabular-nums flex-shrink-0">
-              {alert.dte}d left
-            </span>
-          )}
+        <p className={cn('text-[13px] font-medium', s.title)}>
+          {alert.ticker} ${alert.strike} Call — {alert.reason}
+        </p>
+        <p className={cn('text-[12px] mt-0.5', s.body)}>
+          {alert.action}
+        </p>
+        <div className="flex items-center gap-4 mt-1.5">
+          <span className="text-[11px] text-muted-foreground">
+            {alert.dte} DTE · {alert.pctFromStrike >= 0 ? '+' : ''}{alert.pctFromStrike.toFixed(1)}% from strike · P(assign): {(alert.pAssignment * 100).toFixed(0)}%
+          </span>
         </div>
-
-        {/* Metrics grid */}
-        <div className="px-5 pb-3">
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
-            <MetricCell
-              label="DTE"
-              value={`${alert.dte}`}
-              accent={alert.dte <= 5 ? 'text-red-600 dark:text-red-400' : undefined}
-            />
-            <MetricCell
-              label="% from Strike"
-              value={`${alert.pctFromStrike >= 0 ? '+' : ''}${alert.pctFromStrike.toFixed(1)}%`}
-              accent={alert.pctFromStrike < 0 ? 'text-red-600 dark:text-red-400' : alert.pctFromStrike < 2 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}
-            />
-            <MetricCell
-              label="Premium Captured"
-              value={`${alert.premiumCapturedPct.toFixed(0)}%`}
-            />
-            <MetricCell
-              label="P(assignment)"
-              value={`${(alert.pAssignment * 100).toFixed(0)}%`}
-              accent={alert.pAssignment > 0.5 ? 'text-red-600 dark:text-red-400' : undefined}
-            />
-          </div>
-
-          {/* Premium captured progress bar */}
-          <div className="h-1 rounded-full bg-muted overflow-hidden mt-3">
-            <div
-              className="h-full rounded-full bg-emerald-500 transition-all"
-              style={{ width: `${Math.min(100, alert.premiumCapturedPct)}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Buyback + P&L row */}
-        {(alert.buybackCost !== null || alert.netPnl !== null) && (
-          <div className="px-5 pb-3 flex items-center gap-5 text-[12px]">
-            {alert.buybackCost !== null && (
-              <span className="text-muted-foreground">
-                Buyback cost:{' '}
-                <span className="font-semibold text-foreground tabular-nums">
-                  ${alert.buybackCost.toFixed(2)}
-                </span>
-              </span>
-            )}
-            {alert.netPnl !== null && (
-              <span className="text-muted-foreground">
-                Net P&L:{' '}
-                <span className={cn(
-                  'font-semibold tabular-nums',
-                  alert.netPnl >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
-                )}>
-                  {alert.netPnl >= 0 ? '+' : ''}${alert.netPnl.toFixed(0)}
-                </span>
-              </span>
-            )}
-            {alert.daysToExDiv !== null && alert.daysToExDiv <= 14 && (
-              <span className="text-amber-600 dark:text-amber-400 font-medium">
-                Ex-div in {alert.daysToExDiv}d
-              </span>
-            )}
-            {alert.daysToEarnings !== null && alert.daysToEarnings <= 14 && (
-              <span className="text-amber-600 dark:text-amber-400 font-medium">
-                Earnings in {alert.daysToEarnings}d
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Alert message — WATCH / CLOSE_SOON */}
-        {isWarn && (
-          <div className="px-5 pb-4">
-            <div className={cn(
-              'rounded-lg border px-4 py-3 flex items-start gap-2.5',
-              alertStyle.border, alertStyle.bg
-            )}>
-              <span className={cn('h-2 w-2 rounded-full mt-1.5 flex-shrink-0', LEVEL_ACCENT[alert.level])} />
-              <div>
-                <p className={cn('text-[13px] font-semibold leading-snug', alertStyle.title)}>
-                  {alert.reason}
-                </p>
-                <p className={cn('text-[12px] mt-0.5 leading-relaxed', alertStyle.detail)}>
-                  {alert.action}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Alert message — CLOSE_NOW / EMERGENCY with full-width red banner */}
-        {isUrgent && (
-          <div className={cn(
-            'px-5 py-3 flex items-start gap-3 border-t',
-            alert.level === 'EMERGENCY'
-              ? 'bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20'
-              : 'bg-red-50/60 dark:bg-red-500/5 border-red-100 dark:border-red-500/15'
-          )}>
-            <span className={cn('h-2 w-2 rounded-full mt-1.5 flex-shrink-0', LEVEL_ACCENT[alert.level])} />
-            <div className="flex-1 min-w-0">
-              <p className={cn('text-[13px] font-semibold leading-snug', alertStyle.title)}>
-                {alert.reason}
-              </p>
-              <p className={cn('text-[12px] mt-0.5 leading-relaxed', alertStyle.detail)}>
-                {alert.action}
-              </p>
-            </div>
-            <button
-              onClick={async () => {
-                if (!alert.tradeId) return
-                await fetch(`/api/positions/${alert.tradeId}`, {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ closePrice: alert.buybackCost ?? 0 }),
-                })
-                onClose()
-              }}
-              className="flex-shrink-0 inline-flex items-center px-3 py-1.5 rounded-lg text-[12px] font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors active:translate-y-px"
-            >
-              Mark Closed
-            </button>
-          </div>
-        )}
-
-        {/* SAFE level: subtle inline message */}
-        {alert.level === 'SAFE' && (
-          <div className="px-5 pb-4">
-            <p className="text-[12px] text-emerald-700 dark:text-emerald-400">
-              {alert.action}
-            </p>
-          </div>
-        )}
       </div>
+      <button
+        onClick={async () => {
+          if (!alert.tradeId) return
+          await fetch(`/api/positions/${alert.tradeId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ closePrice: alert.buybackCost ?? 0 }),
+          })
+          onClose()
+        }}
+        className="flex-shrink-0 inline-flex items-center px-3 py-1.5 rounded-lg text-[12px] font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors active:translate-y-px"
+      >
+        Mark Closed
+      </button>
     </div>
   )
 }
 
-/* ── Metric Cell ── */
 
-function MetricCell({ label, value, accent }: { label: string; value: string; accent?: string }) {
+/* ── Position Card (non-urgent — like Jebbix CourseCard) ── */
+
+function PositionCard({ alert, onClose }: { alert: AlertWithId; onClose: () => void }) {
   return (
-    <div>
-      <div className={cn('text-2xl font-semibold tracking-tight tabular-nums', accent ?? 'text-foreground')}>
-        {value}
-      </div>
-      <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground mt-0.5">
-        {label}
+    <div className="rounded-xl border bg-card shadow-sm shadow-black/[0.04] overflow-hidden hover:shadow-md hover:shadow-black/[0.06] transition-shadow flex">
+      <div className={cn('w-1 flex-shrink-0', ACCENT[alert.level])} />
+      <div className="flex-1 min-w-0">
+        {/* Header — ticker + badge (like CourseCard name + letter badge) */}
+        <div className="px-5 pt-4 pb-3">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="text-[13px] font-semibold text-foreground leading-snug">
+              {alert.ticker} ${alert.strike} Call
+            </h3>
+            <span className={cn(
+              'inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold ring-1 ring-inset flex-shrink-0',
+              BADGE[alert.level]
+            )}>
+              {LABEL[alert.level]}
+            </span>
+          </div>
+
+          {/* Large metric + secondary info (like CourseCard grade display) */}
+          <div className="flex items-center gap-2 mt-2">
+            <span className={cn(
+              'text-2xl font-semibold tracking-tight',
+              alert.pctFromStrike < 0 ? 'text-red-600' : alert.pctFromStrike < 3 ? 'text-amber-600' : 'text-emerald-600'
+            )}>
+              {alert.pctFromStrike >= 0 ? '+' : ''}{alert.pctFromStrike.toFixed(1)}%
+            </span>
+            <span className="text-[12px] text-muted-foreground">from strike</span>
+            {alert.dte <= 7 && (
+              <span className="text-[12px] font-medium text-red-600">{alert.dte}d left</span>
+            )}
+          </div>
+
+          {/* Forecast-like insight */}
+          <p className="text-[12px] text-muted-foreground mt-1.5">
+            {alert.premiumCapturedPct.toFixed(0)}% premium captured · P(assignment): {(alert.pAssignment * 100).toFixed(0)}%
+            {alert.netPnl !== null && (
+              <> · Net P&L: <span className={cn('font-medium', alert.netPnl >= 0 ? 'text-emerald-600' : 'text-red-600')}>
+                {alert.netPnl >= 0 ? '+' : ''}${alert.netPnl.toFixed(0)}
+              </span></>
+            )}
+          </p>
+
+          {/* Ex-div / earnings warning (like CourseCard missing alert) */}
+          {alert.daysToExDiv !== null && alert.daysToExDiv <= 14 && (
+            <div className="flex items-center gap-1.5 mt-2.5 px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/15">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+              <span className="text-[12px] font-medium text-amber-700 dark:text-amber-400">
+                Ex-dividend in {alert.daysToExDiv} days
+              </span>
+            </div>
+          )}
+          {alert.daysToEarnings !== null && alert.daysToEarnings <= 14 && (
+            <div className="flex items-center gap-1.5 mt-2 px-2.5 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/15">
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-500 flex-shrink-0" />
+              <span className="text-[12px] font-medium text-blue-700 dark:text-blue-400">
+                Earnings in {alert.daysToEarnings} days
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Category bars (like CourseCard category progress) */}
+        <div className="px-5 pb-4 space-y-2">
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-[11px] text-muted-foreground">Premium captured</span>
+              <span className="text-[11px] font-medium tabular-nums">{alert.premiumCapturedPct.toFixed(0)}%</span>
+            </div>
+            <div className="h-1 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-emerald-500 transition-all"
+                style={{ width: `${Math.min(100, alert.premiumCapturedPct)}%`, opacity: 0.7 }}
+              />
+            </div>
+          </div>
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-[11px] text-muted-foreground">Time elapsed</span>
+              <span className="text-[11px] font-medium tabular-nums">{alert.dte} DTE</span>
+            </div>
+            <div className="h-1 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-blue-500 transition-all"
+                style={{ width: `${Math.max(0, Math.min(100, 100 - (alert.dte / 45 * 100)))}%`, opacity: 0.7 }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Copilot action (like CourseCard forecast) */}
+        {alert.level !== 'SAFE' && (
+          <div className="px-5 pb-4">
+            <p className="text-[12px] text-muted-foreground">
+              <span className="font-medium text-foreground">Copilot:</span> {alert.action}
+            </p>
+          </div>
+        )}
+        {alert.level === 'SAFE' && (
+          <div className="px-5 pb-4">
+            <p className="text-[12px] text-emerald-700 dark:text-emerald-400">{alert.action}</p>
+          </div>
+        )}
       </div>
     </div>
   )
