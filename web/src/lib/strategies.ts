@@ -8,6 +8,9 @@ export interface TickerStrategy {
   note: string
 }
 
+/** Minimum IV rank to recommend selling (Experiment 009: +204% P&L improvement) */
+export const DEFAULT_IV_THRESHOLD = 50
+
 export const TICKER_STRATEGIES: Record<string, TickerStrategy> = {
   TMUS: {
     otmPct: 0.03,

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
-import { TICKER_STRATEGIES, TIER_CONFIG, type TickerStrategy } from '@/lib/strategies'
+import { TICKER_STRATEGIES, TIER_CONFIG, DEFAULT_IV_THRESHOLD, type TickerStrategy } from '@/lib/strategies'
 import type { HoldingRow } from '@/lib/supabase'
 
 /* ── Tier visual system (ring-inset badges like Jebbix grade badges) ── */
@@ -57,9 +57,8 @@ export function SellRecommendations() {
     return (
       <div className="space-y-3">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="flex rounded-xl border bg-card overflow-hidden">
-            <div className="w-1 flex-shrink-0 bg-muted animate-pulse" />
-            <div className="flex-1 px-5 pt-4 pb-4 space-y-3">
+          <div key={i} className="rounded-xl border bg-card overflow-hidden">
+            <div className="px-5 pt-4 pb-4 space-y-3">
               <div className="flex items-center gap-3">
                 <div className="h-5 w-20 rounded-md bg-muted animate-pulse" />
                 <div className="h-5 w-14 rounded-md bg-muted animate-pulse" />
@@ -113,6 +112,19 @@ export function SellRecommendations() {
         </div>
       </div>
 
+      {/* IV threshold notice */}
+      <div className="rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-50/50 dark:bg-amber-500/5 px-4 py-3 flex items-start gap-2.5">
+        <span className="h-2 w-2 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
+        <div>
+          <p className="text-[13px] font-semibold text-amber-800 dark:text-amber-300">
+            IV-aware entry (Experiment 009: +204% P&L improvement)
+          </p>
+          <p className="text-[12px] text-amber-700/80 dark:text-amber-400/70 mt-0.5">
+            Only sell when IV Rank &ge; {DEFAULT_IV_THRESHOLD}. Low IV months are automatically skipped by the paper trading tracker.
+          </p>
+        </div>
+      </div>
+
       {/* Empty state */}
       {eligible.length === 0 ? (
         <div className="rounded-xl border bg-card text-center py-16 shadow-sm shadow-black/[0.04]">
@@ -151,10 +163,9 @@ export function SellRecommendations() {
                 {skipped.map(({ holding, strategy }) => (
                   <div
                     key={holding.ticker}
-                    className="rounded-xl border bg-card/50 shadow-sm shadow-black/[0.04] overflow-hidden flex"
+                    className="rounded-xl border bg-card/50 shadow-sm shadow-black/[0.04] overflow-hidden"
                   >
-                    <div className="w-1 flex-shrink-0 bg-red-500/40" />
-                    <div className="flex-1 px-5 py-3 flex items-center justify-between gap-3">
+                    <div className="px-5 py-3 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2.5">
                         <span className="text-[13px] font-semibold text-muted-foreground">
                           {holding.ticker}
@@ -197,11 +208,8 @@ function TickerCard({
   const winRateNum = strategy?.expectedWinRate ?? 0
 
   return (
-    <div className="rounded-xl border bg-card shadow-sm shadow-black/[0.04] overflow-hidden hover:shadow-md hover:shadow-black/[0.06] transition-shadow flex">
-      {/* Left accent bar */}
-      <div className={cn('w-1 flex-shrink-0', TIER_ACCENT[tier])} />
-
-      <div className="flex-1 min-w-0">
+    <div className="rounded-xl border bg-card shadow-sm shadow-black/[0.04] overflow-hidden hover:shadow-md hover:shadow-black/[0.06] transition-shadow">
+      <div className="min-w-0">
         {/* Header */}
         <div className="px-5 pt-4 pb-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">

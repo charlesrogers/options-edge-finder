@@ -6,7 +6,13 @@ Each ticker has a researched OTM% and DTE range that maximizes the tri-fold goal
   1. Zero assignments (copilot handles exit)
   2. Positive net P&L (premium > buyback costs)
   3. Maximum premium retained
+
+IV-aware entry from Experiment 009: only sell when iv_rank >= iv_threshold.
+This triples average P&L (+204% improvement).
 """
+
+# Minimum IV rank to recommend selling (from Experiment 009)
+DEFAULT_IV_THRESHOLD = 50
 
 TICKER_STRATEGIES = {
     'TMUS': {

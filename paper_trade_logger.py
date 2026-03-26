@@ -17,8 +17,8 @@ from datetime import datetime, timedelta
 sys.path.insert(0, os.path.dirname(__file__))
 
 import yf_proxy
-from ticker_strategies import TICKER_STRATEGIES
-from db import log_paper_trade
+from ticker_strategies import TICKER_STRATEGIES, DEFAULT_IV_THRESHOLD
+from db import log_paper_trade, get_iv_history
 
 
 def find_recommended_call(ticker, current_price, otm_pct, min_dte, max_dte):
@@ -96,9 +96,21 @@ def main():
                 continue
             current_price = float(hist["Close"].iloc[-1])
 
-            # Get IV rank from stock info
-            info = yf_proxy.get_stock_info(ticker)
-            iv_rank = None  # TODO: fetch from iv_snapshots table
+            # Get IV rank from iv_snapshots
+            iv_rank = None
+            try:
+                iv_hist = get_iv_history(ticker, days=5)
+                if iv_hist is not None and not iv_hist.empty and 'iv_rank' in iv_hist.columns:
+                    latest = iv_hist.iloc[-1]
+                    iv_rank = float(latest['iv_rank']) if latest['iv_rank'] is not None else None
+            except Exception:
+                pass
+
+            # IV-aware entry filter (Experiment 009: +204% improvement)
+            if iv_rank is not None and iv_rank < DEFAULT_IV_THRESHOLD:
+                print(f"IV rank {iv_rank:.0f} < {DEFAULT_IV_THRESHOLD} threshold — skipping (IV too low)")
+                skipped += 1
+                continue
 
             # Find recommended call
             call = find_recommended_call(
