@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server'
 import { getSupabase } from '@/lib/supabase'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
-  const sb = getSupabase()
-  if (!sb) {
+  let sb
+  try {
+    sb = getSupabase()
+  } catch {
     return NextResponse.json({ total: 0, scored: 0, winners: 0, losers: 0, win_rate: 0, avg_pnl: 0, total_pnl: 0, recent: [] })
   }
 
