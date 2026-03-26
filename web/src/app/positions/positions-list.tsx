@@ -299,9 +299,8 @@ function AlertCard({ alert, onClose }: { alert: AlertWithId; onClose: () => void
 
 function PositionCard({ alert, onClose }: { alert: AlertWithId; onClose: () => void }) {
   return (
-    <div className="rounded-xl border bg-card shadow-sm shadow-black/[0.04] overflow-hidden hover:shadow-md hover:shadow-black/[0.06] transition-shadow flex">
-      <div className={cn('w-1 flex-shrink-0', ACCENT[alert.level])} />
-      <div className="flex-1 min-w-0">
+    <div className="rounded-xl border bg-card shadow-sm shadow-black/[0.04] overflow-hidden hover:shadow-md hover:shadow-black/[0.06] transition-shadow">
+      <div className="min-w-0">
         {/* Header — ticker + badge (like CourseCard name + letter badge) */}
         <div className="px-5 pt-4 pb-3">
           <div className="flex items-start justify-between gap-2">
