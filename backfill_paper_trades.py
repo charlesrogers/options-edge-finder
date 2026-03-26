@@ -73,7 +73,7 @@ def backfill_ticker(ticker, strat, stock_hist, start_date, interval_days=7):
 
         actual_otm = (strike - spot) / spot * 100
 
-        # Log it (with backfilled flag)
+        # Log it (with backfilled flag + historical date)
         log_paper_trade(
             ticker=ticker,
             strike=strike,
@@ -89,6 +89,7 @@ def backfill_ticker(ticker, strat, stock_hist, start_date, interval_days=7):
                 'backfilled': True,
                 'pricing': 'BSM (rv20*1.2)',
             },
+            recommended_date=str(date)[:10],
         )
 
         trades.append({

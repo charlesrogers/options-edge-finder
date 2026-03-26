@@ -680,9 +680,10 @@ def delete_trade(trade_id):
 # ============================================================
 
 def log_paper_trade(ticker, strike, premium, otm_pct, dte, expiration,
-                     iv_rank=None, tier=None, strategy_params=None):
+                     iv_rank=None, tier=None, strategy_params=None,
+                     recommended_date=None):
     """Log a paper trade recommendation. One per ticker per day."""
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = recommended_date or datetime.now().strftime("%Y-%m-%d")
     row = _sanitize_row({
         "ticker": ticker.upper(),
         "strike": strike,
