@@ -1,4 +1,5 @@
 import { SellRecommendations } from './sell-recommendations'
+import { PaperTradeScorecard } from './paper-trade-scorecard'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,6 +13,7 @@ export default function SellPage() {
         </p>
       </div>
 
+      <PaperTradeScorecard />
       <SellRecommendations />
     </div>
   )
