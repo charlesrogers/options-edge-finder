@@ -54,8 +54,9 @@ def main():
                     if expired_itm:
                         # Would have been assigned — copilot should have closed earlier
                         # For scoring: P&L = premium - (final_price - strike)
+                        # Cap at -100% (can't lose more than premium in a covered call context)
                         intrinsic = final_price - strike
-                        pnl_pct = ((premium - intrinsic) / premium) * 100
+                        pnl_pct = max(-100.0, ((premium - intrinsic) / premium) * 100)
                         expired_worthless = False
                     else:
                         # Expired OTM — full premium kept
@@ -84,7 +85,7 @@ def main():
                         ask = match.iloc[0].get("ask", 0) or 0
                         current_price = (bid + ask) / 2 if bid > 0 else float(match.iloc[0].get("lastPrice", 0))
 
-                        pnl_pct = ((premium - current_price) / premium) * 100 if premium > 0 else 0
+                        pnl_pct = max(-100.0, ((premium - current_price) / premium) * 100) if premium > 0 else 0
 
                         score_paper_trade(
                             trade_id=trade["id"],
