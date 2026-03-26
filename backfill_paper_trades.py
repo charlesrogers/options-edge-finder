@@ -109,8 +109,8 @@ def main():
     print("Generating historical recommendations since model start")
     print("=" * 60)
 
-    # Start from 6 months ago (or whenever we have stock data)
-    start_date = (datetime.now() - timedelta(days=180)).strftime('%Y-%m-%d')
+    # Start from as far back as stock data allows (1yr from Yahoo)
+    start_date = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
     print(f"Backfilling from: {start_date}")
     print(f"Interval: every 7 days (weekly recommendations)\n")
 
