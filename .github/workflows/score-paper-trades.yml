@@ -1,0 +1,30 @@
+name: Score Paper Trades
+
+on:
+  schedule:
+    # Run at 8:30 PM ET (00:30 UTC next day) weekdays
+    - cron: '30 0 * * 2-6'
+  workflow_dispatch:
+
+jobs:
+  score-paper-trades:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install requests numpy pandas supabase yfinance
+
+      - name: Score paper trades
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python3 score_paper_trades.py

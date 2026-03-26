@@ -676,6 +676,138 @@ def delete_trade(trade_id):
 
 
 # ============================================================
+# PAPER TRADES — auto-log recommendations, score later (CLV tracking)
+# ============================================================
+
+def log_paper_trade(ticker, strike, premium, otm_pct, dte, expiration,
+                     iv_rank=None, tier=None, strategy_params=None):
+    """Log a paper trade recommendation. One per ticker per day."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    row = _sanitize_row({
+        "ticker": ticker.upper(),
+        "strike": strike,
+        "premium_at_rec": premium,
+        "otm_pct": otm_pct,
+        "dte": dte,
+        "expiration": expiration,
+        "iv_rank": iv_rank,
+        "tier": tier,
+        "strategy_params": json.dumps(strategy_params) if strategy_params else None,
+        "recommended_at": today,
+        "scored": False,
+    })
+    sb = _get_supabase()
+    if sb:
+        # Upsert: one paper trade per ticker per day
+        sb.table("paper_trades").upsert(row, on_conflict="ticker,recommended_at").execute()
+    else:
+        conn = _get_sqlite()
+        conn.execute("""CREATE TABLE IF NOT EXISTS paper_trades (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticker TEXT, strike REAL, premium_at_rec REAL, otm_pct REAL,
+            dte INTEGER, expiration TEXT, iv_rank REAL, tier TEXT,
+            strategy_params TEXT, recommended_at TEXT, scored BOOLEAN DEFAULT 0,
+            outcome_date TEXT, outcome_price REAL, expired_worthless BOOLEAN,
+            pnl_pct REAL, clv REAL,
+            UNIQUE(ticker, recommended_at))""")
+        conn.execute(
+            """INSERT OR REPLACE INTO paper_trades
+               (ticker, strike, premium_at_rec, otm_pct, dte, expiration,
+                iv_rank, tier, strategy_params, recommended_at, scored)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)""",
+            (row["ticker"], row["strike"], row["premium_at_rec"], row["otm_pct"],
+             row["dte"], row["expiration"], row["iv_rank"], row["tier"],
+             row.get("strategy_params"), row["recommended_at"]),
+        )
+        conn.commit()
+        conn.close()
+
+
+def get_unscored_paper_trades(min_age_days=30):
+    """Get paper trades that are old enough to score."""
+    cutoff = (datetime.now() - timedelta(days=min_age_days)).strftime("%Y-%m-%d")
+    sb = _get_supabase()
+    if sb:
+        resp = sb.table("paper_trades").select("*").eq("scored", False).lte("recommended_at", cutoff).execute()
+        return resp.data or []
+    else:
+        conn = _get_sqlite()
+        try:
+            rows = conn.execute(
+                "SELECT * FROM paper_trades WHERE scored = 0 AND recommended_at <= ?", (cutoff,)
+            ).fetchall()
+            return [dict(r) for r in rows]
+        except Exception:
+            return []
+        finally:
+            conn.close()
+
+
+def score_paper_trade(trade_id, outcome_price, expired_worthless, pnl_pct, clv=None):
+    """Score a paper trade with its outcome."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    row = _sanitize_row({
+        "scored": True,
+        "outcome_date": today,
+        "outcome_price": outcome_price,
+        "expired_worthless": expired_worthless,
+        "pnl_pct": pnl_pct,
+        "clv": clv,
+    })
+    sb = _get_supabase()
+    if sb:
+        sb.table("paper_trades").update(row).eq("id", trade_id).execute()
+    else:
+        conn = _get_sqlite()
+        conn.execute(
+            """UPDATE paper_trades SET scored=1, outcome_date=?, outcome_price=?,
+               expired_worthless=?, pnl_pct=?, clv=? WHERE id=?""",
+            (today, outcome_price, expired_worthless, pnl_pct, clv, trade_id),
+        )
+        conn.commit()
+        conn.close()
+
+
+def get_paper_trade_stats():
+    """Get aggregate paper trade statistics for the scorecard."""
+    sb = _get_supabase()
+    if sb:
+        resp = sb.table("paper_trades").select("*").eq("scored", True).execute()
+        scored = resp.data or []
+        total_resp = sb.table("paper_trades").select("id", count="exact").execute()
+        total = total_resp.count or 0
+    else:
+        conn = _get_sqlite()
+        try:
+            scored = [dict(r) for r in conn.execute(
+                "SELECT * FROM paper_trades WHERE scored = 1"
+            ).fetchall()]
+            total = conn.execute("SELECT COUNT(*) FROM paper_trades").fetchone()[0]
+        except Exception:
+            scored = []
+            total = 0
+        finally:
+            conn.close()
+
+    if not scored:
+        return {"total": total, "scored": 0, "winners": 0, "losers": 0,
+                "win_rate": 0, "avg_pnl": 0, "total_pnl": 0}
+
+    winners = [t for t in scored if (t.get("pnl_pct") or 0) > 0]
+    total_pnl = sum(t.get("pnl_pct") or 0 for t in scored)
+
+    return {
+        "total": total,
+        "scored": len(scored),
+        "winners": len(winners),
+        "losers": len(scored) - len(winners),
+        "win_rate": round(len(winners) / len(scored) * 100, 1) if scored else 0,
+        "avg_pnl": round(total_pnl / len(scored), 2) if scored else 0,
+        "total_pnl": round(total_pnl, 2),
+    }
+
+
+# ============================================================
 # PREDICTION LOG — record signals, score them later
 # ============================================================
 

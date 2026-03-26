@@ -1,0 +1,30 @@
+name: Paper Trade Logger
+
+on:
+  schedule:
+    # Run at 4:00 PM ET (20:00 UTC) weekdays
+    - cron: '0 20 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  log-paper-trades:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install requests numpy pandas supabase yfinance
+
+      - name: Log paper trades
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python3 paper_trade_logger.py
