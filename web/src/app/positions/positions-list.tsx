@@ -132,43 +132,6 @@ export function PositionsList() {
 
   useEffect(() => { fetchAlerts() }, [fetchAlerts])
 
-  /* ── Skeleton (matches Jebbix SkeletonDashboard) ── */
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="space-y-2">
-          <div className="h-7 w-96 bg-muted animate-pulse rounded-md" />
-          <div className="h-4 w-full max-w-lg bg-muted animate-pulse rounded-md" />
-        </div>
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map(i => <div key={i} className="h-28 bg-muted animate-pulse rounded-xl" />)}
-        </div>
-        <div className="space-y-3">
-          {[1, 2, 3].map(i => <div key={i} className="h-40 bg-muted animate-pulse rounded-xl" />)}
-        </div>
-      </div>
-    )
-  }
-
-  /* ── Error ── */
-  if (error) {
-    return (
-      <div className="rounded-xl border bg-card p-8 text-center shadow-sm">
-        <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 mb-4">
-          <span className="text-destructive text-lg">!</span>
-        </div>
-        <p className="text-[15px] font-medium mb-1">Something went wrong</p>
-        <p className="text-[13px] text-muted-foreground mb-4">{error}</p>
-        <button
-          onClick={fetchAlerts}
-          className="inline-flex items-center px-4 py-2 rounded-lg bg-primary text-primary-foreground text-[13px] font-medium hover:bg-primary/90 transition-colors active:translate-y-px"
-        >
-          Retry
-        </button>
-      </div>
-    )
-  }
-
   const headline = buildHeadline(alerts)
   const urgent = alerts.filter(a => a.level === 'CLOSE_NOW' || a.level === 'EMERGENCY')
   const safe = alerts.filter(a => a.level === 'SAFE')
@@ -177,16 +140,47 @@ export function PositionsList() {
 
   return (
     <div className="space-y-6">
-      {/* ── Dynamic headline (like Jebbix) ── */}
+      {/* ── Header + Log Trade (ALWAYS visible) ── */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">{headline.title}</h1>
+          <h1 className="text-xl font-semibold tracking-tight">
+            {loading ? 'Loading positions...' : headline.title}
+          </h1>
           <p className="text-[13px] text-muted-foreground mt-1 max-w-2xl leading-relaxed">
-            {headline.subtitle}
+            {loading ? 'Checking your open covered calls.' : headline.subtitle}
           </p>
         </div>
         <LogTradeDialog onSuccess={fetchAlerts} />
       </div>
+
+      {/* ── Loading skeleton ── */}
+      {loading && (
+        <div className="space-y-4">
+          <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+            {[1, 2, 3, 4].map(i => <div key={i} className="h-28 bg-muted animate-pulse rounded-xl" />)}
+          </div>
+          <div className="space-y-3">
+            {[1, 2, 3].map(i => <div key={i} className="h-40 bg-muted animate-pulse rounded-xl" />)}
+          </div>
+        </div>
+      )}
+
+      {/* ── Error ── */}
+      {!loading && error && (
+        <div className="rounded-xl border bg-card p-8 text-center shadow-sm">
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 mb-4">
+            <span className="text-destructive text-lg">!</span>
+          </div>
+          <p className="text-[15px] font-medium mb-1">Something went wrong</p>
+          <p className="text-[13px] text-muted-foreground mb-4">{error}</p>
+          <button
+            onClick={fetchAlerts}
+            className="inline-flex items-center px-4 py-2 rounded-lg bg-primary text-primary-foreground text-[13px] font-medium hover:bg-primary/90 transition-colors active:translate-y-px"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* ── Stat cards row (like Jebbix's GPA / Missing / Forecast / Actions) ── */}
       {alerts.length > 0 && (
@@ -230,7 +224,7 @@ export function PositionsList() {
       )}
 
       {/* ── Position cards ── */}
-      {alerts.length === 0 ? (
+      {!loading && !error && alerts.length === 0 ? (
         <div className="rounded-xl border bg-card text-center py-16 shadow-sm shadow-black/[0.04]">
           <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
