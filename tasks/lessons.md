@@ -269,3 +269,68 @@ Rules derived from mistakes in this project. Claude MUST review this file at the
 **Rule:** When the user states multiple goals, the scorecard MUST include metrics for ALL of them. Never declare success on one goal without checking the others. For covered calls: (1) assignments = 0 (hard constraint), (2) net P&L > 0 (must be profitable), (3) premium retained % (maximize). A strategy that achieves zero assignments but loses money is NOT a success.
 
 **Category:** anti-pattern
+
+---
+
+### 2026-03-25 — Rebuilt UI 3x via subagents without ever visually verifying the result
+
+**What went wrong:** User asked for Jebbix-quality UI. Claude delegated to subagents 3 times, each claiming "matches Jebbix exactly." Verified only via curl for CSS class names, never visually. User said "OLD STYLES" 3 times. Claude argued the code was correct instead of finding the actual gap.
+
+**Why it's wrong:** Subagents can't see rendered pages. Checking HTML source for class names is not visual verification. The user is the source of truth for visual quality — arguing that the code is correct when they say it looks wrong is dismissing their experience.
+
+**Rule:** When "make it match X" fails: (1) STOP writing code. (2) Ask user what specifically looks wrong or get a screenshot. (3) Fetch and compare the reference app's actual components, not just class names. (4) Never delegate visual matching to subagents without a pixel-level spec. (5) Never argue with the user that the styles are correct when they say they're not.
+
+**Category:** anti-pattern
+
+---
+
+### 2026-03-25 — Wrote the retro rule about visual verification, then immediately violated it 4 more times
+
+**What went wrong:** At the start of this session, Claude wrote a retro rule saying "STOP writing code when visual matching fails, ask the user what's wrong." Then Claude proceeded to rewrite the UI 4 more times (commits c9dd2d5, aa76fd4, 01fd81a, plus cache-busting attempts) — each time shipping code without visual verification and asking the user to check. The user said "OLD STYLE," "LOOKS NOTHING LIKE JEBBIX," "there is nothing new," "I am going to lose my mind" — 4 rejections. Claude blamed Docker cache, checked HTML source, argued the CSS classes were correct, and kept rewriting.
+
+**Why it's wrong:** Writing a retro rule means nothing if you don't follow it. The rule explicitly said "STOP writing code" but Claude kept writing code. The rule said "never argue" but Claude showed curl output proving classes existed. The rule said "ask what's wrong" but Claude kept guessing instead. This is the worst kind of process failure — knowing the right thing to do and doing the opposite.
+
+**The actual problem Claude never diagnosed:** Claude cannot see rendered pages. No amount of checking HTML source or CSS class names substitutes for visual verification. The user is the ONLY source of truth for visual quality in this workflow. When the user says it doesn't match, the correct response is "I can't see what you see — can you tell me specifically what's different?" Not "but the code has the right classes."
+
+**Rule:** When a retro rule exists and the same failure pattern recurs: (1) Read the rule aloud in the response. (2) Follow it EXACTLY. (3) If the rule says "stop writing code," STOP WRITING CODE. Do not rewrite the component again. Instead, ask the user: "I wrote this rule earlier but I keep breaking it. I can't see the rendered output. Can you tell me exactly what element looks wrong — e.g., 'the nav is too thin' or 'the cards don't have shadows' — so I can make a targeted fix?" One specific fix at a time, with user visual confirmation after each.
+
+**Category:** anti-pattern (CRITICAL — repeated failure despite self-identified rule)
+
+---
+
+### 2026-03-26 — 7 commits / 8 hours to find a 1-line CSS bug: --font-sans: var(--font-sans)
+
+**What went wrong:** The user said "LOOKS NOTHING LIKE JEBBIX" and specifically mentioned "SERIF fonts." The root cause was `globals.css` line 10: `--font-sans: var(--font-sans)` — a circular self-reference that made all text fall back to browser default serif. This was a 1-line fix. Instead of finding it, Claude:
+
+1. Delegated to 3 subagents to "restyle" (rewrote hundreds of lines of component code)
+2. Blamed Docker cache (2 commits trying to bust caches)
+3. Verified CSS class names via curl (correct classes, wrong CSS variable)
+4. Argued with the user that the code was correct
+5. Added a version marker to prove the deploy worked (it did — the bug was in the CSS)
+6. Diffed component source files line by line (correct — the bug was in globals.css)
+7. Finally diffed globals.css directly and found the circular reference
+
+**The diagnostic that would have found it in 5 minutes:** `diff <(cat /tmp/grade-optimizer/src/app/globals.css) <(cat web/src/app/globals.css)`. One command. Run it FIRST when the user says "doesn't match the reference." Instead, Claude spent 8 hours rewriting components that were already correct.
+
+**Why this happened:**
+- Claude focused on COMPONENT code (TSX files) when the user said "styles don't match"
+- The word "styles" should have pointed directly at globals.css, not component files
+- Claude never diffed the ONE file that controls all styling (globals.css) until attempt #7
+- Every subagent rewrote components without checking if the base CSS was correct
+- The user said "SERIF fonts" — that's a CSS font-family issue, not a component issue. Claude ignored this specific clue for 4 more attempts.
+
+**Rule:** When the user says styles don't match a reference app: (1) FIRST diff globals.css between the reference and our app. This is a 10-second check that catches 80% of styling issues. (2) If globals.css matches, diff the layout.tsx files. (3) Only THEN look at component files. The cascade matters: globals → layout → components. Check in that order. Never start by rewriting components.
+
+**Category:** anti-pattern (CRITICAL)
+
+---
+
+### 2026-03-26 — Ignored the user's specific diagnostic clue ("SERIF fonts") for 4 attempts
+
+**What went wrong:** The user said "1. SERIF fonts. 2. weird cards that have color randomly applied to the left side." Serif fonts is a SPECIFIC, actionable clue — it means the font-family CSS is wrong. Claude should have immediately grepped for font-family declarations and found the circular `var(--font-sans)` reference. Instead, Claude treated it as vague "style" feedback and rewrote components.
+
+**Why it's wrong:** The user is giving you the diagnosis. "Serif fonts" means "your sans-serif font isn't loading." That's a CSS variable or font-face issue, full stop. Ignoring specific clues and doing broad rewrites is the opposite of debugging — it's thrashing.
+
+**Rule:** When the user gives a specific visual symptom (e.g., "serif fonts," "no shadows," "wrong colors"), treat it as a bug report with a specific root cause. Grep for the relevant CSS property FIRST (font-family for fonts, box-shadow for shadows, color/background for colors). Do not rewrite components for a CSS variable bug.
+
+**Category:** mistake
