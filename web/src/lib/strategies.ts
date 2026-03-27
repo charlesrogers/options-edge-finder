@@ -22,13 +22,13 @@ export const TICKER_STRATEGIES: Record<string, TickerStrategy> = {
     note: 'Profitable at every OTM%. Best stock for covered calls.',
   },
   KKR: {
-    otmPct: 0.03,
+    otmPct: 0.15,
     minDte: 20,
     maxDte: 45,
-    tier: 'strong',
-    expectedPnl: 1796,
-    expectedWinRate: 80,
-    note: '3yr data, 41 trades. High win rate with close strikes.',
+    tier: 'good',
+    expectedPnl: 386,
+    expectedWinRate: 100,
+    note: 'Exp 014: 15% OTM validated (0% test loss rate, walk-forward).',
   },
   DIS: {
     otmPct: 0.07,
