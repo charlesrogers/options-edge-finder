@@ -1,0 +1,66 @@
+[
+  {
+    "ticker": "TMUS",
+    "proposed_otm": 0.1,
+    "train_loss_rate": 3.6,
+    "test_loss_rate": 22.2,
+    "test_wins": 14,
+    "test_losses": 4,
+    "test_total": 18,
+    "passed": false,
+    "fallback_otm": 0.15,
+    "fallback_loss_rate": 11.1,
+    "fallback_passed": true
+  },
+  {
+    "ticker": "KKR",
+    "proposed_otm": 0.15,
+    "train_loss_rate": 21.4,
+    "test_loss_rate": 0.0,
+    "test_wins": 18,
+    "test_losses": 0,
+    "test_total": 18,
+    "passed": true
+  },
+  {
+    "ticker": "GOOGL",
+    "action": "skip",
+    "otm_loss_rates": {
+      "5%": 11.1,
+      "10%": 5.6,
+      "15%": 0.0,
+      "20%": 0.0
+    },
+    "skip_confirmed": false
+  },
+  {
+    "ticker": "AAPL",
+    "proposed_otm": 0.15,
+    "train_loss_rate": 7.1,
+    "test_loss_rate": 0.0,
+    "test_wins": 18,
+    "test_losses": 0,
+    "test_total": 18,
+    "passed": true
+  },
+  {
+    "ticker": "DIS",
+    "proposed_otm": 0.07,
+    "train_loss_rate": 21.4,
+    "test_loss_rate": 5.6,
+    "test_wins": 17,
+    "test_losses": 1,
+    "test_total": 18,
+    "passed": true
+  },
+  {
+    "ticker": "AMZN",
+    "proposed_otm": 0.05,
+    "train_loss_rate": 42.9,
+    "test_loss_rate": 16.7,
+    "test_wins": 15,
+    "test_losses": 3,
+    "test_total": 18,
+    "passed": false
+  }
+]
