@@ -352,3 +352,42 @@ The paper trade analysis (Experiment 013) was directionally correct — the loss
 **Rule:** NEVER change ticker_strategies.py (or any production model config) directly from analysis results. The pipeline is: analyze → hypothesize → pre-register → walk-forward validate → deploy if pass. Analysis outputs go into experiment results and plan files, NOT into production config. The only code that should modify production parameters is a validated, pre-registered experiment that passes its walk-forward gate.
 
 **Category:** anti-pattern (CRITICAL — violated our own testing gate)
+
+---
+
+### 2026-03-27 — The analysis-to-deployment pipeline has no structural guardrail
+
+**What went wrong:** The Exp 013 → deploy mistake happened because there's no STRUCTURAL barrier between "analysis says X" and "production config changes to X." The pipeline is enforced by Claude remembering rules, not by code. Claude got excited by the loss analysis results and went straight from "GOOGL should be skip" to editing ticker_strategies.py. Four existing rules should have prevented this, but rules in markdown don't prevent code edits.
+
+**Why it matters:** Walk-forward validation caught that Exp 013 was wrong on 2 of 3 recommendations:
+- Exp 013 said "skip GOOGL" → walk-forward showed GOOGL is fine at 10% OTM (6% test loss rate)
+- Exp 013 said "TMUS 10%" → walk-forward showed 10% FAILS (22%), needed 15%
+
+Without the walk-forward gate, we would have skipped a profitable ticker AND used the wrong OTM% for another. The analysis was directionally right (losses are real) but operationally wrong (proposed fixes were wrong).
+
+**Root cause:** Analysis is seductive. When you see 48% loss rate on GOOGL, the urge to fix it NOW is overwhelming. There's no friction between "I found a problem" and "I changed production." The fix needs to be structural, not behavioral.
+
+**Rule — process enforcement:** When Claude identifies a parameter change from analysis:
+1. Write the finding to the experiment results file. STOP.
+2. Say to the user: "Experiment X suggests changing Y. This needs walk-forward validation before deployment. Creating Experiment X+1 to validate."
+3. Create a new pre-registered experiment with pass/fail thresholds.
+4. Run walk-forward. Report results.
+5. ONLY if pass: deploy one variable per commit with experiment reference.
+
+The key moment is step 1-2: the analysis output goes to a RESULTS FILE, not to ticker_strategies.py. The gap between "finding" and "deployment" must always include a separate validation experiment.
+
+**Category:** anti-pattern (process design)
+
+---
+
+### 2026-03-27 — (POSITIVE) Walk-forward gate caught 2 wrong recommendations
+
+**What went well:** When the user caught the unvalidated deploy and asked for a revert, the walk-forward validation (Experiment 014) revealed that Experiment 013's analysis was wrong on 2 of 3 tickers:
+- GOOGL "skip" → actually fine at 10% OTM (6% loss rate)
+- TMUS "10% OTM" → failed walk-forward (22%), needed 15%
+
+This is the testing gate working exactly as designed. The retro rule + revert + proper validation pipeline produced BETTER results than the original analysis alone.
+
+**Rule:** REINFORCE: The analyze → validate → deploy pipeline is non-negotiable. Analysis alone is insufficient. Walk-forward ALWAYS reveals something the in-sample analysis missed. Every experiment that changes production parameters must have a validation companion experiment.
+
+**Category:** positive-pattern
