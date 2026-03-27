@@ -334,3 +334,21 @@ Rules derived from mistakes in this project. Claude MUST review this file at the
 **Rule:** When the user gives a specific visual symptom (e.g., "serif fonts," "no shadows," "wrong colors"), treat it as a bug report with a specific root cause. Grep for the relevant CSS property FIRST (font-family for fonts, box-shadow for shadows, color/background for colors). Do not rewrite components for a CSS variable bug.
 
 **Category:** mistake
+
+---
+
+### 2026-03-27 — Changed production model parameters without walk-forward validation or pre-registration
+
+**What went wrong:** Experiment 013 analyzed paper trade losses and found TMUS/KKR/GOOGL needed different OTM%. Claude immediately changed `ticker_strategies.py` (the production config) from TMUS 3%→10%, KKR 3%→15%, GOOGL untested→skip. This was deployed to production in the same commit. No pre-registration, no walk-forward validation on the new parameters, no holdout test, and 3 tickers changed simultaneously (not one variable at a time).
+
+**Why it's wrong:** This violates 4 rules we already have:
+1. "Validate strategy/hypothesis BEFORE building product features" (CLAUDE.md)
+2. "Every backtest MUST use walk-forward holdout" (CLAUDE.md)
+3. "One variable per commit when tuning" (CLAUDE.md)
+4. "NEVER change status from rejected back to pending" — we changed production params based on in-sample analysis
+
+The paper trade analysis (Experiment 013) was directionally correct — the losses ARE concentrated in those tickers. But the correct response is: (1) pre-register "H: TMUS at 10% OTM will have <15% loss rate in walk-forward", (2) run walk-forward on the new parameters using temporal split, (3) deploy only if they pass, (4) one ticker per commit.
+
+**Rule:** NEVER change ticker_strategies.py (or any production model config) directly from analysis results. The pipeline is: analyze → hypothesize → pre-register → walk-forward validate → deploy if pass. Analysis outputs go into experiment results and plan files, NOT into production config. The only code that should modify production parameters is a validated, pre-registered experiment that passes its walk-forward gate.
+
+**Category:** anti-pattern (CRITICAL — violated our own testing gate)
