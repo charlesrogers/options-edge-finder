@@ -58,13 +58,13 @@ export const TICKER_STRATEGIES: Record<string, TickerStrategy> = {
     note: 'Too volatile. Loses money at every OTM%.',
   },
   GOOGL: {
-    otmPct: 0.05,
+    otmPct: 0.10,
     minDte: 20,
     maxDte: 45,
-    tier: 'untested',
+    tier: 'good',
     expectedPnl: null,
-    expectedWinRate: null,
-    note: 'Insufficient data.',
+    expectedWinRate: 94,
+    note: 'Exp 014: 10% OTM validated (6% test loss rate, walk-forward).',
   },
   AMZN: {
     otmPct: 0.05,
