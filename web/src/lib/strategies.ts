@@ -13,13 +13,13 @@ export const DEFAULT_IV_THRESHOLD = 50
 
 export const TICKER_STRATEGIES: Record<string, TickerStrategy> = {
   TMUS: {
-    otmPct: 0.03,
+    otmPct: 0.15,
     minDte: 20,
     maxDte: 45,
-    tier: 'best',
-    expectedPnl: 2276,
-    expectedWinRate: 57,
-    note: 'Profitable at every OTM%. Best stock for covered calls.',
+    tier: 'good',
+    expectedPnl: 447,
+    expectedWinRate: 89,
+    note: 'Exp 014: 15% OTM validated (11% test loss rate, walk-forward).',
   },
   KKR: {
     otmPct: 0.15,

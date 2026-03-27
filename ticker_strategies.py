@@ -16,14 +16,14 @@ DEFAULT_IV_THRESHOLD = 50
 
 TICKER_STRATEGIES = {
     'TMUS': {
-        'otm_pct': 0.03,
+        'otm_pct': 0.15,
         'min_dte': 20,
         'max_dte': 45,
-        'tier': 'best',
-        'expected_pnl': 2276,
-        'expected_win_rate': 57,
-        'expected_trades': 14,
-        'note': 'Profitable at every OTM%. Best stock for covered calls.',
+        'tier': 'good',
+        'expected_pnl': 447,
+        'expected_win_rate': 89,
+        'expected_trades': 18,
+        'note': 'Exp 014: 15% OTM validated (11% test loss rate, walk-forward). Was 3%.',
     },
     'KKR': {
         'otm_pct': 0.15,
