@@ -1,0 +1,39 @@
+name: Approval Gate — Validates Strategy Changes
+
+on:
+  pull_request:
+    paths:
+      - 'ticker_strategies.py'
+      - 'web/src/lib/strategies.ts'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check commit message references an experiment
+        run: |
+          COMMITS=$(git log --format="%s" origin/main..HEAD)
+          echo "Commits in this PR:"
+          echo "$COMMITS"
+
+          if echo "$COMMITS" | grep -qiE "exp(eriment)?\s*[0-9]|walk.forward|validated"; then
+            echo "✅ Commit references an experiment or validation"
+          else
+            echo "❌ BLOCKED: Changes to ticker_strategies.py must reference a validated experiment."
+            echo "   Commit message must include 'Exp [N]' or 'walk-forward' or 'validated'."
+            echo "   See experiments/GATE_TEMPLATE.md for the required process."
+            exit 1
+          fi
+
+      - name: Check for one-variable-per-commit
+        run: |
+          # Count how many tickers changed
+          CHANGED=$(git diff origin/main -- ticker_strategies.py | grep "^[+-].*otm_pct" | wc -l)
+          echo "Ticker parameter lines changed: $CHANGED"
+
+          if [ "$CHANGED" -gt 2 ]; then
+            echo "⚠️  WARNING: Multiple ticker parameters changed in one PR."
+            echo "   Best practice: one ticker per commit (Gate 3)."
+          fi
