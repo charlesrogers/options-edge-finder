@@ -32,3 +32,26 @@ jobs:
         run: |
           curl -sf -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
             "http://95.216.205.160:8000/api/v1/deploy?uuid=ehb3y6xy08gbp2m0prs785yw&force=true"
+      - name: Publish to dev blog
+        if: success()
+        env:
+          BLOG_SECRET: ${{ secrets.BLOG_SECRET }}
+        run: |
+          TITLE=$(git log -1 --format="%s")
+          BODY=$(git log -1 --format="%b")
+          DIFF=$(git diff --stat HEAD~1 HEAD 2>/dev/null | tail -20)
+          SUMMARY=$(echo "$BODY" | head -3)
+          [ -z "$SUMMARY" ] && SUMMARY="$TITLE"
+          curl -sf -X POST "https://dev.imprevista.com/api/blog/publish" \
+            -H "Authorization: Bearer $BLOG_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg product "Options Edge" \
+              --arg title "$TITLE" \
+              --arg summary "$SUMMARY" \
+              --arg body "$(printf '%s\n\n## Files Changed\n\n```\n%s\n```' "$BODY" "$DIFF")" \
+              --arg commit_sha "${{ github.sha }}" \
+              --arg commit_url "https://github.com/${{ github.repository }}/commit/${{ github.sha }}" \
+              --arg status "deployed" \
+              '{product:$product, title:$title, summary:$summary, body:$body, commit_sha:$commit_sha, commit_url:$commit_url, status:$status}')" \
+          || echo "::warning::Failed to publish to dev blog"
