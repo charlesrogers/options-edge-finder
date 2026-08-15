@@ -10,3 +10,6 @@ data/eodhd/raw/*.json
 data/eodhd/processed/*.parquet
 web/node_modules/
 web/.next/
+
+yfinance-proxy/node_modules/
+.claude-worktree-base

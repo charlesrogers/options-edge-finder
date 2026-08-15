@@ -16,7 +16,12 @@ export async function GET(request: Request) {
 
   try {
     // Always get all scored trades for stats
-    const { data: allTrades } = await sb.from('paper_trades').select('*').order('recommended_at', { ascending: false })
+    const { data: allTrades, error } = await sb.from('paper_trades').select('*').order('recommended_at', { ascending: false })
+    // Never report an empty-but-healthy scorecard when the DB rejected the read —
+    // this route returned all-zeros with HTTP 200 through a 4-month auth outage.
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
     const trades = allTrades ?? []
 
     const scored = trades.filter(t => t.scored)

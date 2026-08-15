@@ -33,16 +33,14 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: python -c "
-from db import reset_predictions_missing_pnl, score_pending_predictions, get_pending_predictions_count
-reset = reset_predictions_missing_pnl()
-if reset:
-    print(f'Reset {reset} old predictions missing P&L data')
-pending = get_pending_predictions_count()
-print(f'Pending predictions to check: {pending}')
-if pending > 0:
-    scored = score_pending_predictions()
-    print(f'Scored: {scored}')
-else:
-    print('Nothing to score yet.')
-"
+        run: python3 score_predictions.py
+
+      - name: Alert Discord on failure
+        if: failure()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then echo "DISCORD_WEBHOOK unset"; exit 0; fi
+          curl -s -H "Content-Type: application/json" -X POST -d @- "$DISCORD_WEBHOOK" <<EOF
+          {"embeds":[{"title":"🚨 options-edge-finder: ${{ github.workflow }} FAILED","color":16711680,"fields":[{"name":"Run","value":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}],"footer":{"text":"scheduled job — 3+ consecutive failures is an incident"}}]}
+          EOF

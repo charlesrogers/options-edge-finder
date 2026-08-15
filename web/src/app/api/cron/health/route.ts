@@ -4,7 +4,8 @@ import { getSupabase } from '@/lib/supabase'
 export const dynamic = 'force-dynamic'
 
 const CRON_SECRET = process.env.CRON_SECRET ?? ''
-const DISCORD_WEBHOOK = 'https://discord.com/api/webhooks/1486969921542946887/SAD4fP0-JaPrGmnEs_W2WIZmiRMQt1T2kQSbgnNenTTjnRq0YcqNkkLsKdvyPJ5pAA6y'
+// Webhook URLs are secrets — this repo is public, so it must never be inlined here.
+const DISCORD_WEBHOOK = process.env.DISCORD_WEBHOOK ?? ''
 
 interface Check {
   name: string
@@ -17,6 +18,10 @@ async function sendDiscordAlert(checks: Check[]) {
   const warnings = checks.filter(c => c.status === 'warn')
 
   if (failures.length === 0 && warnings.length === 0) return
+  if (!DISCORD_WEBHOOK) {
+    console.error('[health] DISCORD_WEBHOOK unset — alert dropped:', JSON.stringify(checks))
+    return
+  }
 
   const emoji = failures.length > 0 ? '🚨' : '⚠️'
   const title = failures.length > 0

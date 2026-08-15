@@ -4,6 +4,42 @@ Rules derived from mistakes in this project. Claude MUST review this file at the
 
 ---
 
+### 2026-08-15 — Write helpers returned attempted count, hiding a 4-month data outage
+
+**What went wrong:** `db.record_chain_snapshot()` wrapped every Supabase upsert in `except Exception: pass` and then `return len(rows)` — the attempted count, not the written count. The Supabase key went stale after 2026-03-30; every write 401'd; the job kept printing "Total: 2675 option chain rows captured" and exiting 0. Daily Option Chain Capture showed a green checkmark for ~2.5 months while writing literally zero rows. `web/src/app/api/paper-trades/route.ts` had the same shape — it discarded `error` from the destructure and served an all-zeros scorecard with HTTP 200.
+
+**Why it's wrong:** A success metric derived from input size rather than confirmed output can never report failure. Combined with a swallowed exception, the job is structurally incapable of going red, so every downstream health signal (CI status, dashboards, the app itself) lies in the same direction.
+
+**Rule:** A write helper must return the count of rows the database confirmed, never `len(attempted)`, and must never `except: pass` on a write. Any batch job whose persisted count is 0 must `sys.exit(1)`. Any API route that destructures a client result must check `error` before using `data`.
+
+**Category:** anti-pattern
+
+---
+
+### 2026-08-15 — Credentials fixed on the preview scope while production kept the stale value
+
+**What went wrong:** The Coolify app had two full sets of `NEXT_PUBLIC_SUPABASE_*` vars. The correct key + URL were set with `is_preview=true`; the production scope (`is_preview=false`) still held the stale key and an unreachable `http://supabase-kong:8000`. Production had never used the fix, so `/api/positions` and `/api/holdings` returned `Unauthorized` indefinitely.
+
+**Why it's wrong:** Coolify silently accepts duplicate keys across scopes and shows both in the same list. Setting an env var without asserting its scope looks identical to fixing the problem, and the app keeps serving the old value.
+
+**Rule:** After changing any Coolify env var, re-read `/applications/<uuid>/envs` and confirm the value landed on the scope the running container uses (`is_preview=false` for production). Never assume a write applied to prod; verify by hitting the deployed endpoint. Also check for duplicate keys across scopes and delete the stale one.
+
+**Category:** mistake
+
+---
+
+### 2026-08-15 — Answered "what data source did we use" without searching the repo
+
+**What went wrong:** Asked which data source the project originally used for options market data, I grepped only the obvious filenames (`yf_proxy.py`, `fetch_eodhd.py`) and answered "Yahoo via yfinance, plus EODHD for history." Both halves were misleading: Databento (the paid OPRA OHLCV source, ~$122, 3.6M rows, still the basis of every backtest) went unmentioned, and EODHD never returned a single row — `data/eodhd/api_calls.log` is 404s for every ticker.
+
+**Why it's wrong:** File names are not an inventory of dependencies. A source can be central to the project (Databento) while living only in gitignored data dirs and `import` lines, and a source can have a whole fetcher module (EODHD) while being dead on arrival. Answering from filenames produces confident, wrong history.
+
+**Rule:** Before answering any "what did we use / how did we get X" question, grep the full repo for the candidate space (provider names, `import` lines, API hosts) AND check `git log -S` for when it entered, AND verify the data actually exists on disk (row counts, file sizes, API logs). Never answer a factual-history question from the first file that looks relevant.
+
+**Category:** mistake
+
+---
+
 ### 2026-03-23 — Experiment 001 used fake option prices and declared results
 
 **What went wrong:** Experiment 001 (exit strategy optimization) used a hand-rolled spread value approximation instead of real option pricing. It produced 100% win rate and Sortino of 5.5 — both obviously too good to be true. The results were published and the strategy was built into the app before being invalidated by Experiment 002 with real Databento data.

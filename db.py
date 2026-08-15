@@ -434,6 +434,10 @@ def record_chain_snapshot(ticker, expiry, chain):
     if not rows:
         return 0
 
+    written = 0
+    failed = 0
+    last_error = None
+
     if sb:
         # Batch upsert (Supabase supports bulk)
         for i in range(0, len(rows), 50):
@@ -442,15 +446,19 @@ def record_chain_snapshot(ticker, expiry, chain):
                 sb.table("option_chain_snapshots").upsert(
                     batch, on_conflict="ticker,date,expiration,option_type,strike"
                 ).execute()
-            except Exception:
+                written += len(batch)
+            except Exception as batch_err:
+                last_error = batch_err
                 # Fall back to individual inserts
                 for r in batch:
                     try:
                         sb.table("option_chain_snapshots").upsert(
                             r, on_conflict="ticker,date,expiration,option_type,strike"
                         ).execute()
-                    except Exception:
-                        pass
+                        written += 1
+                    except Exception as row_err:
+                        last_error = row_err
+                        failed += 1
     else:
         conn = _get_sqlite()
         for r in rows:
@@ -461,12 +469,20 @@ def record_chain_snapshot(ticker, expiry, chain):
                     f"INSERT OR REPLACE INTO option_chain_snapshots ({cols}) VALUES ({placeholders})",
                     tuple(r.values()),
                 )
-            except Exception:
-                pass
+                written += 1
+            except Exception as row_err:
+                last_error = row_err
+                failed += 1
         conn.commit()
         conn.close()
 
-    return len(rows)
+    if failed:
+        print(f"[db] {ticker} {expiry}: {failed}/{len(rows)} chain rows FAILED to write "
+              f"(last error: {last_error})", flush=True)
+
+    # Return what actually landed, never the attempted count — a green run that
+    # wrote nothing hid a 4-month outage (all writes 401'd while the job exited 0).
+    return written
 
 
 # ============================================================

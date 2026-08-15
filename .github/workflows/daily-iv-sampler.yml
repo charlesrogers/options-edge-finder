@@ -52,3 +52,13 @@ jobs:
           else
             python batch_sampler.py
           fi
+
+      - name: Alert Discord on failure
+        if: failure()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then echo "DISCORD_WEBHOOK unset"; exit 0; fi
+          curl -s -H "Content-Type: application/json" -X POST -d @- "$DISCORD_WEBHOOK" <<EOF
+          {"embeds":[{"title":"🚨 options-edge-finder: ${{ github.workflow }} FAILED","color":16711680,"fields":[{"name":"Run","value":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}],"footer":{"text":"scheduled job — 3+ consecutive failures is an incident"}}]}
+          EOF

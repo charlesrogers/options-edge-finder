@@ -25,14 +25,18 @@ CAPTURE_TICKERS = ['AAPL', 'TMUS', 'KKR', 'DIS', 'TXN', 'GOOGL', 'AMZN']
 
 
 def capture_ticker(ticker):
-    """Capture full chain + IV snapshot for one ticker."""
+    """Capture full chain + IV snapshot for one ticker.
+
+    Returns (rows_persisted, iv_snapshot_failed).
+    """
     print(f"  {ticker}...", end=" ", flush=True)
+    iv_failed = False
 
     # Stock history
     hist = yf_proxy.get_stock_history(ticker, period="1y")
     if hist.empty:
         print("no stock data")
-        return 0
+        return 0, iv_failed
 
     current_price = float(hist["Close"].iloc[-1])
 
@@ -40,7 +44,7 @@ def capture_ticker(ticker):
     expirations = yf_proxy.get_expirations(ticker)
     if not expirations:
         print("no expirations")
-        return 0
+        return 0, iv_failed
 
     # Capture first 4 expirations (covers ~2 months of chains)
     total_rows = 0
@@ -115,9 +119,10 @@ def capture_ticker(ticker):
                   vrp=vrp, signal=signal, regime=regime, skew=skew_value)
     except Exception as e:
         print(f"IV snapshot error: {e}", end=" ")
+        iv_failed = True
 
     print(f"{total_rows} rows across {min(4, len(expirations))} expirations")
-    return total_rows
+    return total_rows, iv_failed
 
 
 def main():
@@ -127,13 +132,31 @@ def main():
     print("=" * 60)
 
     total = 0
+    crashed = []
+    iv_failures = []
     for ticker in CAPTURE_TICKERS:
         try:
-            total += capture_ticker(ticker)
+            rows, iv_failed = capture_ticker(ticker)
+            total += rows
+            if iv_failed:
+                iv_failures.append(ticker)
         except Exception as e:
             print(f"  {ticker} FAILED: {e}")
+            crashed.append(ticker)
 
-    print(f"\nTotal: {total} option chain rows captured")
+    print(f"\nTotal: {total} option chain rows persisted")
+
+    # A capture run that persists nothing is an outage, not a success. This job
+    # reported success for ~4 months while every Supabase write returned 401.
+    if total == 0:
+        print("FATAL: zero rows persisted — the database rejected every write.")
+        sys.exit(1)
+    if crashed:
+        print(f"FATAL: {len(crashed)}/{len(CAPTURE_TICKERS)} tickers crashed: {', '.join(crashed)}")
+        sys.exit(1)
+    if iv_failures:
+        print(f"FATAL: IV snapshot write failed for: {', '.join(iv_failures)}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
