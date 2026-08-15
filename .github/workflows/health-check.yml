@@ -1,0 +1,48 @@
+name: Health Check
+
+# /api/cron/health has existed since 2026-03-28 but nothing ever invoked it —
+# no GitHub schedule, no server crontab entry. It checks exactly what broke
+# (Supabase auth, chain-capture freshness, paper-trade freshness) and would
+# have caught the 4-month outage on day 2. This wires it to an actual clock.
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Call health endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          CODE=$(curl -s -o /tmp/health.json -w '%{http_code}' --max-time 60 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://options.imprevista.com/api/cron/health")
+          echo "HTTP $CODE"
+          cat /tmp/health.json
+          echo
+          if [ "$CODE" != "200" ]; then
+            echo "::error::Health endpoint returned $CODE"
+            exit 1
+          fi
+          # The route posts its own Discord embed for warn/fail. Fail the job too
+          # so a broken health check cannot itself go unnoticed.
+          if grep -q '"status":"fail"' /tmp/health.json; then
+            echo "::error::One or more health checks reported fail"
+            exit 1
+          fi
+
+      - name: Alert Discord on failure
+        if: failure()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then echo "DISCORD_WEBHOOK unset"; exit 0; fi
+          curl -s -H "Content-Type: application/json" -X POST -d @- "$DISCORD_WEBHOOK" <<EOF
+          {"embeds":[{"title":"🚨 options-edge-finder: Health Check FAILED","color":16711680,"fields":[{"name":"Run","value":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}],"footer":{"text":"Supabase / chain capture / paper trade freshness"}}]}
+          EOF
