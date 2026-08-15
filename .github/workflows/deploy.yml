@@ -26,12 +26,44 @@ jobs:
           tags: |
             ghcr.io/charlesrogers/options-edge-finder:latest
             ghcr.io/charlesrogers/options-edge-finder:${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_KEY }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Deploy
         run: |
           curl -sf -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
             "http://95.216.205.160:8000/api/v1/deploy?uuid=ehb3y6xy08gbp2m0prs785yw&force=true"
+
+      # A 200 on the homepage proves nothing — Next.js error boundaries return 200,
+      # and /api/positions served {"error":"Unauthorized"} for ~4 months undetected.
+      # Verify the real authenticated DB path instead.
+      - name: Verify deploy is healthy
+        run: |
+          for i in $(seq 1 20); do
+            sleep 10
+            CODE=$(curl -s -o /tmp/body -w '%{http_code}' https://options.imprevista.com/api/positions || true)
+            if [ "$CODE" = "200" ]; then
+              echo "Healthy after $((i*10))s: /api/positions -> 200"
+              cat /tmp/body | head -c 200; echo
+              exit 0
+            fi
+            echo "attempt $i: /api/positions -> $CODE $(head -c 120 /tmp/body 2>/dev/null)"
+          done
+          echo "::error::Deploy unhealthy — /api/positions never returned 200"
+          exit 1
+
+      - name: Alert Discord on failure
+        if: failure()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then echo "DISCORD_WEBHOOK unset"; exit 0; fi
+          curl -s -H "Content-Type: application/json" -X POST -d @- "$DISCORD_WEBHOOK" <<EOF
+          {"embeds":[{"title":"🚨 options-edge-finder: Deploy FAILED","color":16711680,"fields":[{"name":"Run","value":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}],"footer":{"text":"production may be serving a broken build"}}]}
+          EOF
+
       - name: Publish to dev blog
         if: success()
         env:

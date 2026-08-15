@@ -10,6 +10,15 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ARG CACHEBUST=1
+# NEXT_PUBLIC_* is inlined into the client bundle at build time, so it must be
+# present here — runtime Coolify env only reaches server code. Without these,
+# browser components (trade-history, sell-recommendations) resolve them to
+# undefined and throw. These values are public by definition; never add a
+# non-NEXT_PUBLIC secret as a build arg — it would be baked into image layers.
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 RUN npm run build
 
 FROM base AS runner
