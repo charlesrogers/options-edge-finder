@@ -114,6 +114,19 @@ exactly as the cost protocol already requires.
   threshold is ever *looser* than the global default, a guard that TMUS's gate was not
   quietly removed, and a guard that no ticker anywhere claims a 100% win rate again.
 
+## One thing found while deploying, not tested by either hypothesis
+
+**The IV-rank entry gate is not enforced in the app at all.** `DEFAULT_IV_THRESHOLD` appears
+in exactly one place in production code: `paper_trade_logger.py`, the automated paper-trade
+job. `streamlit_app.py` computes an IV rank, shows it, and feeds it to the VRP signal — but
+nothing in the Sell tab stops a user from selling a call at IV rank 12. The rule Exp 009
+sold as "+204% improvement", that Exp 023 has now partly vindicated, and that the Dad-facing
+runbook lists as one of three entry conditions, has been enforced only against paper trades.
+
+DIS's new threshold of 75 inherits the same gap: it binds the logger, not the human. This is
+a UI change, not a research question, and it is deliberately not bundled into this PR —
+flagging it rather than silently widening the diff.
+
 ## The three things worth arguing about
 
 1. **DIS at IV ≥ 75 on five holdout trades.** Pre-registered, restricting, train-window
