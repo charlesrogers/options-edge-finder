@@ -23,21 +23,21 @@ assignment instead of inferring it.
 
 - [x] Import the amended spec into this branch (it existed only as untracked working-tree
       edits in the sibling worktree `s-0815-1613`)
-- [ ] Pre-register H25 + H26 with immutable thresholds — committed BEFORE any run, and
-      written to the graveyard through a workflow that has the real Supabase secrets
-      (this machine has none; the local fallback is SQLite and would not be durable)
-- [ ] Spec directive 3: verify the Exp 006 assignment-probability table and Exp 014's
-      stock-close walk-forward are independent of the DTE bug — believed, not verified
-- [ ] Exp 022 — corrected per-ticker baselines on `cc_sim.py`: annualised net P&L per
-      contract, win rate, retention, buyback counts, assignments, as ranges across
-      half-year windows and across 25 staggered sequential chains; real-fill results
-      separated from carried-forward-price results
-- [ ] Exp 023 — the live IV-rank ≥ 50 entry gate gets its own trial: no-gate vs iv50 vs a
-      per-ticker threshold picked on the train window only, scored on the holdout
-- [ ] Deploy only what the pre-registration authorises, one variable per commit
-- [ ] AMZN demotion (spec directive 8) — restricting change, its own commit
-- [ ] pytest for any new production logic; CI green
-- [ ] `results/022_*.md`, `results/023_*.md`, graveyard verdicts, summary table
+- [x] Pre-register H25 + H26 with immutable thresholds — committed and pushed in `01c40bf`
+      at 2026-08-17T21:56:29Z, before either `run.py` existed. The Supabase write is
+      blocked until `registry-sync.yml` reaches `main` (GitHub dispatches workflows only
+      from the default branch); the pushed commit is the durable record meanwhile
+- [x] Spec directive 3: **both clean.** The Exp 006 `ITM_PROBABILITY` table is a literal
+      whose lookup takes DTE as an argument; Exp 014 never imports `position_monitor`,
+      never calls `assess_position()`, never reads the wall clock
+- [x] Exp 022 — H25 **FAIL** (1 of 4 within tolerance). Headline outside the hypothesis:
+      TMUS and KKR change SIGN when the sample is restricted to real-fill exits
+- [x] Exp 023 — H26 clause 1 **PASSES** for AAPL/DIS/KKR, fails for TMUS; clause 2 passes
+      for DIS only (threshold 75)
+- [x] Deploy only what the pre-registration authorises, one variable per commit (7 commits)
+- [x] AMZN demotion (spec directive 8) — done, and MSFT with it
+- [x] pytest 189 passing, 18 new
+- [x] `results/022_*.md`, `results/023_*.md`, graveyard verdicts, `results/PART0_SUMMARY.md`
 
 ## Known statistical weakness (state it, don't hide it)
 
@@ -49,4 +49,22 @@ sign already flipped once between simulators.
 
 ## Review
 
-(filled in at the end)
+See `results/PART0_SUMMARY.md`.
+
+**Verdicts:** H25 FAIL (AAPL only within tolerance). H26 clause 1 PASS for AAPL/DIS/KKR,
+FAIL for TMUS — the first pre-registered clause in this programme to pass. H26 clause 2
+PASS for DIS only.
+
+**Deployed (7 commits, all restricting):** corrected `expected_*` on AAPL/DIS/TMUS/KKR;
+TMUS and KKR to `probation` (56% and 36% repricing coverage); AMZN and MSFT to `skip`;
+DIS `iv_threshold` 75. Plus `results/012` superseded and `docs/dad-pitch.md` rebuilt.
+
+**Open for Charles:** (1) DIS at IV ≥ 75 rests on a 5-trade holdout — pre-registered and
+restricting, but reverts in one commit if he'd rather wait; (2) AAPL's fields were
+corrected without a licensing result, which sets a precedent worth agreeing to explicitly;
+(3) TMUS keeps a gate measured to be harmful there, because removing it is a loosening
+change that needs its own experiment.
+
+**Purchase status:** unblocked for AAPL and DIS. TMUS should come off the shopping list —
+at 56% coverage a stress-year TMUS pull buys a verdict with the same defect as the numbers
+this session just retracted.
