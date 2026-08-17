@@ -76,6 +76,14 @@ TICKER_STRATEGIES = {
         'min_dte': 30,
         'max_dte': 60,
         'tier': 'good',
+        # Exp 023 (H26 clause 2, the only pass): the threshold picked on the TRAINING
+        # window from {25, 50, 75} was 75, and it beat the global 50 on the holdout by
+        # 58% on mean P&L per entry with zero assignments in either arm. Restricting
+        # change: DIS now sells on ~48 days a year instead of ~126.
+        # WEAKEST NUMBER IN THE SYSTEM: the DIS holdout at 75 is FIVE trades. The train
+        # window (43 entries, 75 best by a wide margin) is the only reason this is
+        # defensible. Review when the chain capture has accrued another year of DIS prices.
+        'iv_threshold': 75,
         # Exp 022 (H25 FAIL): the deployed $822 came from the simulator that pinned DTE to
         # 0. Re-derived on cc_sim.py at production settings with the production IV gate:
         # median of 25 staggered sequential chains. Restricted to trades whose exit was a
@@ -204,6 +212,19 @@ def get_max_contracts(ticker, shares_owned):
     if cap is not None and contracts > cap:
         return cap, TICKER_STRATEGIES[ticker].get('max_contracts_reason', 'Liquidity cap')
     return contracts, None
+
+
+def get_iv_threshold(ticker):
+    """
+    Minimum IV rank before this ticker's calls may be sold.
+
+    DEFAULT_IV_THRESHOLD (50) is the global rule from Exp 009. Exp 023 put that rule on
+    trial per ticker and only DIS earned a different number (75, chosen on the training
+    window and confirmed on the holdout). Every other ticker keeps the global value —
+    including TMUS, where the gate FAILED its trial: removing a restriction is a loosening
+    change and needs its own experiment, so a failed test changes nothing here.
+    """
+    return TICKER_STRATEGIES.get(ticker, {}).get('iv_threshold', DEFAULT_IV_THRESHOLD)
 
 
 def get_strategy(ticker):

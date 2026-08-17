@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 sys.path.insert(0, os.path.dirname(__file__))
 
 import yf_proxy
-from ticker_strategies import TICKER_STRATEGIES, DEFAULT_IV_THRESHOLD
+from ticker_strategies import TICKER_STRATEGIES, DEFAULT_IV_THRESHOLD, get_iv_threshold
 from db import log_paper_trade, get_iv_history
 
 
@@ -106,9 +106,11 @@ def main():
             except Exception:
                 pass
 
-            # IV-aware entry filter (Experiment 009: +204% improvement)
-            if iv_rank is not None and iv_rank < DEFAULT_IV_THRESHOLD:
-                print(f"IV rank {iv_rank:.0f} < {DEFAULT_IV_THRESHOLD} threshold — skipping (IV too low)")
+            # IV-aware entry filter. Global 50 from Exp 009; Exp 023 re-tested that rule
+            # per ticker on the fixed engine and DIS earned its own threshold of 75.
+            iv_threshold = get_iv_threshold(ticker)
+            if iv_rank is not None and iv_rank < iv_threshold:
+                print(f"IV rank {iv_rank:.0f} < {iv_threshold} threshold — skipping (IV too low)")
                 skipped += 1
                 continue
 
