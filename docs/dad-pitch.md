@@ -13,18 +13,21 @@ You know the MSFT disaster. $400K in taxes because you didn't buy back the calls
 **It does three things:**
 
 ### 1. Tells You What to Sell
-For each stock you own, it recommends the optimal covered call: which strike, which expiration, how much premium you'll collect. The recommendations are researched — 14 experiments, 145,000 real option observations, walk-forward validated out-of-sample.
+For each stock you own, it recommends the optimal covered call: which strike, which expiration, how much premium you'll collect. The recommendations are researched — 23 experiments, 145,000 real option observations, walk-forward validated out-of-sample.
 
-**Per your holdings:**
-| Stock | Recommended | Expected Win Rate | Why |
-|---|---|---|---|
-| TMUS | 15% OTM, 20-45 DTE | 89% | Conservative — high win rate, moderate premium |
-| KKR | 15% OTM, 20-45 DTE | 87% | Validated on 3yr of data, 0% test loss rate |
-| DIS | 7% OTM, 30-60 DTE | 85% | Sweet spot for DIS volatility |
-| AAPL | 15% OTM, 20-45 DTE | 96% | Ultra-conservative, nearly never loses |
-| GOOGL | 10% OTM, 20-45 DTE | 94% | Walk-forward validated at 6% loss rate |
-| TXN | **Skip** | — | Too volatile, loses at every OTM% |
-| AMZN | 5% OTM, 20-45 DTE | 95% | Paper trading shows strong results |
+**Per your holdings** (win rate and income re-measured 2026-08-17, Exp 022, after we found and fixed a clock bug that had corrupted every backtest between Exp 007 and Exp 014):
+
+| Stock | Recommended | Win rate | Income per contract/yr | Why |
+|---|---|---|---|---|
+| AAPL | 15% OTM, 20-45 DTE | 92% | ~$299 | Best evidence in the set: 97.5% of its option days have real traded prices |
+| DIS | 7% OTM, 30-60 DTE, **only when IV rank ≥ 75** | 80% | ~$267 | The one ticker that earned its own entry threshold (Exp 023) |
+| TMUS | 15% OTM, 20-45 DTE | 92% | ~$151 | **Probation** — only 56% of its option days have real prices; count on real fills only and the overlay loses money |
+| KKR | 15% OTM, 20-45 DTE, **max 7 contracts** | 63% | ~$316 | **Probation** — 36% real-price coverage, and the strike we'd sell trades 3 contracts a day |
+| GOOGL | 10% OTM, 20-45 DTE | 94%* | not measured | **Probation** — *validated on stock closes only; we own 5 days of its option data |
+| TXN | **Skip** | — | — | Loses money at every strike distance |
+| AMZN | **Skip** | — | — | Failed validation at a *safer* strike than it was set to; no option data was ever bought |
+
+**Read the income column as an order of magnitude, not a forecast.** It comes from one year of real prices in one favourable market. Depending on which week you start, AAPL's year ranges from −$739 to +$389 per contract. With roughly 13 trades a year, when you start matters more than most of the settings do.
 
 ### 2. Monitors Your Positions (The Copilot)
 Once you sell a call, the copilot watches it every 15 minutes during market hours. Five alert levels:
