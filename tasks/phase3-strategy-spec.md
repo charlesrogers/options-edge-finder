@@ -1,5 +1,17 @@
 # Phase 3 Farm-Out Spec — Strategy Improvement: Stress Validation, Partial Overwriting, Capacity
 
+> **REVISED 2026-08-17 — read before executing.** Exp 015 (Week 2) found `assess_position()` computed DTE from `datetime.now()`, so **Experiments 007–013 are invalid** (every observation evaluated at DTE=0, ex_div_date=None). Consequences binding on this spec:
+> 1. **New Part 0 (blocking): Baseline Re-derivation (Exp 022, register H25).** Re-run the 008/009-class per-ticker simulations on the fixed engine. Output: corrected win rate, net P&L, retention, buyback counts per ticker — reported as **ranges across half-year windows** (Exp 015 measured 40–180pp retention swings between halves; point estimates measure regime luck). Separate real-fill from carried-forward-price results (KKR: 44% synthetic fills). Then update `ticker_strategies.py` expected_* fields and `docs/dad-pitch.md` from corrected numbers only — the current values come from the broken simulator, including TMUS "tier good, expected_pnl 447" whose corrected test-period P&L is −98.2%. Do not re-tier tickers off one window; mark "revalidation pending" until Part 0 lands.
+> 2. **H21's thresholds** ("within 10pp of walk-forward values") now reference Part 0's corrected baselines, not results/012 values.
+> 3. Verify whether the Exp 006 assignment-probability table (the 145K-observation table in `position_monitor.py`) and Exp 014's stock-close walk-forward were touched by the DTE bug before relying on either. Believed independent (raw-data derivations, not assess_position consumers) — verify, don't assume.
+> 4. Dollar-impact framing throughout this spec ("+$30–60K retention lever" etc.) is **withdrawn**; corrected AAPL retention baseline is 49.1%. Part D (partial overwriting) survives on its own logic; Part B/C survive; expected-$ claims get re-estimated from Part 0.
+> 5. Data reality: GOOGL has **5 days** of option OHLCV, AMZN none. "All 6 tickers" anywhere below means the four with full years: AAPL, TMUS, DIS, KKR (KKR low-confidence).
+> 6. Take-profit at 75%-captured is the copilot's dominant exit (42–95% of exits) — any exit-rule experiment must treat TP as a first-class arm, not delete it as a side effect.
+> 7. ~~Apply `migrations/001_signal_graveyard` first~~ **Done 2026-08-17** — the Exp 019b session created the table; H17–H24 verdicts (failures included) now persist to Supabase.
+> 8. **AMZN demotion directive (restricting change — execute in Part 0):** AMZN is live-recommendable today at 5% OTM with tier `untested`, and H24(b) just FAILED it at the *more conservative* 15% (22.9% test loss rate vs 10% gate). Pre-registration discipline forbids *promoting* on a failed test; it does not forbid *restricting* on adverse evidence about a live recommendation. Demote AMZN to `skip`-pending-revalidation. Same logic check for MSFT if it appears anywhere recommendable (20.0% loss rate at 15%).
+> 9. **New: Exp 023 / H26 — the IV-rank ≥ 50 gate gets its own trial.** It is live on every ticker; its evidence is Exp 009 (invalid, broken simulator, one un-staggered path), and Exp 019b's control observed it rescuing DIS/KKR while costing AAPL/TMUS. Hypothesis: the gate improves net P&L per ticker on walk-forward cc_sim.py replay vs no-gate and vs a per-ticker gate. Pre-register per-ticker pass/fail before running; a per-ticker mixed verdict deploys per-ticker (one commit each). Runs on owned data; fold into Part 0's run or immediately after.
+> 10. **H23 verdict is final and reframes Part D:** overwrite ratio is an income-vs-upside preference dial (overlay moves max drawdown 0.00–1.45pp against 13–49% stock drawdowns — the risk denominator is stock, not overlay). Do not re-run Part D on stress years; present the ratio to Dad as a preference choice with the income/upside tradeoff table, no optimization claim.
+
 **Executor:** Opus 5, fresh session, working dir `/Users/charlesrogers/Documents/options-tool`
 **Prerequisites:**
 - Phase 0 complete (`tasks/week1-reliability-spec.md`) — never run research through a pipeline that can silently lie.
@@ -16,13 +28,15 @@
 
 $125, one chance. The purpose is regime coverage: everything validated so far ran on 2024–2026, a favorable regime (KKR excepted, 3 years). The purchase order is fixed; the *pre-registrations for Exps 019 and 021 must be committed before the first pull.*
 
-**Purchase order (stop when budget is exhausted):**
-1. TMUS option OHLCV **2022** + that period's definitions ← pull FIRST (cheapest of the priority items; calibrates the cost model — definitions ran 2× estimates last time)
-2. AAPL option OHLCV **2020** + definitions
-3. AAPL option OHLCV **2022** + definitions
-4. TMUS option OHLCV **2020** + definitions
-5. GOOGL option OHLCV **most recent full year** + definitions (its production parameter currently rests on stock-proxy validation only)
-6. DIS 2022, then MSFT most recent year — only if budget remains
+**Purchase order (REVISED 2026-08-17 — information-per-dollar over cheapest-first, per Exp 019b executor's finding that TMUS carries 44% missing repricing vs AAPL's 2.5%; stop when budget is exhausted):**
+1. AAPL option OHLCV **2020** ← pull FIRST. It is the single most information-dense item (cleanest fills + the crash/V-recovery regime); if the budget only covers one thing, it must be this. OHLCV estimates were accurate last time ($4.07 est vs $4.08 actual) — pull OHLCV, check actual charge, THEN pull its definitions (the 2×-miss risk lives in definitions), re-plan with the corrected factor.
+2. AAPL option OHLCV **2022** + definitions
+3. DIS **2020** then **2022** + definitions (14.3% missing — second-cleanest name)
+4. GOOGL option OHLCV **most recent full year** + definitions
+5. TMUS stress years — only if budget remains (44% missing repricing caps what any TMUS verdict can claim; say so in the results)
+6. MSFT most recent year — only if budget remains
+
+**Blocking prerequisite before ANY pull:** Part 0 (Exp 022) must have re-derived the walk-forward baseline on `cc_sim.py` — including reproducing/replacing `results/012_walk_forward.md`, which predates the as_of clock fix. H21 compares stress years to that baseline; buying data to compare against an unmeasured number is the failure mode.
 
 **Protocol (lessons.md 2026-03-23, verbatim discipline):**
 - Estimate with `get_cost()`, pull, check the **actual** charge, recompute the correction factor, re-plan remaining pulls. Never trust the estimator's first number.

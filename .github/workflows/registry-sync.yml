@@ -1,0 +1,44 @@
+name: Registry Sync (graveyard writes)
+
+# Pre-registrations and verdicts must land in the Supabase signal_graveyard, not in
+# db.py's local SQLite fallback — a "registered" hypothesis that lives in a gitignored
+# file on one laptop is the failure mode tasks/lessons.md (2026-08-15) documents.
+# Developer machines have no Supabase credentials; this workflow does.
+#
+# Usage:
+#   gh workflow run registry-sync.yml --ref <branch> -f script=experiments/register_part0.py
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: 'Registry script to run (path from repo root)'
+        required: true
+        default: 'experiments/register_part0.py'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install supabase pandas numpy requests
+      - name: Run registry script
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          set -euo pipefail
+          case "${{ inputs.script }}" in
+            experiments/*.py) ;;
+            *) echo "Refusing to run '${{ inputs.script }}' — registry scripts only."; exit 1 ;;
+          esac
+          python3 "${{ inputs.script }}" 2>&1 | tee run.log
+          # The registry announces its backend on every call. If it fell back to SQLite the
+          # write is not durable and this job must fail rather than report success.
+          if grep -q "sqlite:" run.log; then
+            echo "::error::Registry fell back to SQLite — Supabase credentials missing or rejected."
+            exit 1
+          fi

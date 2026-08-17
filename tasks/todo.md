@@ -1,89 +1,52 @@
-# Phase 3 — Strategy Improvement (H21–H24), credit-free subset
+# Phase 3 Part 0 — Baseline re-derivation (Exp 022/H25) + IV-rank gate trial (Exp 023/H26)
 
-**Spec:** `tasks/phase3-strategy-spec.md`
-**Constraint imposed by Charles (2026-08-16):** execute everything in the spec that does
-NOT require spending API credits. That rules out **Part A** (the $125 Databento purchase)
-and everything downstream of it that needs option prices we do not own.
+**Spec:** `tasks/phase3-strategy-spec.md` (REVISED 2026-08-17, directives 1, 3, 8, 9)
+**Predecessor:** `results/PHASE3_SUMMARY.md` — the credit-free half of Phase 3 (Exps 019/019b/020/021).
+Its handoff: merge PR #1 → #2, then farm out Exp 022 + 023. This session is that farm-out.
 
-## Hard constraint (write it at the top of every plan)
+## Hard constraint (top of every plan)
 
-> No paid API calls. No Databento purchase. Free data only:
-> existing Databento files (already paid for), Yahoo stock/VIX history, Supabase.
+> No paid API calls. No Databento purchase. Free data only: existing Databento files
+> (already paid for), Yahoo stock/VIX history, Supabase. `DATABENTO_API_KEY` is present
+> in `.env` — it is not to be used.
 
-## What we actually own (verified 2026-08-16)
+## Why Part 0 blocks the $125 purchase
 
-| Ticker | Real option OHLCV | Days |
-|---|---|---|
-| AAPL | 2025-03-21 → 2026-03-20 | 251 |
-| DIS  | 2025-03-21 → 2026-03-20 | 251 |
-| TMUS | 2025-03-21 → 2026-03-20 | 251 |
-| TXN  | 2025-03-21 → 2026-03-20 | 251 (production tier = skip) |
-| KKR  | 2023-03-21 → 2026-03-20 | 753 (3 years) |
-| GOOGL| 2026-03-16 → 2026-03-20 | **5** — unusable |
-| MSFT/AMZN | none | 0 |
-
-Free: Yahoo daily stock 2019→2026 for all names; `^VIX` + `^VIX3M` 2019→2026.
-The owned window contains a real vol spike (24 backwardation days: Apr-2025 tariff
-crash, Nov-2025, Mar-2026) — enough to test the H22 guard on **real** prices.
-
-## Part-by-part disposition
-
-- [x] Part A — Databento purchase → **NOT RUN** (costs money). Ledger file records it.
-- [x] Part B — Exp 019 / H21 stress replay → **pre-register only**; needs 2020/2022 option
-      prices we do not own. No proxy substitute: the hypothesis is explicitly about real prices.
-- [x] Part C — Exp 019b / H22 backwardation guard → **RUN, partially**. Real-price arm on the
-      owned window (which contains a genuine backwardation episode) + free VIX term structure.
-      The "2020 stress-year P&L +20%" clause stays PENDING.
-- [x] Part D — Exp 020 / H23 partial overwriting → **RUN**. Walk-forward arm complete on real
-      prices. The "≥1 stress year" clause stays PENDING.
-- [x] Part E(a) — GOOGL real-price → **NOT RUN** (5 days of data). Converts to the spec's
-      pre-authorised fallback: extend GOOGL probation, upgrade from accrued chain captures.
-- [x] Part E(b) — MSFT/AMZN probation → **RUN in full**. The hypothesis specifies stock-data
-      walk-forward, which is free.
-- [x] KKR capacity cap → **RUN in full** (computed from owned Databento contract volume).
+`results/012_walk_forward.md` and every `expected_*` field in `ticker_strategies.py` were
+produced by the simulator that pinned DTE to 0 (`assess_position()` read `datetime.now()`;
+fixed in 8040440). H21's stress test compares stress years against those numbers. Buying
+data to compare against an unmeasured number is the failure mode. Part 0 re-derives the
+baseline on `cc_sim.py`, which passes a real `as_of`, real ex-div dates, and simulates
+assignment instead of inferring it.
 
 ## Tasks
 
-- [x] Recon: verify data coverage, VIX availability (done above)
-- [x] Create `signal_graveyard` table (missing from Supabase entirely) + register H21–H24
-- [x] `experiments/lib_cc_sim.py` — shared covered-call sim: daily equity curve, IV-rank gate,
-      pluggable entry guard, overwrite ratio, explicit missing-data accounting
-- [x] Pre-registrations committed BEFORE any run: 019, 019b, 020, 021
-- [x] Exp 019b run + `results/019b_backwardation_guard.md`
-- [x] Exp 020 run + `results/020_partial_overwriting.md`
-- [x] Exp 021 run + `results/021_capacity_expansion.md`
-- [x] `results/019_stress_replay.md` (blocked verdict), `results/019_data_purchase_ledger.md`
-- [x] pytest for new production logic (overwrite math, guard conditions, liquidity cap)
-- [x] Deploy only what passed, one variable per commit
-- [x] Final summary table + graveyard verdicts
+- [x] Import the amended spec into this branch (it existed only as untracked working-tree
+      edits in the sibling worktree `s-0815-1613`)
+- [ ] Pre-register H25 + H26 with immutable thresholds — committed BEFORE any run, and
+      written to the graveyard through a workflow that has the real Supabase secrets
+      (this machine has none; the local fallback is SQLite and would not be durable)
+- [ ] Spec directive 3: verify the Exp 006 assignment-probability table and Exp 014's
+      stock-close walk-forward are independent of the DTE bug — believed, not verified
+- [ ] Exp 022 — corrected per-ticker baselines on `cc_sim.py`: annualised net P&L per
+      contract, win rate, retention, buyback counts, assignments, as ranges across
+      half-year windows and across 25 staggered sequential chains; real-fill results
+      separated from carried-forward-price results
+- [ ] Exp 023 — the live IV-rank ≥ 50 entry gate gets its own trial: no-gate vs iv50 vs a
+      per-ticker threshold picked on the train window only, scored on the holdout
+- [ ] Deploy only what the pre-registration authorises, one variable per commit
+- [ ] AMZN demotion (spec directive 8) — restricting change, its own commit
+- [ ] pytest for any new production logic; CI green
+- [ ] `results/022_*.md`, `results/023_*.md`, graveyard verdicts, summary table
 
 ## Known statistical weakness (state it, don't hide it)
 
-One year of real option data → ~12 entries/ticker/year on the production 25-day re-entry
-cycle. Research discipline rule 6 says flag < 100 trades. Mitigation: **staggered entry
-cohorts** (25 start offsets per ticker) so each configuration is evaluated over ~250–300
-trades and we report the *distribution* over start dates, not one lucky path. Overlapping
-cohorts are not independent — reported as a robustness spread, never as an n=300 t-test.
-
-## Mid-flight course correction (worth recording)
-
-Halfway through, session `s-0815-1614` landed **Phase 1** (Exps 015-018, H17-H20 — all
-four failed) on a sibling branch, including its own fix for the `assess_position()` DTE
-bug that this session had just found independently, and a much better simulator
-(`experiments/cc_sim.py`: real ex-dividend dates, simulated early/expiry assignment,
-every-day cohorts, an `expiry_beyond_data` guard). Rather than leave two competing
-simulators in one repo, that branch was merged, the Phase 3 simulator was deleted, and
-Exps 019b/020/021 were rebuilt on `cc_sim.py` with only a thin Phase 3 layer
-(`experiments/lib_phase3.py`) for the guard gate and the equity curve. Every number in
-`results/` is from the merged engine.
-
-The switch changed answers: TMUS and KKR both flipped the SIGN of their overlay P&L, and
-the H22a leg ordering reversed. Both are reported as unsettled rather than as findings.
+One year of real option prices for AAPL/DIS/TMUS/TXN, three for KKR, one regime. Cohorts
+overlap, so trade counts overstate independence: every comparison is reported as a
+distribution over start dates, never as an n=250 t-test. TMUS (44% missing repricing) and
+KKR (64%) carry conclusions weaker than AAPL (2.5%) and DIS (14.3%), and their overlay P&L
+sign already flipped once between simulators.
 
 ## Review
 
-See `results/PHASE3_SUMMARY.md`.
-
-**Verdicts:** H21 BLOCKED, H22 PENDING, H22a FAIL, H23 FAIL, H24(a) PENDING, H24(b) FAIL.
-**Deployed:** KKR liquidity cap (7 contracts), GOOGL `probation` tier. Nothing else.
-**Tests:** 171 passing, 37 new.
+(filled in at the end)
