@@ -760,7 +760,8 @@ with tab_sell:
 
                     # Map tier to streamlit color names
                     tier_colors = {'best': 'green', 'strong': 'blue', 'good': 'violet',
-                                   'conservative': 'orange', 'untested': 'gray'}
+                                   'conservative': 'orange', 'untested': 'gray',
+                                   'probation': 'orange'}
                     tier_color = tier_colors.get(tier, 'gray')
                     st.markdown(f"### {tick}  ${rec['price']:.2f}  :{tier_color}[{tc['icon']} {tc['label']}]")
 

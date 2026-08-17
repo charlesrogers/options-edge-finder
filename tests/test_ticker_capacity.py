@@ -1,5 +1,5 @@
 """
-Tests for the Exp 021 liquidity cap.
+Tests for the Exp 021 production changes: the liquidity cap and the probation tier.
 
 The cap is the only thing standing between a 10,000-share KKR position and an order for
 100 contracts into a strike that trades a median of 3 a day, so it gets boundary tests
@@ -13,7 +13,10 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
-from ticker_strategies import TICKER_STRATEGIES, get_max_contracts
+from ticker_strategies import (
+    TICKER_STRATEGIES, TIER_CONFIG, get_max_contracts, get_strategy,
+    get_recommended_tickers,
+)
 
 
 # ------------------------------------------------------------
@@ -82,3 +85,30 @@ def test_every_cap_has_a_reason_the_ui_can_show():
         if strat.get('max_contracts') is not None:
             assert strat.get('max_contracts_reason'), \
                 f'{ticker} has a cap with no explanation to surface'
+
+
+# ------------------------------------------------------------
+# probation tier
+# ------------------------------------------------------------
+
+def test_probation_tier_exists_and_is_distinct_from_untested():
+    assert 'probation' in TIER_CONFIG
+    assert TIER_CONFIG['probation'] != TIER_CONFIG['untested'], \
+        "the spec forbids reusing the 'untested' badge for probation"
+    assert TIER_CONFIG['probation']['label'].lower() == 'probation'
+
+
+def test_googl_is_on_probation_not_good():
+    """GOOGL has 5 days of real option data; it must not claim a real-price validation."""
+    assert get_strategy('GOOGL')['tier'] == 'probation'
+
+
+def test_every_configured_tier_has_a_badge():
+    for ticker, strat in TICKER_STRATEGIES.items():
+        assert strat['tier'] in TIER_CONFIG, f'{ticker} uses an unrendered tier'
+
+
+def test_probation_tickers_are_still_recommendable():
+    """Probation means 'flagged', not 'hidden' — GOOGL still appears in the Sell tab."""
+    tickers = [t for t, _, _ in get_recommended_tickers()]
+    assert 'GOOGL' in tickers

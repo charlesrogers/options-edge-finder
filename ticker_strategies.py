@@ -83,11 +83,17 @@ TICKER_STRATEGIES = {
         'otm_pct': 0.10,
         'min_dte': 20,
         'max_dte': 45,
-        'tier': 'good',
+        # Exp 021 clause (a): GOOGL's 10% OTM setting was validated on STOCK CLOSES only
+        # (Exp 014). We own 5 trading days of GOOGL option data, so it has never been
+        # tested on real option prices like AAPL/DIS/TMUS/KKR were. Displaying it as
+        # 'good' claimed evidence it does not have. Parameters unchanged — only the badge.
+        'tier': 'probation',
         'expected_pnl': None,
         'expected_win_rate': 94,
         'expected_trades': 18,
-        'note': 'Exp 014: 10% OTM validated (6% test loss rate, walk-forward). Was 5% untested.',
+        'note': 'Exp 014: 10% OTM validated on stock closes (6% test loss rate, '
+                'walk-forward). Exp 021: still no real option data (5 days owned) — '
+                'probation until the chain capture accrues a year, review ~2027-02.',
     },
     'AMZN': {
         'otm_pct': 0.05,
@@ -108,6 +114,9 @@ TIER_CONFIG = {
     'good':         {'color': '#7c3aed', 'bg': '#ede9fe', 'label': 'Good',         'icon': '🟣'},
     'conservative': {'color': '#92400e', 'bg': '#fef3c7', 'label': 'Conservative', 'icon': '🟡'},
     'skip':         {'color': '#991b1b', 'bg': '#fee2e2', 'label': 'Skip',         'icon': '🔴'},
+    # 'probation' is deliberately NOT 'untested': untested means nobody looked, probation
+    # means we looked with a weaker instrument (stock closes, no real option prices).
+    'probation':    {'color': '#92400e', 'bg': '#fef3c7', 'label': 'Probation',    'icon': '🟠'},
     'untested':     {'color': '#6b7280', 'bg': '#f3f4f6', 'label': 'Untested',     'icon': '⚪'},
 }
 
