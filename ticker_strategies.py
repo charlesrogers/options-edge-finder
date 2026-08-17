@@ -53,10 +53,17 @@ TICKER_STRATEGIES = {
         'min_dte': 30,
         'max_dte': 60,
         'tier': 'good',
-        'expected_pnl': 822,
-        'expected_win_rate': 71,
-        'expected_trades': 14,
-        'note': 'Needs more OTM buffer — occasional big moves.',
+        # Exp 022 (H25 FAIL): the deployed $822 came from the simulator that pinned DTE to
+        # 0. Re-derived on cc_sim.py at production settings with the production IV gate:
+        # median of 25 staggered sequential chains. Restricted to trades whose exit was a
+        # real Databento print (77% of them) it is $204/yr.
+        'expected_pnl': 267,
+        'expected_win_rate': 80,
+        'expected_trades': 11,
+        'note': 'Needs more OTM buffer — occasional big moves. Exp 022: $267/yr per '
+                'contract (chain range $51..$590 depending on start date), 80% win rate, '
+                'was $822/71% on the broken-clock simulator. Half-year retention swings '
+                'from -77.9% to +92.8% — the annual figure is a regime, not a rate.',
     },
     'AAPL': {
         'otm_pct': 0.15,
