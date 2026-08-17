@@ -129,11 +129,38 @@ TICKER_STRATEGIES = {
         'otm_pct': 0.05,
         'min_dte': 20,
         'max_dte': 45,
-        'tier': 'untested',
+        # Spec directive 8 (2026-08-17). AMZN was live-recommendable at 5% OTM with tier
+        # 'untested' and no `skip`, so get_recommended_tickers() returned it. Exp 021's
+        # H24(b) then FAILED it at the far more conservative 15% OTM — a 22.9% test loss
+        # rate against a 10% gate — while MSFT failed the same test at 20.0%.
+        # Pre-registration discipline forbids PROMOTING on a failed test; it does not
+        # forbid RESTRICTING a live recommendation on adverse evidence. 5% OTM is more
+        # aggressive than the setting that failed, on a ticker with zero option data.
+        'tier': 'skip',
+        'skip': True,
         'expected_pnl': None,
         'expected_win_rate': None,
         'expected_trades': 0,
-        'note': 'No option data. Using conservative 5% OTM default.',
+        'note': 'No option data was ever purchased. Exp 021 failed AMZN at 15% OTM '
+                '(22.9% test loss rate vs a 10% gate) and it was live at a more '
+                'aggressive 5% — skip pending revalidation on real option prices.',
+    },
+    'MSFT': {
+        # Same directive, same evidence: MSFT failed Exp 021's H24(b) at 15% OTM with a
+        # 20.0% test loss rate. It was never in TICKER_STRATEGIES, so get_strategy()
+        # handed it the unknown-ticker default of 5% OTM / tier 'untested' — a more
+        # aggressive setting than the one it failed at, presented with no warning.
+        'otm_pct': 0.15,
+        'min_dte': 20,
+        'max_dte': 45,
+        'tier': 'skip',
+        'skip': True,
+        'expected_pnl': None,
+        'expected_win_rate': None,
+        'expected_trades': 0,
+        'note': 'No option data was ever purchased. Exp 021 failed MSFT at 15% OTM '
+                '(20.0% test loss rate vs a 10% gate) — skip pending revalidation on '
+                'real option prices.',
     },
 }
 
