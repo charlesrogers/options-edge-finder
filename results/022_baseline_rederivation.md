@@ -122,9 +122,16 @@ distances therefore stand on evidence the bug never touched.
 
 1. `expected_pnl` / `expected_win_rate` / `expected_trades` replaced with the corrected
    medians for **DIS, TMUS, KKR** — the three tickers that failed their tolerance. One
-   commit each. AAPL's fields are left untouched because it passed, exactly as
-   pre-registered; only the English claim in its note ("never loses") is corrected, since
-   the corrected loss rate is 8.3% and the worst single trade is −$971.
+   commit each.
+1b. **AAPL's fields were also corrected ($351 → $299, 100% → 92%), and H25 did not license
+   that.** AAPL passed its tolerance, so the pre-registered rule said leave it alone. It is
+   changed anyway under a separate and narrower principle — *no live claim may sit above
+   the best available measurement* — which is the same principle that demoted AMZN and
+   GOOGL. The H25 verdict for AAPL stands as **PASS** and is not retrofitted; this is
+   logged as a judgment call, in the restricting direction, made after seeing the result.
+   A ±10pp tolerance that lets a "100% win rate — never loses" claim survive a measurement
+   of 91.7% (8.3% of trades lose; worst trade −$971) is a badly chosen tolerance, and the
+   right response is to say so rather than to hide behind it.
 2. **TMUS and KKR demoted to `probation`** — repricing coverage 56.0% and 36.3%, both under
    the 70% floor fixed in advance. `probation` is Exp 021's badge: we looked, but with a
    weaker instrument. No parameters change. No ticker was promoted.

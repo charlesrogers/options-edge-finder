@@ -93,10 +93,21 @@ TICKER_STRATEGIES = {
         'min_dte': 20,
         'max_dte': 45,
         'tier': 'conservative',
-        'expected_pnl': 351,
-        'expected_win_rate': 100,
-        'expected_trades': 14,
-        'note': '100% win rate at 15% OTM. Tiny premium but never loses.',
+        # AAPL is the one ticker that PASSED H25 (both fields inside their pre-registered
+        # tolerance), so Exp 022 did not license changing these. They are changed anyway,
+        # under a separate and narrower rule: no live claim may sit ABOVE the best
+        # available measurement. The old values said 100% win rate and $351/yr; the fixed
+        # engine measures 91.7% and $299/yr on 97.5% real data. This is a restricting
+        # change in the same class as the AMZN demotion, not a retrofit of H25's verdict —
+        # the verdict stands as PASS in results/022_baseline_rederivation.md.
+        'expected_pnl': 299,
+        'expected_win_rate': 92,
+        'expected_trades': 13,
+        'note': 'Widest buffer in the set at 15% OTM. Exp 022: $299/yr per contract, 92% '
+                'win rate, 97.5% repricing coverage — the most trustworthy numbers here. '
+                'It is not lossless: 8.3% of trades lose and the worst single trade in '
+                'the window was -$971. Start date matters more than that average '
+                'suggests (chain range -$739..$389).',
     },
     'TXN': {
         'otm_pct': None,
