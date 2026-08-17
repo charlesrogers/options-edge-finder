@@ -33,7 +33,20 @@ TICKER_STRATEGIES = {
         'expected_pnl': 386,
         'expected_win_rate': 100,
         'expected_trades': 18,
-        'note': 'Exp 014: 15% OTM validated (0% test loss rate, walk-forward). Was 3%.',
+        # Exp 021: at 15% OTM / 20-45 DTE the contract KKR would actually sell trades a
+        # MEDIAN of 3 contracts a day (mean 36.7, p25 1, p75 10) across 753 days of
+        # Databento volume. Capping at 20% of average daily volume — the spec's arbitrary
+        # starting share — allows 7 contracts. On the median basis it allows zero. At
+        # 10,000 shares the un-capped position would be 100 contracts, i.e. 33x the median
+        # daily volume of that strike: the position IS the market. Liquidity, not
+        # validation, is KKR's binding constraint.
+        'max_contracts': 7,
+        'max_contracts_reason': (
+            'Liquidity cap (Exp 021): 20% of mean daily volume in the 15% OTM / 20-45 DTE '
+            'strike, which trades a median of 3 contracts a day.'
+        ),
+        'note': 'Exp 014: 15% OTM validated (0% test loss rate, walk-forward). Was 3%. '
+                'Exp 021: capped at 7 contracts by liquidity.',
     },
     'DIS': {
         'otm_pct': 0.07,
@@ -97,6 +110,23 @@ TIER_CONFIG = {
     'skip':         {'color': '#991b1b', 'bg': '#fee2e2', 'label': 'Skip',         'icon': '🔴'},
     'untested':     {'color': '#6b7280', 'bg': '#f3f4f6', 'label': 'Untested',     'icon': '⚪'},
 }
+
+
+def get_max_contracts(ticker, shares_owned):
+    """
+    Contracts sellable on `shares_owned`, capped by option liquidity where we measured it.
+
+    Owning 10,000 shares does not mean 100 contracts can be sold: KKR's 15%-OTM strike
+    trades a median of 3 contracts a day (Exp 021). Selling into that moves the price
+    against you, and no amount of strategy validation fixes it.
+
+    Returns (contracts, cap_reason_or_None).
+    """
+    contracts = shares_owned // 100 if shares_owned >= 100 else 0
+    cap = TICKER_STRATEGIES.get(ticker, {}).get('max_contracts')
+    if cap is not None and contracts > cap:
+        return cap, TICKER_STRATEGIES[ticker].get('max_contracts_reason', 'Liquidity cap')
+    return contracts, None
 
 
 def get_strategy(ticker):
