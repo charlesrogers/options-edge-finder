@@ -18,6 +18,9 @@ Priority order:
 """
 
 from datetime import datetime, timedelta
+# Unpatchable aliases: tests patch `position_monitor.datetime` to freeze "now",
+# which would break isinstance() checks against it. Type checks use these.
+from datetime import datetime as _datetime, date as _date
 from dataclasses import dataclass
 from typing import Optional
 
@@ -87,6 +90,24 @@ ITM_PROBABILITY = {
 }
 
 
+def _to_naive_datetime(value):
+    """Coerce str / date / datetime / pandas Timestamp to a tz-naive datetime.
+
+    Backtests hand us pandas Timestamps (sometimes tz-aware); the live app hands
+    us 'YYYY-MM-DD' strings. Mixing the two raises TypeError on subtraction, so
+    everything is normalised here rather than at each call site.
+    """
+    if isinstance(value, str):
+        return _datetime.strptime(value[:10], "%Y-%m-%d")
+    if hasattr(value, "to_pydatetime"):
+        value = value.to_pydatetime()
+    if isinstance(value, _date) and not isinstance(value, _datetime):
+        return _datetime(value.year, value.month, value.day)
+    if getattr(value, "tzinfo", None) is not None:
+        value = value.replace(tzinfo=None)
+    return value
+
+
 def lookup_itm_probability(pct_from_strike, dte):
     """
     Look up probability of finishing ITM from empirical table.
@@ -131,7 +152,7 @@ class PositionAlert:
 
 def assess_position(ticker, strike, expiry, sold_price, contracts,
                      current_stock, current_option_ask=None,
-                     ex_div_date=None, earnings_date=None):
+                     ex_div_date=None, earnings_date=None, as_of=None):
     """
     Assess a covered call position and return an alert.
 
@@ -145,32 +166,24 @@ def assess_position(ticker, strike, expiry, sold_price, contracts,
         current_option_ask: Current ask to buy back (per share)
         ex_div_date: Next ex-dividend date (str or datetime or None)
         earnings_date: Next earnings date (str or datetime or None)
+        as_of: Evaluation date (str YYYY-MM-DD or datetime). Defaults to now.
+               Backtests MUST pass this — otherwise every DTE is measured
+               against the wall clock, which collapses to 0 on historical
+               expiries and silently disables every DTE-conditional rule.
     """
-    today = datetime.now()
+    today = _to_naive_datetime(as_of) if as_of is not None else datetime.now()
 
     # Parse dates
-    if isinstance(expiry, str):
-        expiry_dt = datetime.strptime(expiry, "%Y-%m-%d")
-    else:
-        expiry_dt = expiry
-
+    expiry_dt = _to_naive_datetime(expiry)
     dte = max(0, (expiry_dt - today).days)
 
     days_to_exdiv = None
     if ex_div_date:
-        if isinstance(ex_div_date, str):
-            ex_div_dt = datetime.strptime(ex_div_date, "%Y-%m-%d")
-        else:
-            ex_div_dt = ex_div_date
-        days_to_exdiv = max(0, (ex_div_dt - today).days)
+        days_to_exdiv = max(0, (_to_naive_datetime(ex_div_date) - today).days)
 
     days_to_earnings = None
     if earnings_date:
-        if isinstance(earnings_date, str):
-            earn_dt = datetime.strptime(earnings_date, "%Y-%m-%d")
-        else:
-            earn_dt = earnings_date
-        days_to_earnings = max(0, (earn_dt - today).days)
+        days_to_earnings = max(0, (_to_naive_datetime(earnings_date) - today).days)
 
     # Compute metrics
     pct_from_strike = (strike - current_stock) / current_stock * 100

@@ -13,3 +13,6 @@ web/.next/
 
 yfinance-proxy/node_modules/
 .claude-worktree-base
+
+# Databento raw option data (~145MB, paid, pulled once)
+data/databento
