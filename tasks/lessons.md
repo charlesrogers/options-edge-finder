@@ -4,6 +4,102 @@ Rules derived from mistakes in this project. Claude MUST review this file at the
 
 ---
 
+### 2026-08-16 — A research import at module scope took down the safety-critical monitor
+
+**What went wrong:** shadow-mode instrumentation for H19 needed a BSM delta, so I added `import bsm` at module scope in `monitor_positions.py`. `bsm` imports `scipy`. `.github/workflows/position-monitor.yml` installs `requests numpy pandas supabase yfinance` — no scipy, and nothing pulls it in transitively. The import fails before `main()` runs, so the careful per-trade `try/except` inside the loop never engages. Every scheduled run — `*/15 13-21 * * 1-5`, ~26 a day — would have exited non-zero before evaluating a single position: no EMERGENCY, no CLOSE_NOW, no daily summary, for the user's father holding ~10,000 shares per ticker. `requirements.txt` has scipy, so it imported fine locally and in the test workflow; only the monitor's own install list was short. Caught by an independent correctness review, not by me, and not by CI.
+
+**Why it's wrong:** the per-trade `try/except` created a false sense that the monitor was resilient. Nothing inside a function protects against a module-scope import, and every workflow in this repo installs its own hand-listed subset of dependencies, so "it imports on my machine" and "it imports in the test job" prove nothing about the job that matters. Research instrumentation was allowed to sit on the critical path of an alerting system with no isolation at all.
+
+**Rule:** Never add a module-scope import to a safety-critical job for a non-critical feature. Import it lazily inside a `try/except` that degrades to the feature being off, put every line of the optional feature's computation inside its own `try/except`, and keep the critical path reachable without it. Separately: when adding ANY import to a file run by a GitHub Actions workflow, open that workflow and check its `pip install` line — the workflows do not read `requirements.txt`. Add an `python -c "import <module>"` smoke-test step before the real step so a missing dependency fails loudly at the right place.
+
+**Category:** mistake (CRITICAL — a live regression on the safety-critical alert path)
+
+---
+
+### 2026-08-16 — `is None` is not a missing-data check when NaN can reach the function
+
+**What went wrong:** `rational_exercise_emergency()` is the refined EMERGENCY rule, and its documented contract is that missing data must make it FIRE. Its guards tested `is None`. But the live caller derives the dividend as `spot * dividendYield` from a Yahoo proxy field, and `float('nan')` is not `None` while `bool(nan)` is `True` — so a NaN yield sails through every truthiness guard, becomes a NaN dividend, then wins every comparison in the rule (`extrinsic >= nan` is `False`), and the function falls through to SILENCE. Zero and negative prices did the same. The one thing the rule may never do is let missing data buy silence on a $400K alert, and that is exactly what it did.
+
+**Why it's wrong:** NaN is the value that survives every guard written for `None`. It compares False against everything, so in any rule shaped as "fire unless a comparison proves it is safe," a NaN always proves it is safe. `max(0.0, nan)` returning `0.0` compounds it by silently degrading a NaN price into a plausible zero.
+
+**Rule:** In any fail-safe or safety-critical guard, validate the value, not just its absence: reject `None`, NaN, `inf`, negative, non-numeric, and (where zero is meaningless) zero — with one helper used by every guard. Write the tests as `@pytest.mark.parametrize` over `[None, nan, inf, -1, 0, 'x']` rather than testing `None` alone. Assume any float derived from an external feed can be NaN.
+
+**Category:** anti-pattern
+
+---
+
+### 2026-08-16 — Six experiments ran with DTE silently pinned to 0
+
+**What went wrong:** `assess_position()` computed `dte = max(0, expiry - datetime.now())`. Every backtest passed a *historical* expiry, so DTE evaluated to 0 on every observation in Experiments 007, 008, 009, 010, 012 and 013. That made every DTE-conditional alert rule unreachable (CLOSE_SOON at 7+ DTE, both WATCH rules) and left one rule permanently armed (CLOSE_NOW at "DTE < 3 and within 3%"). The copilot those experiments measured was a pure distance rule with the entire DTE dimension deleted. The headline "13% premium retention" in `results/009_crush_it.md` — the number that motivated a whole week of research into fixing it — was an artefact. Corrected, baseline retention is 52.5% (AAPL) and 86.5% (DIS). The same experiments also passed `ex_div_date=None`, so the EMERGENCY rule and both ex-dividend rules never fired in any backtest either.
+
+**Why it's wrong:** a function that reads the wall clock is not a pure function of its arguments, and a backtest is by definition evaluating a past state. `datetime.now()` inside scoring or alerting logic is a time bomb that only detonates in historical evaluation — where it produces plausible-looking numbers rather than an error. Nothing crashed. Nothing was flagged. Six experiments and a production parameter table were built on it.
+
+**Rule:** Any function used by both the live app and a backtest MUST take an explicit evaluation timestamp (`as_of`), defaulting to `datetime.now()` only for the live path. Backtests must always pass it. Before trusting any backtest of alerting/scoring logic, assert that a DTE-conditional or date-conditional branch is actually reachable in the simulated data — e.g. log the distribution of DTE values seen, and treat a degenerate distribution (all zeros, all identical) as a bug. The same check applies to any input a backtest passes as `None` "for now": log how often each alert clause fires, and treat a clause that never fires across thousands of observations as unwired rather than unlucky.
+
+**Category:** mistake (CRITICAL — invalidated six experiments and a production config)
+
+---
+
+### 2026-08-16 — A "premium retention" problem that was really a take-profit rule
+
+**What went wrong:** the Week 2 spec framed the problem as "the copilot triggers CLOSE_SOON/CLOSE_NOW on *distance to strike*, and 74% of gross premium goes to buyback costs," and proposed replacing the distance triggers with assignment-probability triggers. Once the DTE bug was fixed and the exits were tallied by which clause actually fired, 39–95% of closes came from the "75% of premium captured" take-profit clause — which has nothing to do with distance or assignment probability. Replacing the distance triggers deleted the take-profit rule as a side effect, which is exactly why the treatment bled money.
+
+**Why it's wrong:** the hypothesis named a mechanism ("distance triggers cause the buybacks") that nobody had measured. Attributing an aggregate outcome to a mechanism without counting which code path produced it means the fix can address a minority of the behaviour while silently removing the majority.
+
+**Rule:** before proposing to replace a rule, instrument it: count how many times each individual clause fires and what fraction of the outcome each one owns. If the hypothesis says "X causes Y," produce the count showing X causes Y *first*. A one-line tally is cheaper than an experiment grid and would have reframed this one before it was written.
+
+**Category:** anti-pattern
+
+---
+
+### 2026-08-16 — The pre-registration threshold was calibrated against a broken baseline
+
+**What went wrong:** H17's pass bar was "retention ≥ 20%," chosen because the (buggy) baseline was 13%. After the DTE fix the baseline was 52.5–86.5% on three of four tickers, so the bar was cleared by the control arm itself and carried no information. The threshold was correctly left immutable, but only the secondary "net P&L ≥ baseline" clause did any work.
+
+**Why it's wrong:** an absolute threshold encodes an assumption about the current state. When that state turns out to be mismeasured, the threshold silently becomes either trivial or impossible, and the experiment stops testing what it was written to test.
+
+**Rule:** state pass criteria **relative to a baseline computed in the same run** ("retention ≥ baseline + 7pp") rather than as an absolute constant, whenever the baseline comes from a previous experiment rather than from first principles. If an absolute bar is used anyway, re-measure the baseline before freezing the pre-registration, and record the measured baseline *in* the pre-registration.
+
+**Category:** anti-pattern
+
+---
+
+### 2026-08-16 — A hard constraint that was satisfied by construction, and reported as a result
+
+**What went wrong:** Exp 015's pre-registered hard constraint was "0 assignments." Every arm reported 0, and the first write-up presented that as evidence the policies were safe. It was a tautology. The simulator's early-exercise branch requires ITM *and* ex-div ≤ 1 day, and every policy tested — baseline and treatment alike — returns CLOSE_NOW for exactly that state, because H17 deliberately left the EMERGENCY rule in place. No position could ever reach the branch. Across 8,100 trades in 10 arms it fired zero times. The metric that was supposed to be the safety gate never once had the chance to bind.
+
+**Why it's wrong:** a constraint that cannot be violated measures nothing, and reporting it next to real results implies it discriminated between arms when it did not. It also hides that a *future* experiment which loosens exits far enough for positions to survive to an ex-dividend would be the first one where the constraint does any work — and it would be untested.
+
+**Rule:** For every pre-registered hard constraint, prove it is reachable before quoting it as satisfied: count how many times the violating branch fires across the whole run, and if the count is zero, state explicitly that the constraint was non-binding rather than met. A test that only demonstrates the constraint holds in a synthetic scenario the real policies never produce is not coverage.
+
+**Category:** anti-pattern
+
+---
+
+### 2026-08-16 — Quoted a number in a results doc that no committed code could regenerate
+
+**What went wrong:** `results/017_natenberg_emergency.md` presented a counterfactual sweep over delta threshold and safety margin — five rows of suppression and miss counts — as measured, supporting the claim "zero misses is not reachable." The sweep had been run once in a scratchpad script that was never committed. Worse, that script did not replicate the rule's fail-safe, so its registered `(0.95, 1.5)` row disagreed with the experiment's own headline numbers (115/46 vs 106/38) and nobody noticed, because there was nothing to compare it against.
+
+**Why it's wrong:** a results document is a claim about what the code produces. A number in it that no committed script regenerates is unfalsifiable, and an ad-hoc reimplementation of the rule under test will drift from the real one in exactly the ways that matter.
+
+**Rule:** Every number in a results file must come from the committed run script and be persisted to `results.json`. Never compute a supporting figure in a scratchpad and paste it in. Where a diagnostic re-implements logic that the experiment also computes, assert the two agree on the shared cell and print the check — a self-consistency assertion is cheap and catches the drift immediately.
+
+**Category:** anti-pattern
+
+---
+
+### 2026-08-16 — signal_graveyard has never existed in Supabase
+
+**What went wrong:** `db.register_hypothesis()` writes to a `signal_graveyard` table on Supabase, and `db.py` falls back to a local, gitignored SQLite file when the client is unavailable — silently, with no warning and the same return value. The table does not exist in the Supabase schema and never has. Every pre-registration since H01 (2026-03-22) landed in someone's laptop-local `local.db`; only H01–H04 survive anywhere, all still `untested`, despite `register_hypotheses.py` defining 39 hypotheses. The pre-registration discipline the whole research process rests on had no durable store.
+
+**Why it's wrong:** same shape as the 4.5-month chain-capture outage — a write path that cannot report where it wrote. A fallback that is indistinguishable from success turns "we pre-registered this" into an unverifiable claim.
+
+**Rule:** any storage helper with a fallback MUST report which backend it actually used, on every call, in its return value or its log line. Never let "wrote to the durable store" and "wrote to a local temp file" produce identical output. Before relying on a persistence layer for a process guarantee (pre-registration, audit trail, alerting), verify the target table exists by reading it back.
+
+**Category:** anti-pattern
+
+---
+
 ### 2026-08-15 — Write helpers returned attempted count, hiding a 4-month data outage
 
 **What went wrong:** `db.record_chain_snapshot()` wrapped every Supabase upsert in `except Exception: pass` and then `return len(rows)` — the attempted count, not the written count. The Supabase key went stale after 2026-03-30; every write 401'd; the job kept printing "Total: 2675 option chain rows captured" and exiting 0. Daily Option Chain Capture showed a green checkmark for ~2.5 months while writing literally zero rows. `web/src/app/api/paper-trades/route.ts` had the same shape — it discarded `error` from the destructure and served an all-zeros scorecard with HTTP 200.

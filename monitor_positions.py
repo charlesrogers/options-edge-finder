@@ -23,6 +23,30 @@ sys.path.insert(0, os.path.dirname(__file__))
 import yf_proxy
 from position_monitor import assess_position
 
+# H19 / Experiment 017 — shadow mode. This records what a refined EMERGENCY rule
+# WOULD have done so Charles can review real verdicts before deciding whether to
+# loosen the $400K alert. It is research instrumentation bolted onto a
+# safety-critical job, so it is isolated three ways:
+#   1. imported lazily and non-fatally (scipy is not in this job's install set;
+#      a hard `import bsm` at module scope took the whole monitor down)
+#   2. every shadow computation runs inside _shadow_verdict()'s own try/except
+#   3. the log write is separately guarded
+# If any of that fails, the alert path continues exactly as if shadow mode did
+# not exist.
+_SHADOW_IMPORT_ERROR = None
+try:
+    import bsm
+    from position_monitor import assess_position_shadow
+except Exception as _e:            # pragma: no cover — depends on install set
+    bsm = None
+    assess_position_shadow = None
+    _SHADOW_IMPORT_ERROR = f"{type(_e).__name__}: {_e}"
+
+SHADOW_LOG = os.environ.get(
+    "EMERGENCY_SHADOW_LOG",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "emergency_shadow.jsonl"),
+)
+
 # Pushover config
 PUSHOVER_TOKEN = os.environ.get("PUSHOVER_TOKEN", "")
 PUSHOVER_USER = os.environ.get("PUSHOVER_USER", "")
@@ -82,10 +106,82 @@ def send_pushover(title, message, priority=0, sound="pushover"):
         print(f"  [ERROR] {e}")
 
 
+def log_shadow(record):
+    """Append one H19 shadow verdict. Never allowed to break the live monitor."""
+    try:
+        with open(SHADOW_LOG, "a") as f:
+            f.write(json.dumps(record, default=str) + "\n")
+    except Exception as e:
+        # Deliberately non-fatal: a research log must never take down the alert
+        # path. But it is printed, not swallowed (tasks/lessons.md 2026-08-15).
+        print(f"  [shadow-log FAILED] {type(e).__name__}: {e}")
+
+
+def _shadow_verdict(now, ticker, strike, expiration, premium, contracts,
+                    spot, opt_ask, ex_div_str, earn_str, div_yield, alert):
+    """Compute and log the H19 shadow verdict. Returns nothing; raises nothing.
+
+    Every statement that exists only for research lives in here. `alert` is the
+    already-computed LIVE alert and is never modified — if anything in this
+    function goes wrong the caller still has it.
+    """
+    if assess_position_shadow is None:
+        return
+    try:
+        # The dividend AMOUNT is not in the proxy feed — only an annual yield —
+        # so the full annual dividend is used as an upper bound on any single
+        # payment. Over-stating the dividend makes the refined rule fire MORE
+        # often, which is the safe direction. A real per-payment dividend
+        # calendar (Week 1 item 5) would let the rule be tighter. Semi-annual
+        # payers like DIS are why annual/4 was not used.
+        div_amount = None
+        if div_yield is not None:
+            try:
+                div_amount = float(spot) * float(div_yield)
+            except (TypeError, ValueError):
+                div_amount = None
+
+        dte_est = None
+        try:
+            dte_est = max(0, (datetime.strptime(str(expiration)[:10], "%Y-%m-%d")
+                              - now).days)
+        except Exception:
+            pass
+
+        delta_est = None
+        if opt_ask and dte_est is not None and bsm is not None:
+            delta_est = bsm.delta_from_price(opt_ask, spot, strike, dte_est)
+
+        _, shadow = assess_position_shadow(
+            ticker=ticker, strike=strike, expiry=expiration,
+            sold_price=premium, contracts=contracts,
+            current_stock=spot, current_option_ask=opt_ask,
+            ex_div_date=ex_div_str, earnings_date=earn_str,
+            dividend_amount=div_amount, delta=delta_est,
+        )
+
+        if shadow["current_rule_fires"] or shadow["refined_rule_fires"]:
+            log_shadow({
+                "logged_at": now.isoformat(), "ticker": ticker,
+                "strike": strike, "expiration": str(expiration)[:10],
+                "spot": round(spot, 2), "option_ask": opt_ask,
+                "dte": dte_est, "days_to_exdiv": alert.days_to_exdiv,
+                "dividend_source": "annual_yield_upper_bound",
+                "live_level": alert.level, **shadow,
+            })
+            print(f"[shadow:{shadow['disposition']}] ", end="")
+    except Exception as e:
+        print(f"  [shadow FAILED, live alert unaffected] {type(e).__name__}: {e}")
+
+
 def main():
     now = datetime.now()
     print(f"Position Monitor — {now.strftime('%Y-%m-%d %H:%M')}")
     print("=" * 60)
+
+    if _SHADOW_IMPORT_ERROR:
+        print(f"[shadow disabled — {_SHADOW_IMPORT_ERROR}] "
+              "Live alerts are unaffected.")
 
     trades = get_open_trades()
     if not trades:
@@ -130,8 +226,10 @@ def main():
             # Get ex-div date
             ex_div_str = None
             earn_str = None
+            div_yield = None
             try:
                 info = yf_proxy.get_stock_info(ticker)
+                div_yield = info.get("dividendYield")
                 ex_div_ts = info.get("exDividendDate")
                 if ex_div_ts and isinstance(ex_div_ts, (int, float)):
                     ex_div_str = datetime.fromtimestamp(ex_div_ts).strftime("%Y-%m-%d")
@@ -144,13 +242,17 @@ def main():
             except Exception:
                 pass
 
-            # Run copilot
+            # Run copilot — the LIVE path, unchanged from before shadow mode.
             alert = assess_position(
                 ticker=ticker, strike=strike, expiry=expiration,
                 sold_price=premium, contracts=contracts,
                 current_stock=spot, current_option_ask=opt_ask,
                 ex_div_date=ex_div_str, earnings_date=earn_str,
             )
+
+            # Research only. Cannot raise, cannot alter `alert`.
+            _shadow_verdict(now, ticker, strike, expiration, premium, contracts,
+                            spot, opt_ask, ex_div_str, earn_str, div_yield, alert)
 
             level = alert.level
             summary[level] = summary.get(level, 0) + 1

@@ -18,6 +18,9 @@ Priority order:
 """
 
 from datetime import datetime, timedelta
+# Unpatchable aliases: tests patch `position_monitor.datetime` to freeze "now",
+# which would break isinstance() checks against it. Type checks use these.
+from datetime import datetime as _datetime, date as _date
 from dataclasses import dataclass
 from typing import Optional
 
@@ -87,6 +90,24 @@ ITM_PROBABILITY = {
 }
 
 
+def _to_naive_datetime(value):
+    """Coerce str / date / datetime / pandas Timestamp to a tz-naive datetime.
+
+    Backtests hand us pandas Timestamps (sometimes tz-aware); the live app hands
+    us 'YYYY-MM-DD' strings. Mixing the two raises TypeError on subtraction, so
+    everything is normalised here rather than at each call site.
+    """
+    if isinstance(value, str):
+        return _datetime.strptime(value[:10], "%Y-%m-%d")
+    if hasattr(value, "to_pydatetime"):
+        value = value.to_pydatetime()
+    if isinstance(value, _date) and not isinstance(value, _datetime):
+        return _datetime(value.year, value.month, value.day)
+    if getattr(value, "tzinfo", None) is not None:
+        value = value.replace(tzinfo=None)
+    return value
+
+
 def lookup_itm_probability(pct_from_strike, dte):
     """
     Look up probability of finishing ITM from empirical table.
@@ -131,7 +152,7 @@ class PositionAlert:
 
 def assess_position(ticker, strike, expiry, sold_price, contracts,
                      current_stock, current_option_ask=None,
-                     ex_div_date=None, earnings_date=None):
+                     ex_div_date=None, earnings_date=None, as_of=None):
     """
     Assess a covered call position and return an alert.
 
@@ -145,32 +166,24 @@ def assess_position(ticker, strike, expiry, sold_price, contracts,
         current_option_ask: Current ask to buy back (per share)
         ex_div_date: Next ex-dividend date (str or datetime or None)
         earnings_date: Next earnings date (str or datetime or None)
+        as_of: Evaluation date (str YYYY-MM-DD or datetime). Defaults to now.
+               Backtests MUST pass this — otherwise every DTE is measured
+               against the wall clock, which collapses to 0 on historical
+               expiries and silently disables every DTE-conditional rule.
     """
-    today = datetime.now()
+    today = _to_naive_datetime(as_of) if as_of is not None else datetime.now()
 
     # Parse dates
-    if isinstance(expiry, str):
-        expiry_dt = datetime.strptime(expiry, "%Y-%m-%d")
-    else:
-        expiry_dt = expiry
-
+    expiry_dt = _to_naive_datetime(expiry)
     dte = max(0, (expiry_dt - today).days)
 
     days_to_exdiv = None
     if ex_div_date:
-        if isinstance(ex_div_date, str):
-            ex_div_dt = datetime.strptime(ex_div_date, "%Y-%m-%d")
-        else:
-            ex_div_dt = ex_div_date
-        days_to_exdiv = max(0, (ex_div_dt - today).days)
+        days_to_exdiv = max(0, (_to_naive_datetime(ex_div_date) - today).days)
 
     days_to_earnings = None
     if earnings_date:
-        if isinstance(earnings_date, str):
-            earn_dt = datetime.strptime(earnings_date, "%Y-%m-%d")
-        else:
-            earn_dt = earnings_date
-        days_to_earnings = max(0, (earn_dt - today).days)
+        days_to_earnings = max(0, (_to_naive_datetime(earnings_date) - today).days)
 
     # Compute metrics
     pct_from_strike = (strike - current_stock) / current_stock * 100
@@ -425,3 +438,127 @@ def assess_position(ticker, strike, expiry, sold_price, contracts,
                f"Only {p_assignment*100:.0f}% chance of assignment.",
         action=f"Keep holding. {100 - p_assignment*100:.0f}% chance you keep the full premium.",
     )
+
+
+# ============================================================
+# SHADOW MODE — H19 / Experiment 017
+#
+# The refined EMERGENCY rule is NOT wired into assess_position(). It runs
+# alongside the live rule and is logged, nothing more. Switching it on requires
+# Charles's explicit sign-off after reviewing shadow logs. Read
+# experiments/017_natenberg_emergency/README.md before touching any of this.
+# ============================================================
+
+# Natenberg (1994) Ch. 12: an American call is rationally exercised early only
+# when it is trading at parity with delta near 100, and for dividend capture
+# only when the remaining time value is less than the dividend.
+RATIONAL_EXERCISE_DELTA = 0.95
+RATIONAL_EXERCISE_MARGIN = 1.5   # arbitrary safety margin — TUNE UPWARD ONLY
+
+
+def _is_usable_number(value, allow_zero=False):
+    """True only for a real, finite, non-negative number.
+
+    Rejects None, NaN, inf, non-numerics and (unless allow_zero) zero. Used by
+    the fail-safe guards, where "we do not have this input" must be
+    indistinguishable from "we have a nonsense value for this input".
+    """
+    if value is None or isinstance(value, bool):
+        return False
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return False
+    if v != v or v in (float('inf'), float('-inf')):   # NaN / inf
+        return False
+    if v < 0:
+        return False
+    return True if allow_zero else v > 0
+
+
+def rational_exercise_emergency(strike, current_stock, current_option_ask,
+                                days_to_exdiv, dividend_amount, delta=None,
+                                safety_margin=RATIONAL_EXERCISE_MARGIN):
+    """Would a rational holder exercise this call early to capture the dividend?
+
+    Returns (fires, reason). `fires` True means EMERGENCY under the refined rule.
+
+    FAIL-SAFE: any missing input (no option price, no dividend amount, no
+    delta) makes this fire. The refined rule may only ever be *quieter* than
+    the current rule when it has the data to justify silence. Missing data must
+    never buy silence on a $400K alert.
+    """
+    is_itm = current_stock > strike
+    if not is_itm:
+        return False, "not ITM"
+    if days_to_exdiv is None or days_to_exdiv > 3:
+        return False, "no ex-dividend within 3 days"
+
+    # `is None` is not enough. A NaN reaches here whenever an upstream feed
+    # returns a NaN yield or price (float('nan') is not None, and bool(nan) is
+    # True, so it survives every truthiness guard). Left unchecked it silently
+    # wins every comparison below — `extrinsic >= nan` is False, so the rule
+    # falls through to silence. Zero and negative prices are equally
+    # meaningless here. All of them are missing data and must FIRE.
+    if not _is_usable_number(current_option_ask, allow_zero=True):
+        return True, "FAIL-SAFE: no usable option price, cannot rule out early exercise"
+    if not _is_usable_number(dividend_amount):
+        return True, "FAIL-SAFE: no usable dividend amount, cannot rule out early exercise"
+    if not _is_usable_number(delta, allow_zero=True):
+        return True, "FAIL-SAFE: no usable delta, cannot rule out early exercise"
+
+    intrinsic = max(0.0, current_stock - strike)
+    extrinsic = max(0.0, current_option_ask - intrinsic)
+    threshold = dividend_amount * safety_margin
+
+    if extrinsic >= threshold:
+        return False, (f"extrinsic ${extrinsic:.2f} >= dividend ${dividend_amount:.2f} "
+                       f"x {safety_margin} = ${threshold:.2f}; holder gains more by waiting")
+    if delta < RATIONAL_EXERCISE_DELTA:
+        return False, (f"delta {delta:.2f} < {RATIONAL_EXERCISE_DELTA}; "
+                       f"not deep enough for rational exercise")
+
+    return True, (f"ITM, ex-div in {days_to_exdiv}d, extrinsic ${extrinsic:.2f} < "
+                  f"${threshold:.2f}, delta {delta:.2f}. Rational early exercise.")
+
+
+def assess_position_shadow(dividend_amount=None, delta=None,
+                           safety_margin=RATIONAL_EXERCISE_MARGIN, **kwargs):
+    """Run the live rule and the H19 refined rule side by side.
+
+    Returns (live_alert, shadow) where `shadow` describes what the refined rule
+    would have done. The live alert is produced by the untouched
+    assess_position() and is what production acts on.
+    """
+    alert = assess_position(**kwargs)
+    current_fires = alert.level == "EMERGENCY"
+
+    refined_fires, reason = rational_exercise_emergency(
+        strike=kwargs["strike"],
+        current_stock=kwargs["current_stock"],
+        current_option_ask=kwargs.get("current_option_ask"),
+        days_to_exdiv=alert.days_to_exdiv,
+        dividend_amount=dividend_amount,
+        delta=delta,
+        safety_margin=safety_margin,
+    )
+
+    if current_fires and not refined_fires:
+        disposition = "SUPPRESSED"
+    elif current_fires and refined_fires:
+        disposition = "AGREE_FIRE"
+    elif refined_fires:
+        disposition = "REFINED_ONLY"       # should be impossible: refined ⊂ current
+    else:
+        disposition = "AGREE_SILENT"
+
+    return alert, {
+        "current_rule_fires": current_fires,
+        "refined_rule_fires": refined_fires,
+        "disposition": disposition,
+        "reason": reason,
+        "dividend_amount": dividend_amount,
+        "delta": delta,
+        "safety_margin": safety_margin,
+        "p_assignment": alert.p_assignment,
+    }
