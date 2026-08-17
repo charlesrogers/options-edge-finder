@@ -10,11 +10,29 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
+      # fetch-depth: 0 because every check below diffs against the base branch.
+      # The default shallow, single-branch checkout has no `origin/<base>` ref at all, so
+      # `git log origin/main..HEAD` exited 128 ("ambiguous argument") — this gate has
+      # failed on infrastructure, never on content, since it was written. A gate that
+      # cannot pass is not protecting anything.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # BASE is the branch this PR actually targets, not a hardcoded 'main'. Stacked
+      # branches (a Phase 3 PR based on a Phase 1 PR) are normal here, and against
+      # hardcoded main the diff would include the parent PR's commits.
+      - name: Resolve base ref
+        run: |
+          BASE="origin/${{ github.event.pull_request.base.ref }}"
+          git rev-parse --verify "$BASE" >/dev/null 2>&1 || {
+            echo "::error::cannot resolve base ref $BASE"; exit 1; }
+          echo "BASE=$BASE" >> "$GITHUB_ENV"
+          echo "Comparing against $BASE"
 
       - name: Check commit message references an experiment
         run: |
-          COMMITS=$(git log --format="%s" origin/main..HEAD)
+          COMMITS=$(git log --format="%s" "$BASE"..HEAD)
           echo "Commits in this PR:"
           echo "$COMMITS"
 
@@ -30,7 +48,7 @@ jobs:
       - name: Check for one-variable-per-commit
         run: |
           # Count how many tickers changed
-          CHANGED=$(git diff origin/main -- ticker_strategies.py | grep "^[+-].*otm_pct" | wc -l)
+          CHANGED=$(git diff "$BASE" -- ticker_strategies.py | grep -c "^[+-].*otm_pct" || true)
           echo "Ticker parameter lines changed: $CHANGED"
 
           if [ "$CHANGED" -gt 2 ]; then
