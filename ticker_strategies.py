@@ -20,10 +20,20 @@ TICKER_STRATEGIES = {
         'min_dte': 20,
         'max_dte': 45,
         'tier': 'good',
-        'expected_pnl': 447,
-        'expected_win_rate': 89,
-        'expected_trades': 18,
-        'note': 'Exp 014: 15% OTM validated (11% test loss rate, walk-forward). Was 3%.',
+        # Exp 022 (H25 FAIL, -66%): re-derived on cc_sim.py, median of 25 staggered chains.
+        # Read the real-fill line before trusting the headline: TMUS has 56% repricing
+        # coverage, and on exits that were actual Databento prints the same configuration
+        # returns -$81/yr. The positive number is substantially made of carried-forward
+        # prices.
+        'expected_pnl': 151,
+        'expected_win_rate': 92,
+        'expected_trades': 14,
+        'note': 'Exp 014: 15% OTM validated (11% test loss rate, walk-forward). Was 3%. '
+                'Exp 022: $151/yr per contract (chain range -$99..$976), but -$81/yr on '
+                'real-fill exits only — 56% repricing coverage. Exp 023: the IV rank >= 50 '
+                'gate FAILS on TMUS (it blocks 109 entries averaging +$48 and keeps the '
+                'losers); the gate is unevidenced here and stays live only because removing '
+                'a restriction needs its own experiment.',
     },
     'KKR': {
         'otm_pct': 0.15,
