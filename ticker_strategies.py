@@ -40,9 +40,14 @@ TICKER_STRATEGIES = {
         'min_dte': 20,
         'max_dte': 45,
         'tier': 'good',
-        'expected_pnl': 386,
-        'expected_win_rate': 100,
-        'expected_trades': 18,
+        # Exp 022 (H25 FAIL on win rate, -36.7pp): the deployed 100% win rate was an
+        # artefact of the broken clock. Re-derived on cc_sim.py over 753 days, median of 25
+        # staggered chains. KKR has 36.3% repricing coverage — the worst of the set — and on
+        # real-fill exits only the same configuration returns -$88/yr. 61 of its 388
+        # simulated positions never saw a single real quote after entry.
+        'expected_pnl': 316,
+        'expected_win_rate': 63,
+        'expected_trades': 17,
         # Exp 021: at 15% OTM / 20-45 DTE the contract KKR would actually sell trades a
         # MEDIAN of 3 contracts a day (mean 36.7, p25 1, p75 10) across 753 days of
         # Databento volume. Capping at 20% of average daily volume — the spec's arbitrary
@@ -56,7 +61,9 @@ TICKER_STRATEGIES = {
             'strike, which trades a median of 3 contracts a day.'
         ),
         'note': 'Exp 014: 15% OTM validated (0% test loss rate, walk-forward). Was 3%. '
-                'Exp 021: capped at 7 contracts by liquidity.',
+                'Exp 021: capped at 7 contracts by liquidity. Exp 022: $316/yr per '
+                'contract and a 63% win rate (was $386/100%), but -$88/yr on real-fill '
+                'exits only — 36% repricing coverage.',
     },
     'DIS': {
         'otm_pct': 0.07,
