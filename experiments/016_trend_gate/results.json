@@ -7,25 +7,28 @@
         "min_dte": 20,
         "max_dte": 45
       },
-      "split_date": "2025-11-20",
+      "split_date": "2025-12-09",
       "diagnostics": {
         "candidate_days": 251,
-        "entries": 99,
+        "entries": 90,
         "skipped": {
+          "gate_no_data": 9,
           "gate": 138,
           "expiry_beyond_data": 14
         },
         "missing_price_days": 39,
-        "priced_days": 1516,
+        "priced_days": 1288,
         "never_repriced_trades": 0,
         "data_ended_trades": 0,
-        "missing_price_pct": 2.5
+        "stale_exit_fills": 1,
+        "stock_price_gaps": 0,
+        "missing_price_pct": 2.9
       },
       "ungated_test": {
-        "n": 33,
+        "n": 30,
         "losses": 4,
-        "loss_rate": 12.1,
-        "net_pnl": 491.77
+        "loss_rate": 13.3,
+        "net_pnl": 438.07
       },
       "gates": [
         {
@@ -33,10 +36,10 @@
           "feature": "r20",
           "threshold": 0.05,
           "kept": {
-            "n": 27,
+            "n": 24,
             "losses": 4,
-            "loss_rate": 14.8,
-            "net_pnl": 383.73
+            "loss_rate": 16.7,
+            "net_pnl": 330.03
           },
           "skipped": {
             "n": 6,
@@ -44,11 +47,11 @@
             "loss_rate": 0.0,
             "net_pnl": 108.04
           },
-          "skip_pct": 18.2,
+          "skip_pct": 20.0,
           "loss_delta": 0,
-          "relative_reduction_pct": -22.3,
+          "relative_reduction_pct": -25.6,
           "winners_skipped": 6,
-          "winners_fair_share": 144.12,
+          "winners_fair_share": 148.36,
           "pnl_given_up": 108.04,
           "entries_without_trend_data": 0
         },
@@ -57,10 +60,10 @@
           "feature": "r20",
           "threshold": 0.08,
           "kept": {
-            "n": 33,
+            "n": 30,
             "losses": 4,
-            "loss_rate": 12.1,
-            "net_pnl": 491.77
+            "loss_rate": 13.3,
+            "net_pnl": 438.07
           },
           "skipped": {
             "n": 0,
@@ -84,20 +87,20 @@
             "n": 29,
             "losses": 4,
             "loss_rate": 13.8,
-            "net_pnl": 443.38
+            "net_pnl": 431.07
           },
           "skipped": {
-            "n": 4,
+            "n": 1,
             "losses": 0,
             "loss_rate": 0.0,
-            "net_pnl": 48.39
+            "net_pnl": 7.0
           },
-          "skip_pct": 12.1,
+          "skip_pct": 3.3,
           "loss_delta": 0,
-          "relative_reduction_pct": -14.0,
-          "winners_skipped": 4,
-          "winners_fair_share": 96.08,
-          "pnl_given_up": 48.39,
+          "relative_reduction_pct": -3.8,
+          "winners_skipped": 1,
+          "winners_fair_share": 24.73,
+          "pnl_given_up": 7.0,
           "entries_without_trend_data": 0
         },
         {
@@ -105,23 +108,23 @@
           "feature": "r60",
           "threshold": 0.18,
           "kept": {
-            "n": 32,
+            "n": 30,
             "losses": 4,
-            "loss_rate": 12.5,
-            "net_pnl": 482.21
+            "loss_rate": 13.3,
+            "net_pnl": 438.07
           },
           "skipped": {
-            "n": 1,
+            "n": 0,
             "losses": 0,
             "loss_rate": 0.0,
-            "net_pnl": 9.56
+            "net_pnl": 0.0
           },
-          "skip_pct": 3.0,
+          "skip_pct": 0.0,
           "loss_delta": 0,
-          "relative_reduction_pct": -3.3,
-          "winners_skipped": 1,
-          "winners_fair_share": 24.02,
-          "pnl_given_up": 9.56,
+          "relative_reduction_pct": 0.0,
+          "winners_skipped": 0,
+          "winners_fair_share": 0.0,
+          "pnl_given_up": 0.0,
           "entries_without_trend_data": 0
         },
         {
@@ -129,10 +132,10 @@
           "feature": "autocorr_pct",
           "threshold": 70.0,
           "kept": {
-            "n": 26,
+            "n": 23,
             "losses": 0,
             "loss_rate": 0.0,
-            "net_pnl": 589.97
+            "net_pnl": 536.27
           },
           "skipped": {
             "n": 7,
@@ -140,11 +143,11 @@
             "loss_rate": 57.1,
             "net_pnl": -98.2
           },
-          "skip_pct": 21.2,
+          "skip_pct": 23.3,
           "loss_delta": -4,
           "relative_reduction_pct": 100.0,
           "winners_skipped": 3,
-          "winners_fair_share": 72.06,
+          "winners_fair_share": 74.18,
           "pnl_given_up": -98.2,
           "entries_without_trend_data": 0
         },
@@ -153,10 +156,10 @@
           "feature": "autocorr_pct",
           "threshold": 85.0,
           "kept": {
-            "n": 33,
+            "n": 30,
             "losses": 4,
-            "loss_rate": 12.1,
-            "net_pnl": 491.77
+            "loss_rate": 13.3,
+            "net_pnl": 438.07
           },
           "skipped": {
             "n": 0,
@@ -181,25 +184,28 @@
         "min_dte": 20,
         "max_dte": 45
       },
-      "split_date": "2025-11-04",
+      "split_date": "2025-11-11",
       "diagnostics": {
         "candidate_days": 251,
-        "entries": 122,
+        "entries": 113,
         "skipped": {
+          "gate_no_data": 9,
           "gate": 120,
           "expiry_beyond_data": 9
         },
-        "missing_price_days": 883,
-        "priced_days": 1123,
+        "missing_price_days": 750,
+        "priced_days": 983,
         "never_repriced_trades": 2,
         "data_ended_trades": 0,
-        "missing_price_pct": 44.0
+        "stale_exit_fills": 24,
+        "stock_price_gaps": 0,
+        "missing_price_pct": 43.3
       },
       "ungated_test": {
-        "n": 41,
-        "losses": 13,
-        "loss_rate": 31.7,
-        "net_pnl": -3073.21
+        "n": 38,
+        "losses": 14,
+        "loss_rate": 36.8,
+        "net_pnl": -3643.38
       },
       "gates": [
         {
@@ -207,23 +213,23 @@
           "feature": "r20",
           "threshold": 0.05,
           "kept": {
-            "n": 37,
-            "losses": 13,
-            "loss_rate": 35.1,
-            "net_pnl": -3458.85
+            "n": 34,
+            "losses": 14,
+            "loss_rate": 41.2,
+            "net_pnl": -3985.18
           },
           "skipped": {
             "n": 4,
             "losses": 0,
             "loss_rate": 0.0,
-            "net_pnl": 385.64
+            "net_pnl": 341.8
           },
-          "skip_pct": 9.8,
+          "skip_pct": 10.5,
           "loss_delta": 0,
-          "relative_reduction_pct": -10.7,
+          "relative_reduction_pct": -12.0,
           "winners_skipped": 4,
-          "winners_fair_share": 279.5,
-          "pnl_given_up": 385.64,
+          "winners_fair_share": 248.58,
+          "pnl_given_up": 341.8,
           "entries_without_trend_data": 0
         },
         {
@@ -231,23 +237,23 @@
           "feature": "r20",
           "threshold": 0.08,
           "kept": {
-            "n": 37,
-            "losses": 13,
-            "loss_rate": 35.1,
-            "net_pnl": -3458.85
+            "n": 34,
+            "losses": 14,
+            "loss_rate": 41.2,
+            "net_pnl": -3985.18
           },
           "skipped": {
             "n": 4,
             "losses": 0,
             "loss_rate": 0.0,
-            "net_pnl": 385.64
+            "net_pnl": 341.8
           },
-          "skip_pct": 9.8,
+          "skip_pct": 10.5,
           "loss_delta": 0,
-          "relative_reduction_pct": -10.7,
+          "relative_reduction_pct": -12.0,
           "winners_skipped": 4,
-          "winners_fair_share": 279.5,
-          "pnl_given_up": 385.64,
+          "winners_fair_share": 248.58,
+          "pnl_given_up": 341.8,
           "entries_without_trend_data": 0
         },
         {
@@ -255,10 +261,10 @@
           "feature": "r60",
           "threshold": 0.12,
           "kept": {
-            "n": 41,
-            "losses": 13,
-            "loss_rate": 31.7,
-            "net_pnl": -3073.21
+            "n": 38,
+            "losses": 14,
+            "loss_rate": 36.8,
+            "net_pnl": -3643.38
           },
           "skipped": {
             "n": 0,
@@ -279,10 +285,10 @@
           "feature": "r60",
           "threshold": 0.18,
           "kept": {
-            "n": 41,
-            "losses": 13,
-            "loss_rate": 31.7,
-            "net_pnl": -3073.21
+            "n": 38,
+            "losses": 14,
+            "loss_rate": 36.8,
+            "net_pnl": -3643.38
           },
           "skipped": {
             "n": 0,
@@ -303,10 +309,10 @@
           "feature": "autocorr_pct",
           "threshold": 70.0,
           "kept": {
-            "n": 41,
-            "losses": 13,
-            "loss_rate": 31.7,
-            "net_pnl": -3073.21
+            "n": 38,
+            "losses": 14,
+            "loss_rate": 36.8,
+            "net_pnl": -3643.38
           },
           "skipped": {
             "n": 0,
@@ -327,10 +333,10 @@
           "feature": "autocorr_pct",
           "threshold": 85.0,
           "kept": {
-            "n": 41,
-            "losses": 13,
-            "loss_rate": 31.7,
-            "net_pnl": -3073.21
+            "n": 38,
+            "losses": 14,
+            "loss_rate": 36.8,
+            "net_pnl": -3643.38
           },
           "skipped": {
             "n": 0,
@@ -355,25 +361,28 @@
         "min_dte": 20,
         "max_dte": 45
       },
-      "split_date": "2025-03-14",
+      "split_date": "2025-03-19",
       "diagnostics": {
         "candidate_days": 753,
-        "entries": 388,
+        "entries": 379,
         "skipped": {
+          "gate_no_data": 9,
           "gate": 346,
           "expiry_beyond_data": 19
         },
-        "missing_price_days": 3430,
-        "priced_days": 1958,
-        "never_repriced_trades": 61,
+        "missing_price_days": 3193,
+        "priced_days": 1775,
+        "never_repriced_trades": 62,
         "data_ended_trades": 0,
-        "missing_price_pct": 63.7
+        "stale_exit_fills": 123,
+        "stock_price_gaps": 0,
+        "missing_price_pct": 64.3
       },
       "ungated_test": {
-        "n": 129,
-        "losses": 18,
-        "loss_rate": 14.0,
-        "net_pnl": 7615.99
+        "n": 126,
+        "losses": 16,
+        "loss_rate": 12.7,
+        "net_pnl": 7529.35
       },
       "gates": [
         {
@@ -381,23 +390,23 @@
           "feature": "r20",
           "threshold": 0.05,
           "kept": {
-            "n": 111,
-            "losses": 18,
-            "loss_rate": 16.2,
-            "net_pnl": 5824.99
+            "n": 108,
+            "losses": 16,
+            "loss_rate": 14.8,
+            "net_pnl": 5789.22
           },
           "skipped": {
             "n": 18,
             "losses": 0,
             "loss_rate": 0.0,
-            "net_pnl": 1791.0
+            "net_pnl": 1740.13
           },
-          "skip_pct": 14.0,
+          "skip_pct": 14.3,
           "loss_delta": 0,
-          "relative_reduction_pct": -15.7,
+          "relative_reduction_pct": -16.5,
           "winners_skipped": 18,
-          "winners_fair_share": 2216.51,
-          "pnl_given_up": 1791.0,
+          "winners_fair_share": 2137.16,
+          "pnl_given_up": 1740.13,
           "entries_without_trend_data": 0
         },
         {
@@ -405,23 +414,23 @@
           "feature": "r20",
           "threshold": 0.08,
           "kept": {
-            "n": 113,
-            "losses": 18,
-            "loss_rate": 15.9,
-            "net_pnl": 6020.99
+            "n": 110,
+            "losses": 16,
+            "loss_rate": 14.5,
+            "net_pnl": 5953.95
           },
           "skipped": {
             "n": 16,
             "losses": 0,
             "loss_rate": 0.0,
-            "net_pnl": 1595.0
+            "net_pnl": 1575.4
           },
-          "skip_pct": 12.4,
+          "skip_pct": 12.7,
           "loss_delta": 0,
-          "relative_reduction_pct": -13.6,
+          "relative_reduction_pct": -14.2,
           "winners_skipped": 16,
-          "winners_fair_share": 1970.23,
-          "pnl_given_up": 1595.0,
+          "winners_fair_share": 1899.7,
+          "pnl_given_up": 1575.4,
           "entries_without_trend_data": 0
         },
         {
@@ -429,23 +438,23 @@
           "feature": "r60",
           "threshold": 0.12,
           "kept": {
-            "n": 106,
-            "losses": 18,
-            "loss_rate": 17.0,
-            "net_pnl": 4969.16
+            "n": 103,
+            "losses": 16,
+            "loss_rate": 15.5,
+            "net_pnl": 5178.52
           },
           "skipped": {
             "n": 23,
             "losses": 0,
             "loss_rate": 0.0,
-            "net_pnl": 2646.83
+            "net_pnl": 2350.83
           },
-          "skip_pct": 17.8,
+          "skip_pct": 18.3,
           "loss_delta": 0,
-          "relative_reduction_pct": -21.4,
+          "relative_reduction_pct": -22.0,
           "winners_skipped": 20,
-          "winners_fair_share": 2462.79,
-          "pnl_given_up": 2646.83,
+          "winners_fair_share": 2374.63,
+          "pnl_given_up": 2350.83,
           "entries_without_trend_data": 0
         },
         {
@@ -453,23 +462,23 @@
           "feature": "r60",
           "threshold": 0.18,
           "kept": {
-            "n": 117,
-            "losses": 18,
-            "loss_rate": 15.4,
-            "net_pnl": 5945.16
+            "n": 114,
+            "losses": 16,
+            "loss_rate": 14.0,
+            "net_pnl": 6154.52
           },
           "skipped": {
             "n": 12,
             "losses": 0,
             "loss_rate": 0.0,
-            "net_pnl": 1670.83
+            "net_pnl": 1374.83
           },
-          "skip_pct": 9.3,
+          "skip_pct": 9.5,
           "loss_delta": 0,
-          "relative_reduction_pct": -10.0,
+          "relative_reduction_pct": -10.2,
           "winners_skipped": 12,
-          "winners_fair_share": 1477.67,
-          "pnl_given_up": 1670.83,
+          "winners_fair_share": 1424.78,
+          "pnl_given_up": 1374.83,
           "entries_without_trend_data": 0
         },
         {
@@ -477,10 +486,10 @@
           "feature": "autocorr_pct",
           "threshold": 70.0,
           "kept": {
-            "n": 128,
-            "losses": 17,
-            "loss_rate": 13.3,
-            "net_pnl": 8199.99
+            "n": 125,
+            "losses": 15,
+            "loss_rate": 12.0,
+            "net_pnl": 8113.35
           },
           "skipped": {
             "n": 1,
@@ -490,7 +499,7 @@
           },
           "skip_pct": 0.8,
           "loss_delta": -1,
-          "relative_reduction_pct": 5.0,
+          "relative_reduction_pct": 5.5,
           "winners_skipped": 0,
           "winners_fair_share": 0.0,
           "pnl_given_up": -584.0,
@@ -501,10 +510,10 @@
           "feature": "autocorr_pct",
           "threshold": 85.0,
           "kept": {
-            "n": 128,
-            "losses": 17,
-            "loss_rate": 13.3,
-            "net_pnl": 8199.99
+            "n": 125,
+            "losses": 15,
+            "loss_rate": 12.0,
+            "net_pnl": 8113.35
           },
           "skipped": {
             "n": 1,
@@ -514,7 +523,7 @@
           },
           "skip_pct": 0.8,
           "loss_delta": -1,
-          "relative_reduction_pct": 5.0,
+          "relative_reduction_pct": 5.5,
           "winners_skipped": 0,
           "winners_fair_share": 0.0,
           "pnl_given_up": -584.0,
@@ -529,25 +538,28 @@
         "min_dte": 30,
         "max_dte": 60
       },
-      "split_date": "2025-10-24",
+      "split_date": "2025-10-29",
       "diagnostics": {
         "candidate_days": 251,
-        "entries": 126,
+        "entries": 117,
         "skipped": {
+          "gate_no_data": 9,
           "gate": 110,
           "expiry_beyond_data": 15
         },
-        "missing_price_days": 245,
-        "priced_days": 1466,
+        "missing_price_days": 188,
+        "priced_days": 1331,
         "never_repriced_trades": 0,
         "data_ended_trades": 0,
-        "missing_price_pct": 14.3
+        "stale_exit_fills": 22,
+        "stock_price_gaps": 0,
+        "missing_price_pct": 12.4
       },
       "ungated_test": {
-        "n": 42,
+        "n": 39,
         "losses": 2,
-        "loss_rate": 4.8,
-        "net_pnl": 5873.03
+        "loss_rate": 5.1,
+        "net_pnl": 5258.37
       },
       "gates": [
         {
@@ -555,10 +567,10 @@
           "feature": "r20",
           "threshold": 0.05,
           "kept": {
-            "n": 42,
+            "n": 39,
             "losses": 2,
-            "loss_rate": 4.8,
-            "net_pnl": 5873.03
+            "loss_rate": 5.1,
+            "net_pnl": 5258.37
           },
           "skipped": {
             "n": 0,
@@ -579,10 +591,10 @@
           "feature": "r20",
           "threshold": 0.08,
           "kept": {
-            "n": 42,
+            "n": 39,
             "losses": 2,
-            "loss_rate": 4.8,
-            "net_pnl": 5873.03
+            "loss_rate": 5.1,
+            "net_pnl": 5258.37
           },
           "skipped": {
             "n": 0,
@@ -603,10 +615,10 @@
           "feature": "r60",
           "threshold": 0.12,
           "kept": {
-            "n": 42,
+            "n": 39,
             "losses": 2,
-            "loss_rate": 4.8,
-            "net_pnl": 5873.03
+            "loss_rate": 5.1,
+            "net_pnl": 5258.37
           },
           "skipped": {
             "n": 0,
@@ -627,10 +639,10 @@
           "feature": "r60",
           "threshold": 0.18,
           "kept": {
-            "n": 42,
+            "n": 39,
             "losses": 2,
-            "loss_rate": 4.8,
-            "net_pnl": 5873.03
+            "loss_rate": 5.1,
+            "net_pnl": 5258.37
           },
           "skipped": {
             "n": 0,
@@ -651,10 +663,10 @@
           "feature": "autocorr_pct",
           "threshold": 70.0,
           "kept": {
-            "n": 42,
+            "n": 39,
             "losses": 2,
-            "loss_rate": 4.8,
-            "net_pnl": 5873.03
+            "loss_rate": 5.1,
+            "net_pnl": 5258.37
           },
           "skipped": {
             "n": 0,
@@ -675,10 +687,10 @@
           "feature": "autocorr_pct",
           "threshold": 85.0,
           "kept": {
-            "n": 42,
+            "n": 39,
             "losses": 2,
-            "loss_rate": 4.8,
-            "net_pnl": 5873.03
+            "loss_rate": 5.1,
+            "net_pnl": 5258.37
           },
           "skipped": {
             "n": 0,
@@ -703,25 +715,28 @@
         "min_dte": 20,
         "max_dte": 45
       },
-      "split_date": "2025-10-29",
+      "split_date": "2025-11-04",
       "diagnostics": {
         "candidate_days": 251,
-        "entries": 120,
+        "entries": 111,
         "skipped": {
+          "gate_no_data": 9,
           "gate": 118,
           "expiry_beyond_data": 13
         },
-        "missing_price_days": 222,
-        "priced_days": 1181,
+        "missing_price_days": 172,
+        "priced_days": 1042,
         "never_repriced_trades": 0,
         "data_ended_trades": 0,
-        "missing_price_pct": 15.8
+        "stale_exit_fills": 15,
+        "stock_price_gaps": 0,
+        "missing_price_pct": 14.2
       },
       "ungated_test": {
-        "n": 40,
-        "losses": 30,
-        "loss_rate": 75.0,
-        "net_pnl": -11888.28
+        "n": 37,
+        "losses": 31,
+        "loss_rate": 83.8,
+        "net_pnl": -12558.04
       },
       "gates": [
         {
@@ -729,23 +744,23 @@
           "feature": "r20",
           "threshold": 0.05,
           "kept": {
-            "n": 22,
+            "n": 19,
             "losses": 18,
-            "loss_rate": 81.8,
-            "net_pnl": -8229.27
+            "loss_rate": 94.7,
+            "net_pnl": -8419.06
           },
           "skipped": {
             "n": 18,
-            "losses": 12,
-            "loss_rate": 66.7,
-            "net_pnl": -3659.01
+            "losses": 13,
+            "loss_rate": 72.2,
+            "net_pnl": -4138.98
           },
-          "skip_pct": 45.0,
-          "loss_delta": -12,
-          "relative_reduction_pct": -9.1,
-          "winners_skipped": 6,
-          "winners_fair_share": 905.19,
-          "pnl_given_up": -3659.01,
+          "skip_pct": 48.6,
+          "loss_delta": -13,
+          "relative_reduction_pct": -13.0,
+          "winners_skipped": 5,
+          "winners_fair_share": 824.44,
+          "pnl_given_up": -4138.98,
           "entries_without_trend_data": 0
         },
         {
@@ -753,23 +768,23 @@
           "feature": "r20",
           "threshold": 0.08,
           "kept": {
-            "n": 27,
-            "losses": 22,
-            "loss_rate": 81.5,
-            "net_pnl": -10171.8
+            "n": 24,
+            "losses": 23,
+            "loss_rate": 95.8,
+            "net_pnl": -10425.09
           },
           "skipped": {
             "n": 13,
             "losses": 8,
             "loss_rate": 61.5,
-            "net_pnl": -1716.48
+            "net_pnl": -2132.95
           },
-          "skip_pct": 32.5,
+          "skip_pct": 35.1,
           "loss_delta": -8,
-          "relative_reduction_pct": -8.7,
+          "relative_reduction_pct": -14.3,
           "winners_skipped": 5,
-          "winners_fair_share": 754.32,
-          "pnl_given_up": -1716.48,
+          "winners_fair_share": 824.44,
+          "pnl_given_up": -2132.95,
           "entries_without_trend_data": 0
         },
         {
@@ -777,23 +792,23 @@
           "feature": "r60",
           "threshold": 0.12,
           "kept": {
-            "n": 33,
-            "losses": 26,
-            "loss_rate": 78.8,
-            "net_pnl": -10736.16
+            "n": 30,
+            "losses": 27,
+            "loss_rate": 90.0,
+            "net_pnl": -11378.92
           },
           "skipped": {
             "n": 7,
             "losses": 4,
             "loss_rate": 57.1,
-            "net_pnl": -1152.12
+            "net_pnl": -1179.12
           },
-          "skip_pct": 17.5,
+          "skip_pct": 18.9,
           "loss_delta": -4,
-          "relative_reduction_pct": -5.1,
+          "relative_reduction_pct": -7.4,
           "winners_skipped": 3,
-          "winners_fair_share": 452.6,
-          "pnl_given_up": -1152.12,
+          "winners_fair_share": 494.66,
+          "pnl_given_up": -1179.12,
           "entries_without_trend_data": 0
         },
         {
@@ -801,23 +816,23 @@
           "feature": "r60",
           "threshold": 0.18,
           "kept": {
-            "n": 36,
-            "losses": 29,
-            "loss_rate": 80.6,
-            "net_pnl": -12131.13
+            "n": 33,
+            "losses": 30,
+            "loss_rate": 90.9,
+            "net_pnl": -12773.89
           },
           "skipped": {
             "n": 4,
             "losses": 1,
             "loss_rate": 25.0,
-            "net_pnl": 242.85
+            "net_pnl": 215.85
           },
-          "skip_pct": 10.0,
+          "skip_pct": 10.8,
           "loss_delta": -1,
-          "relative_reduction_pct": -7.5,
+          "relative_reduction_pct": -8.5,
           "winners_skipped": 3,
-          "winners_fair_share": 452.6,
-          "pnl_given_up": 242.85,
+          "winners_fair_share": 494.66,
+          "pnl_given_up": 215.85,
           "entries_without_trend_data": 0
         },
         {
@@ -825,10 +840,10 @@
           "feature": "autocorr_pct",
           "threshold": 70.0,
           "kept": {
-            "n": 40,
-            "losses": 30,
-            "loss_rate": 75.0,
-            "net_pnl": -11888.28
+            "n": 37,
+            "losses": 31,
+            "loss_rate": 83.8,
+            "net_pnl": -12558.04
           },
           "skipped": {
             "n": 0,
@@ -849,10 +864,10 @@
           "feature": "autocorr_pct",
           "threshold": 85.0,
           "kept": {
-            "n": 40,
-            "losses": 30,
-            "loss_rate": 75.0,
-            "net_pnl": -11888.28
+            "n": 37,
+            "losses": 31,
+            "loss_rate": 83.8,
+            "net_pnl": -12558.04
           },
           "skipped": {
             "n": 0,

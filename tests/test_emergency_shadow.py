@@ -99,6 +99,45 @@ class TestFailSafe:
         fires, _ = self._call(current_option_ask=None, dividend_amount=None, delta=None)
         assert fires is True
 
+    # `is None` is not enough. A NaN dividend reaches this function whenever the
+    # Yahoo proxy returns a NaN yield: float('nan') is not None and bool(nan) is
+    # True, so it survives every truthiness guard upstream. Unchecked it wins
+    # every comparison inside the rule (`extrinsic >= nan` is False) and the
+    # rule falls through to SILENCE — missing data buying silence on the $400K
+    # alert, which is the one thing this rule may never do.
+    @pytest.mark.parametrize('bad', [float('nan'), float('inf'), -1.0, 'x'])
+    def test_bad_dividend_fires(self, bad):
+        fires, reason = self._call(dividend_amount=bad, delta=0.99)
+        assert fires is True, f'dividend_amount={bad!r} produced silence'
+        assert 'FAIL-SAFE' in reason
+
+    def test_zero_dividend_fires(self):
+        """A zero dividend makes the threshold zero, so every position looks
+        like 'holder gains more by waiting'. Zero means no data here."""
+        fires, reason = self._call(dividend_amount=0.0, delta=0.99)
+        assert fires is True
+        assert 'FAIL-SAFE' in reason
+
+    @pytest.mark.parametrize('bad', [float('nan'), float('inf'), -1.0, 'x'])
+    def test_bad_option_price_fires(self, bad):
+        fires, reason = self._call(current_option_ask=bad, delta=0.60)
+        assert fires is True, f'current_option_ask={bad!r} produced silence'
+        assert 'FAIL-SAFE' in reason
+
+    @pytest.mark.parametrize('bad', [float('nan'), float('inf'), -0.5, 'x'])
+    def test_bad_delta_fires(self, bad):
+        fires, reason = self._call(delta=bad)
+        assert fires is True, f'delta={bad!r} produced silence'
+        assert 'FAIL-SAFE' in reason
+
+    def test_nan_cannot_reach_silence_through_any_single_input(self):
+        """Belt and braces: NaN in any one slot, everything else valid."""
+        nan = float('nan')
+        for kw in ({'dividend_amount': nan}, {'current_option_ask': nan},
+                   {'delta': nan}):
+            fires, reason = self._call(**kw)
+            assert fires is True, f'{kw} produced silence: {reason}'
+
 
 # ============================================================
 # The refined rule must be a strict subset of the current rule
@@ -182,10 +221,26 @@ class TestBSM:
         assert bsm.delta_from_price(200.0, 100, 100, 30) is None
 
     def test_zero_dte_is_a_step_function(self):
-        assert bsm.delta_from_price(5.0, 105, 100, 0) == 1.0
-        assert bsm.delta_from_price(0.0, 95, 100, 0) == 0.0
+        """At 0 DTE delta is decided by moneyness alone; the price argument is
+        not consulted. Asserted explicitly with contradictory prices so this
+        cannot silently start depending on the price."""
+        for price in (5.0, 0.0, None, 999.0):
+            assert bsm.delta_from_price(price, 105, 100, 0) == 1.0
+            assert bsm.delta_from_price(price, 95, 100, 0) == 0.0
+
+    def test_delta_round_trips_at_the_same_maturity(self):
+        """Price and invert at the SAME T, so a real inversion error would show
+        up instead of being absorbed by a loose threshold."""
+        T_days = 30
+        T = T_days / 365.0
+        price = bsm.call_price(100, 130, T, bsm.DEFAULT_RISK_FREE, 0.25)
+        d = bsm.delta_from_price(price, 100, 130, T_days)
+        expected = bsm.call_delta(100, 130, T, bsm.DEFAULT_RISK_FREE, 0.25)
+        assert d == pytest.approx(expected, abs=1e-3)
 
     def test_a_far_otm_call_has_low_delta(self):
-        price = bsm.call_price(100, 130, 0.08, 0.04, 0.25)
-        d = bsm.delta_from_price(price, 100, 130, 30)
+        T_days = 30
+        price = bsm.call_price(100, 130, T_days / 365.0, bsm.DEFAULT_RISK_FREE, 0.25)
+        d = bsm.delta_from_price(price, 100, 130, T_days)
         assert d < RATIONAL_EXERCISE_DELTA
+        assert d < 0.10   # it is genuinely far OTM, not merely under the bar

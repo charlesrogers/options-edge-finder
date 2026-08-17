@@ -186,6 +186,46 @@ def analyse(events):
     }
 
 
+def counterfactual_sweep(events):
+    """Re-score the SAME observed events under other delta/margin settings.
+
+    Diagnosis only — H19 is decided on the pre-registered (0.95, 1.5) pair
+    alone, and this sweep is NOT a re-grid looking for a passing setting. It
+    exists to answer one question: is zero misses reachable by tuning at all?
+    Printed and persisted so the claim in results/017 can be regenerated rather
+    than taken on trust.
+    """
+    rows = []
+    for delta_thresh in (0.95, 0.90, 0.85, 0.80, 0.0):
+        for margin in (1.5, 2.0, 3.0):
+            suppressed = []
+            for e in events:
+                # Must replicate the real rule's FAIL-SAFE, or the sweep quietly
+                # counts missing-data events as suppressions and reports both a
+                # higher suppression rate and more misses than the rule can
+                # actually produce. The (0.95, 1.5) row is asserted below to
+                # reproduce the headline numbers exactly.
+                if (e['option_price'] is None or e['dividend'] is None
+                        or e['delta'] is None):
+                    fires = True                       # fail-safe
+                else:
+                    fires = (e['delta'] >= delta_thresh
+                             and e['extrinsic'] < e['dividend'] * margin)
+                if not fires:
+                    suppressed.append(e)
+            misses = [e for e in suppressed
+                      if e['exercised_at_this_event']
+                      or e['table_p_assignment'] >= ASSIGNMENT_TABLE_CERTAINTY]
+            rows.append({
+                'delta_threshold': delta_thresh, 'safety_margin': margin,
+                'suppressed': len(suppressed),
+                'suppression_pct': round(len(suppressed) / len(events) * 100, 1)
+                                   if events else 0.0,
+                'misses': len(misses),
+            })
+    return rows
+
+
 def main():
     print('=' * 92)
     print('EXPERIMENT 017 (H19): EMERGENCY Rational-Exercise Refinement')
@@ -248,6 +288,35 @@ def main():
               'shadow logging')
         print('  AND explicit sign-off from Charles before any production change.')
 
+    sweep = counterfactual_sweep(all_events)
+    # Self-consistency: the registered (0.95, 1.5) cell must reproduce the
+    # headline numbers, or the sweep is measuring a different rule than the one
+    # that produced the verdict.
+    registered = next((r for r in sweep if r['delta_threshold'] == 0.95
+                       and r['safety_margin'] == 1.5), None)
+    if registered and combined.get('events'):
+        ok = (registered['suppressed'] == combined['suppressed']
+              and registered['misses'] == combined['missed_total'])
+        print(f'\n  [sweep self-check] registered cell reproduces headline: '
+              f'{"YES" if ok else "NO"} '
+              f'(sweep {registered["suppressed"]}/{registered["misses"]} vs '
+              f'headline {combined["suppressed"]}/{combined["missed_total"]})')
+
+    print('\n' + '=' * 92)
+    print('COUNTERFACTUAL SWEEP — is zero misses reachable by tuning at all?')
+    print('(diagnosis only; the verdict above stands on the pre-registered pair)')
+    print('=' * 92)
+    print(f'  {"delta >=":>9} {"margin":>7} {"suppressed":>12} {"suppression%":>13} '
+          f'{"misses":>8}')
+    for r in sweep:
+        print(f'  {r["delta_threshold"]:>9.2f} {r["safety_margin"]:>7.1f} '
+              f'{r["suppressed"]:>12d} {r["suppression_pct"]:>12.1f}% '
+              f'{r["misses"]:>8d}')
+    if sweep and min(r['misses'] for r in sweep) > 0:
+        print(f'\n  Minimum misses over the whole sweep: '
+              f'{min(r["misses"] for r in sweep)}. Zero is not reachable — the '
+              f'failure is structural, not a tuning problem.')
+
     print('\n  Partial circularity, stated plainly: the simulator\'s early-exercise')
     print('  trigger (extrinsic < dividend) and the refined rule share a term, so the')
     print('  "missed actual exercise" count mostly tests the delta and 1.5x margin')
@@ -258,6 +327,7 @@ def main():
     with open(out, 'w') as f:
         json.dump({'verdict': verdict, 'combined': combined,
                    'per_ticker': per_ticker, 'events': all_events,
+                   'counterfactual_sweep': sweep,
                    'min_events_for_a_verdict': MIN_EVENTS_FOR_A_VERDICT,
                    'suppression_target_pct': SUPPRESSION_TARGET},
                   f, indent=2, default=str)

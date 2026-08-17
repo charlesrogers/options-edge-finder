@@ -42,8 +42,10 @@ probability triggers, and should be pre-registered fresh:
 
 - H20 as written is dead. A new hypothesis (H24 or later) would be "rolling at CLOSE_SOON
   under the current rules beats closing, walk-forward, with 0 assignments."
-- The simulator supports it: `experiments/cc_sim.py` already carries cumulative premium and
-  cumulative buyback fields on `Trade`, and `n_rolls` is present but unused.
+- The simulator does **not** yet support it. An earlier revision of this file claimed
+  `Trade` "already carries cumulative premium and cumulative buyback fields" — it does not.
+  `Trade` has single-leg `premium` and `buyback` only; `n_rolls` exists but is never set.
+  Rolling needs cumulative fields added and `run_cohort` taught to re-open a position.
 - It should be sequenced after the take-profit hypothesis from `results/015_*.md`
   (follow-up 1), since the take-profit clause is what generates almost all CLOSE_SOON
   verdicts and changing it changes what there is to roll.

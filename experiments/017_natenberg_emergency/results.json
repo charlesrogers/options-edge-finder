@@ -1509,7 +1509,7 @@
       "delta": null,
       "current_fires": true,
       "refined_fires": true,
-      "refined_reason": "FAIL-SAFE: delta unavailable, cannot rule out early exercise",
+      "refined_reason": "FAIL-SAFE: no usable delta, cannot rule out early exercise",
       "table_p_assignment": 0.986,
       "exercised_early_on": "2024-02-15",
       "exercised_at_this_event": false,
@@ -1609,7 +1609,7 @@
       "delta": null,
       "current_fires": true,
       "refined_fires": true,
-      "refined_reason": "FAIL-SAFE: delta unavailable, cannot rule out early exercise",
+      "refined_reason": "FAIL-SAFE: no usable delta, cannot rule out early exercise",
       "table_p_assignment": 0.986,
       "exercised_early_on": "2024-02-15",
       "exercised_at_this_event": false,
@@ -1709,7 +1709,7 @@
       "delta": null,
       "current_fires": true,
       "refined_fires": true,
-      "refined_reason": "FAIL-SAFE: delta unavailable, cannot rule out early exercise",
+      "refined_reason": "FAIL-SAFE: no usable delta, cannot rule out early exercise",
       "table_p_assignment": 0.986,
       "exercised_early_on": "2024-02-15",
       "exercised_at_this_event": false,
@@ -1809,7 +1809,7 @@
       "delta": null,
       "current_fires": true,
       "refined_fires": true,
-      "refined_reason": "FAIL-SAFE: delta unavailable, cannot rule out early exercise",
+      "refined_reason": "FAIL-SAFE: no usable delta, cannot rule out early exercise",
       "table_p_assignment": 0.986,
       "exercised_early_on": "2024-02-15",
       "exercised_at_this_event": false,
@@ -1959,7 +1959,7 @@
       "delta": null,
       "current_fires": true,
       "refined_fires": true,
-      "refined_reason": "FAIL-SAFE: delta unavailable, cannot rule out early exercise",
+      "refined_reason": "FAIL-SAFE: no usable delta, cannot rule out early exercise",
       "table_p_assignment": 0.967,
       "exercised_early_on": "2024-02-15",
       "exercised_at_this_event": true,
@@ -2134,7 +2134,7 @@
       "delta": null,
       "current_fires": true,
       "refined_fires": true,
-      "refined_reason": "FAIL-SAFE: delta unavailable, cannot rule out early exercise",
+      "refined_reason": "FAIL-SAFE: no usable delta, cannot rule out early exercise",
       "table_p_assignment": 0.967,
       "exercised_early_on": "2024-02-15",
       "exercised_at_this_event": true,
@@ -2309,7 +2309,7 @@
       "delta": null,
       "current_fires": true,
       "refined_fires": true,
-      "refined_reason": "FAIL-SAFE: delta unavailable, cannot rule out early exercise",
+      "refined_reason": "FAIL-SAFE: no usable delta, cannot rule out early exercise",
       "table_p_assignment": 0.832,
       "exercised_early_on": "2024-02-14",
       "exercised_at_this_event": true,
@@ -2684,7 +2684,7 @@
       "delta": null,
       "current_fires": true,
       "refined_fires": true,
-      "refined_reason": "FAIL-SAFE: delta unavailable, cannot rule out early exercise",
+      "refined_reason": "FAIL-SAFE: no usable delta, cannot rule out early exercise",
       "table_p_assignment": 0.832,
       "exercised_early_on": "2024-05-10",
       "exercised_at_this_event": true,
@@ -3109,7 +3109,7 @@
       "delta": null,
       "current_fires": true,
       "refined_fires": true,
-      "refined_reason": "FAIL-SAFE: delta unavailable, cannot rule out early exercise",
+      "refined_reason": "FAIL-SAFE: no usable delta, cannot rule out early exercise",
       "table_p_assignment": 0.897,
       "exercised_early_on": "2025-04-30",
       "exercised_at_this_event": false,
@@ -4439,6 +4439,113 @@
       "exercised_early_on": null,
       "exercised_at_this_event": false,
       "finished_itm": false
+    }
+  ],
+  "counterfactual_sweep": [
+    {
+      "delta_threshold": 0.95,
+      "safety_margin": 1.5,
+      "suppressed": 106,
+      "suppression_pct": 61.6,
+      "misses": 38
+    },
+    {
+      "delta_threshold": 0.95,
+      "safety_margin": 2.0,
+      "suppressed": 106,
+      "suppression_pct": 61.6,
+      "misses": 38
+    },
+    {
+      "delta_threshold": 0.95,
+      "safety_margin": 3.0,
+      "suppressed": 106,
+      "suppression_pct": 61.6,
+      "misses": 38
+    },
+    {
+      "delta_threshold": 0.9,
+      "safety_margin": 1.5,
+      "suppressed": 95,
+      "suppression_pct": 55.2,
+      "misses": 28
+    },
+    {
+      "delta_threshold": 0.9,
+      "safety_margin": 2.0,
+      "suppressed": 94,
+      "suppression_pct": 54.7,
+      "misses": 27
+    },
+    {
+      "delta_threshold": 0.9,
+      "safety_margin": 3.0,
+      "suppressed": 93,
+      "suppression_pct": 54.1,
+      "misses": 26
+    },
+    {
+      "delta_threshold": 0.85,
+      "safety_margin": 1.5,
+      "suppressed": 89,
+      "suppression_pct": 51.7,
+      "misses": 28
+    },
+    {
+      "delta_threshold": 0.85,
+      "safety_margin": 2.0,
+      "suppressed": 86,
+      "suppression_pct": 50.0,
+      "misses": 25
+    },
+    {
+      "delta_threshold": 0.85,
+      "safety_margin": 3.0,
+      "suppressed": 81,
+      "suppression_pct": 47.1,
+      "misses": 20
+    },
+    {
+      "delta_threshold": 0.8,
+      "safety_margin": 1.5,
+      "suppressed": 83,
+      "suppression_pct": 48.3,
+      "misses": 22
+    },
+    {
+      "delta_threshold": 0.8,
+      "safety_margin": 2.0,
+      "suppressed": 80,
+      "suppression_pct": 46.5,
+      "misses": 19
+    },
+    {
+      "delta_threshold": 0.8,
+      "safety_margin": 3.0,
+      "suppressed": 75,
+      "suppression_pct": 43.6,
+      "misses": 14
+    },
+    {
+      "delta_threshold": 0.0,
+      "safety_margin": 1.5,
+      "suppressed": 80,
+      "suppression_pct": 46.5,
+      "misses": 21
+    },
+    {
+      "delta_threshold": 0.0,
+      "safety_margin": 2.0,
+      "suppressed": 67,
+      "suppression_pct": 39.0,
+      "misses": 18
+    },
+    {
+      "delta_threshold": 0.0,
+      "safety_margin": 3.0,
+      "suppressed": 52,
+      "suppression_pct": 30.2,
+      "misses": 12
     }
   ],
   "min_events_for_a_verdict": 20,

@@ -22,8 +22,15 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
+      # scipy is needed by bsm.py for the H19 shadow-mode delta. monitor_positions
+      # imports it lazily and keeps alerting without it, but without scipy the
+      # shadow log stays empty — so install it here rather than silently
+      # collecting nothing for two weeks.
       - name: Install dependencies
-        run: pip install requests numpy pandas supabase yfinance
+        run: pip install requests numpy pandas scipy supabase yfinance
+
+      - name: Import smoke test
+        run: python3 -c "import monitor_positions, position_monitor, bsm"
 
       - name: Monitor positions
         env:
@@ -32,6 +39,18 @@ jobs:
           PUSHOVER_TOKEN: ${{ secrets.PUSHOVER_TOKEN }}
           PUSHOVER_USER: ${{ secrets.PUSHOVER_USER }}
         run: python3 monitor_positions.py
+
+      # The runner is ephemeral and emergency_shadow.jsonl is gitignored, so
+      # without this the H19 shadow log is destroyed at the end of every run and
+      # the pre-registered "2 weeks of shadow logging" would collect nothing.
+      - name: Retain H19 shadow log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emergency-shadow-${{ github.run_id }}
+          path: emergency_shadow.jsonl
+          retention-days: 90
+          if-no-files-found: ignore
 
       - name: Alert Discord on failure
         if: failure()

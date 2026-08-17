@@ -139,25 +139,29 @@ passing pair.
 - Primary (spec literal, selects on test): **1 / 4 tickers** — needed ≥ 3.
 - Secondary (train-selected → test, honest walk-forward): **0 / 4 tickers** — needed ≥ 3.
 
-Test-period retention, baseline vs best probability arm:
+Test-period retention, baseline vs best probability arm (post-review simulator):
 
-| Ticker | Baseline | Best arm | Assignments in best arm |
-|---|---|---|---|
-| AAPL | 52.5% | 57.9% (+$1.50/entry, t=0.36 — noise) | 0 |
-| DIS | 86.5% | 26.5% | 0 |
-| TMUS | −79.7% | −17.9% | 0 (2 at CLOSE_NOW P>35%) |
-| KKR | 34.1% | 21.5% | 0 |
+| Ticker | Baseline | Best arm | Assignments | Stale exit fills (baseline) |
+|---|---|---|---|---|
+| AAPL | 49.1% | 59.9% (+$3.20/entry, t=0.69 — noise) | 0 | 3.6% |
+| DIS | 84.8% | 23.5% | 0 | 25.6% |
+| TMUS | −98.2% | −14.7% | 0 | 3.0% |
+| KKR | 34.5% | 22.5% | 0 | **44.4%** |
 
-Two things the pre-registration could not have known:
+Three things the pre-registration could not have known:
 
-1. The corrected baseline is 52.5–86.5% retention, not 13%. The "≥ 20%" bar is cleared by
+1. The corrected baseline is 49.1–84.8% retention, not 13%. The "≥ 20%" bar is cleared by
    the baseline itself on 3 of 4 tickers; the binding clause was "net P&L ≥ baseline". The
    bar was left immutable.
-2. The hypothesis's premise is wrong. 39–95% of baseline exits come from the
+2. The hypothesis's premise is wrong. 42–95% of baseline exits come from the
    75%-premium-captured take-profit clause, not from distance triggers. The probability
    policy deletes that clause, which is the mechanism of the failure.
+3. The "0 assignments" hard constraint was **non-binding by construction** — every arm
+   keeps the EMERGENCY and ITM CLOSE_NOW rules, so no position ever survived to an
+   ex-dividend or an expiry. Zero assignments here is a tautology, not a safety result.
 
-No re-grid was run.
+No re-grid was run. An independent correctness review found six engine defects after the
+first run; all were fixed and the experiment re-run. The verdict was unchanged.
 
 ## Gate 3-5: Deployment
 

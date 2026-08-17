@@ -93,14 +93,22 @@ already dead and no re-registration is implied**):
 
 | Delta threshold | Margin | Suppressed | Misses |
 |---|---|---|---|
-| 0.95 (registered) | 1.5 (registered) | 106 / 172 (62%) | 38 |
-| 0.90 | 1.5 | 95 (55%) | 28 |
-| 0.85 | 3.0 | 81 (47%) | 20 |
-| 0.80 | 3.0 | 75 (44%) | 14 |
-| delta dropped entirely | 3.0 | 52 (30%) | **12** |
+| **0.95 (registered)** | **1.5 (registered)** | **106 / 172 (61.6%)** | **38** |
+| 0.90 | 1.5 | 95 (55.2%) | 28 |
+| 0.90 | 3.0 | 93 (54.1%) | 26 |
+| 0.85 | 3.0 | 81 (47.1%) | 20 |
+| 0.80 | 2.0 | 80 (46.5%) | 19 |
+| 0.80 | 3.0 | 75 (43.6%) | 14 |
+| delta dropped entirely | 3.0 | 52 (30.2%) | **12** |
 
 Zero is not reachable. Even deleting the delta condition and tripling the safety margin
 leaves 12 misses, all of them table-≥90% cases.
+
+This sweep is produced by `counterfactual_sweep()` in the run script and persisted to
+`results.json`, and the script asserts that its registered `(0.95, 1.5)` cell reproduces the
+headline numbers exactly — it does (106 suppressed / 38 misses). An earlier revision quoted
+these figures from an ad-hoc calculation that did not replicate the rule's fail-safe, and
+was wrong in the registered row.
 
 The reason is a category error in the hypothesis. The current rule fires on **ITM + ex-div ≤
 3 days**, and that condition is doing two jobs at once:
@@ -129,6 +137,16 @@ requiring a different experiment.
   (`extrinsic < dividend`) shares a term with the refined rule, so "missed actual exercise"
   mostly tests the delta and margin conditions. The table-≥90% check and the finished-ITM
   statistic are independent of that trigger, and both point the same way.
+- **Extrinsic value is computed from the wrong side of the market.** The rational-exercise
+  decision belongs to the option *holder*, who compares exercising against selling at the
+  **bid**. This rule uses a Databento trade print (backtest) or a mid quote (live). Both
+  overstate the time value the holder can actually realise, so `extrinsic` is biased high,
+  so the suppression condition triggers more often than it should — the **unsafe**
+  direction. The 1.5x margin does not cover this, because it scales with the dividend, not
+  with the spread. Concretely: DIS, dividend $0.25, threshold $0.375, a $2.00 option quoted
+  1.75 x 2.25 — mid gives extrinsic $0.40 and suppresses, bid gives $0.15 and fires. The
+  61.6% suppression rate is therefore an **over**estimate of what a correctly-quoted rule
+  would suppress. It does not change the FAIL, which is driven by the delta condition.
 
 ## What shipped anyway: shadow mode
 

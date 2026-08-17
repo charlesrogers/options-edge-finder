@@ -82,12 +82,23 @@ class ChainData:
     iv_rank: dict            # 'YYYY-MM-DD' -> percentile 0-100
     trend: pd.DataFrame = None   # trend features indexed by date (Exp 016)
 
+    spot_gaps: list = field(default_factory=list)   # dates with no same-day close
+
     def spot(self, date):
-        """Stock close on `date`, or the next available trading day."""
+        """Stock close on `date`. None if that day has no close.
+
+        This used to fall back to the NEXT available trading day, which every
+        caller consumes at decision time — strike selection, the daily policy
+        evaluation, expiry settlement, the IV-rank ATM normalisation. That turns
+        a data gap into look-ahead. Verified never to have fired on the
+        committed caches (0 of 1,757 option days across the 5 tickers are
+        missing a same-day close), so no published result depended on it, but
+        a gap must surface as missing data rather than as tomorrow's price.
+        """
         if date in self.stock.index:
             return float(self.stock.loc[date])
-        later = self.stock[self.stock.index >= date]
-        return float(later.iloc[0]) if len(later) else None
+        self.spot_gaps.append(date)
+        return None
 
     def next_exdiv(self, date):
         """Next ex-dividend (date, amount) on or after `date`, or (None, None)."""
@@ -179,16 +190,17 @@ def compute_iv_rank(calls, stock):
     what the backtest must use.
     """
     proxy = {}
+    skipped = {'no_spot': 0, 'no_dte_band': 0}
     for date, day in calls.groupby('date'):
-        spot = None
-        later = stock[stock.index >= date]
-        if len(later):
-            spot = float(later.iloc[0])
+        # Same-day close only — no next-day fallback, which would be look-ahead.
+        spot = float(stock.loc[date]) if date in stock.index else None
         if not spot:
+            skipped['no_spot'] += 1
             continue
         dte = (day['expiration'] - date).dt.days
         band = day[(dte >= 20) & (dte <= 45)]
         if band.empty:
+            skipped['no_dte_band'] += 1
             continue
         atm = band.iloc[(band['strike'] - spot).abs().argmin()]
         proxy[date] = float(atm['close']) / spot * 100
@@ -197,8 +209,20 @@ def compute_iv_rank(calls, stock):
     ranks = {}
     for i, (date, val) in enumerate(series.items()):
         window = series.iloc[max(0, i - 60):i + 1]
-        ranks[str(date)[:10]] = ((window < val).sum() / len(window) * 100
-                                 if len(window) >= 10 else 50.0)
+        if len(window) < 10:
+            # Not enough history to rank. This used to return a hardcoded 50.0,
+            # which passes the `>= 50` production gate — so the first ~10 days of
+            # every ticker entered unconditionally on a fabricated rank, and
+            # were counted as if the gate had approved them. Return None instead
+            # and let the gate report it as missing data.
+            ranks[str(date)[:10]] = None
+            continue
+        ranks[str(date)[:10]] = (window < val).sum() / len(window) * 100
+
+    if any(skipped.values()):
+        print(f'    [iv_rank] {skipped["no_spot"]} days without a same-day stock '
+              f'close, {skipped["no_dte_band"]} without a 20-45 DTE contract '
+              f'— no rank computed for those days', flush=True)
     return ranks
 
 
@@ -382,6 +406,12 @@ class Trade:
     missing_price_days: int
     priced_days: int
     verdict_at_exit: str
+    # True when the buyback was filled at a carried-forward price because the
+    # contract did not trade on the exit date. The exit fill is the single
+    # number that sets P&L, so a stale one means this trade's P&L is synthetic.
+    # Counting missing days across the position is not enough — the exit day is
+    # the one that matters.
+    exit_price_is_stale: bool = False
     n_rolls: int = 0
 
 
@@ -390,6 +420,7 @@ def run_cohort(chain, entry_date, cfg, policy):
 
     Returns (Trade, reason_if_no_trade).
     """
+    cfg = {**DEFAULT_CFG, **cfg}   # callable directly, not only via run()
     spot = chain.spot(entry_date)
     if spot is None:
         return None, 'no_spot'
@@ -417,7 +448,8 @@ def run_cohort(chain, entry_date, cfg, policy):
 
     days = [d for d in chain.option_days if entry_date < d <= expiration]
 
-    def settle(date, buyback, reason, assigned, atype, verdict, exit_spot):
+    def settle(date, buyback, reason, assigned, atype, verdict, exit_spot,
+               fill_is_stale=False):
         return Trade(
             ticker=chain.ticker, entry_date=str(entry_date)[:10],
             exit_date=str(date)[:10], symbol=symbol, strike=strike,
@@ -428,12 +460,16 @@ def run_cohort(chain, entry_date, cfg, policy):
             assigned=assigned, assignment_type=atype,
             days_held=(date - entry_date).days,
             missing_price_days=missing, priced_days=priced,
-            verdict_at_exit=verdict,
+            verdict_at_exit=verdict, exit_price_is_stale=fill_is_stale,
         )
 
+    unpriced_stock_days = 0
     for date in days:
         day_spot = chain.spot(date)
         if day_spot is None:
+            # No stock close: the position cannot be evaluated OR settled today.
+            # Counted, never silent (tasks/lessons.md 2026-03-23).
+            unpriced_stock_days += 1
             continue
 
         px = chain.price.get((symbol, date))
@@ -473,15 +509,16 @@ def run_cohort(chain, entry_date, cfg, policy):
 
         if action == CLOSE_NOW:
             return settle(date, px * (1 + cfg['slippage']), 'policy_close_now',
-                          False, '', verdict, day_spot), None
+                          False, '', verdict, day_spot, fill_is_stale=stale), None
 
         if action == CLOSE_SOON:
             if close_soon_armed_on is None:
                 close_soon_armed_on = date
             if (date - close_soon_armed_on).days >= cfg['close_soon_days']:
                 return settle(date, px * (1 + cfg['slippage']),
-                              'policy_close_soon', False, '', verdict, day_spot), None
-        else:
+                              'policy_close_soon', False, '', verdict, day_spot,
+                              fill_is_stale=stale), None
+        elif not cfg['close_soon_sticky']:
             close_soon_armed_on = None
 
         # --- rational early exercise into the dividend (Natenberg Ch. 12) ---
@@ -497,7 +534,8 @@ def run_cohort(chain, entry_date, cfg, policy):
     final_date = days[-1] if days else entry_date
     final_spot = chain.spot(final_date) or spot
     return settle(final_date, last_price * (1 + cfg['slippage']),
-                  'data_ended', False, '', 'NO_DATA', final_spot), None
+                  'data_ended', False, '', 'NO_DATA', final_spot,
+                  fill_is_stale=True), None
 
 
 # ============================================================
@@ -548,6 +586,13 @@ DEFAULT_CFG = {
     'max_dte': 45,
     'slippage': 0.0,
     'close_soon_days': 5,
+    # Once CLOSE_SOON fires, the instruction ("Close this week") stands even if
+    # the alert drops back to WATCH the next day — the live app does not un-say
+    # it. With sticky=False the clock resets on any non-CLOSE_SOON day, which
+    # lets an oscillating position never close on that channel, and does so
+    # asymmetrically between arms (the two policies oscillate on different
+    # days), so the paired design would not cancel it out.
+    'close_soon_sticky': True,
 }
 
 
@@ -575,7 +620,10 @@ def run(chain, cfg, policy, gate=None, progress_every=50, label=''):
 
         ok, why = gate(chain, date, spot)
         if not ok:
-            skipped['gate'] = skipped.get('gate', 0) + 1
+            # "the gate rejected this day" and "the gate had no data for this
+            # day" are different facts and must not share a counter.
+            key = 'gate_no_data' if why in ('no_iv_rank', 'no_trend_data') else 'gate'
+            skipped[key] = skipped.get(key, 0) + 1
             continue
 
         trade, reason = run_cohort(chain, date, cfg, policy)
@@ -594,6 +642,8 @@ def run(chain, cfg, policy, gate=None, progress_every=50, label=''):
         # life was the carried-forward entry price. Reported, never hidden.
         'never_repriced_trades': sum(1 for t in trades if t.priced_days == 0),
         'data_ended_trades': sum(1 for t in trades if t.exit_reason == 'data_ended'),
+        'stale_exit_fills': sum(1 for t in trades if t.exit_price_is_stale),
+        'stock_price_gaps': len(chain.spot_gaps),
     }
     total_days = diagnostics['missing_price_days'] + diagnostics['priced_days']
     diagnostics['missing_price_pct'] = round(
@@ -613,7 +663,9 @@ def score(trades):
                 'early_assignments': 0, 'expiry_assignments': 0,
                 'win_rate': 0.0, 'loss_rate': 0.0, 'worst_trade': 0.0,
                 'avg_pnl': 0.0, 'avg_days_held': 0.0, 'buyback_count': 0,
-                'held_to_expiry': 0}
+                'held_to_expiry': 0, 'policy_exits': 0, 'stale_fill_exits': 0,
+                'stale_fill_pct': 0.0, 'pnl_from_stale_fills': 0.0,
+                'pnl_from_real_fills': 0.0}
 
     gross = sum(t.premium for t in trades) * 100
     buyback = sum(t.buyback for t in trades) * 100
@@ -625,12 +677,25 @@ def score(trades):
     bought_back = sum(1 for t in trades if t.exit_reason.startswith('policy_'))
     expired = sum(1 for t in trades if t.exit_reason.startswith('expiry'))
 
+    # How much of this P&L is real? A policy exit filled at a carried-forward
+    # price is a synthetic number. Reported next to the headline so retention
+    # can never be quoted without its data quality.
+    policy_exits = [t for t in trades if t.exit_reason.startswith('policy_')]
+    stale_exits = [t for t in policy_exits if t.exit_price_is_stale]
+    real_exits = [t for t in policy_exits if not t.exit_price_is_stale]
+
     return {
         'n_trades': len(trades),
         'gross_premium': round(gross, 2),
         'total_buyback': round(buyback, 2),
         'net_pnl': round(net, 2),
         'retention_pct': round(net / gross * 100, 1) if gross > 0 else 0.0,
+        'policy_exits': len(policy_exits),
+        'stale_fill_exits': len(stale_exits),
+        'stale_fill_pct': round(len(stale_exits) / len(policy_exits) * 100, 1)
+                          if policy_exits else 0.0,
+        'pnl_from_stale_fills': round(sum(t.pnl_per_share for t in stale_exits) * 100, 2),
+        'pnl_from_real_fills': round(sum(t.pnl_per_share for t in real_exits) * 100, 2),
         'assignments': early + expiry,
         'early_assignments': early,
         'expiry_assignments': expiry,

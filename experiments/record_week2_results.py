@@ -21,30 +21,35 @@ import signal_registry
 RESULTS = [
     dict(
         signal_id='H17', passed=False, layer=2,
-        metrics={'n_trades': 245, 'tickers_passing_primary': '1/4',
+        metrics={'n_trades': 233, 'tickers_passing_primary': '1/4',
                  'tickers_passing_walkforward': '0/4',
-                 'baseline_test_retention_pct': 'AAPL 52.5 / DIS 86.5 / TMUS -79.7 / KKR 34.1',
-                 'best_arm_test_retention_pct': 'AAPL 57.9 / DIS 26.5 / TMUS -17.9 / KKR 21.5',
-                 'assignments_introduced': 'TMUS 2 at CLOSE_NOW P>35%',
+                 'baseline_test_retention_pct': 'AAPL 49.1 / DIS 84.8 / TMUS -98.2 / KKR 34.5',
+                 'best_arm_test_retention_pct': 'AAPL 59.9 / DIS 23.5 / TMUS -14.7 / KKR 22.5',
+                 'assignments': '0 in every arm, but non-binding by construction',
+                 'stale_exit_fills_baseline': 'AAPL 3.6% / DIS 25.6% / TMUS 3.0% / KKR 44.4%',
                  'result_file': 'results/015_probability_buybacks.md'},
         failure_reason=(
-            'Probability triggers lose to the corrected baseline on 3 of 4 tickers and '
-            'admit 2 assignments on TMUS. Premise was also wrong: 39-95% of baseline '
-            'closes come from the 75%-premium-captured take-profit clause, not from '
-            'distance triggers, and the probability policy deletes it. The 13% baseline '
-            'from Exp 009 was an artefact of assess_position() evaluating every '
-            'historical observation at DTE=0 (fixed in 8040440).'),
+            'Probability triggers lose to the corrected baseline on 3 of 4 tickers. '
+            'Premise was also wrong: 42-95% of baseline closes come from the '
+            '75%-premium-captured take-profit clause, not from distance triggers, and the '
+            'probability policy deletes it. The 13% baseline from Exp 009 was an artefact '
+            'of assess_position() evaluating every historical observation at DTE=0 (fixed '
+            'in 8040440). Caveats: the 0-assignment constraint never bound (every arm '
+            'keeps EMERGENCY + ITM CLOSE_NOW, so nothing survived to an ex-div or expiry); '
+            'the treatment arm is in-sample because the ITM_PROBABILITY table was fit on '
+            'the same AAPL/KKR windows; only AAPL is measured on clean fills (KKR 44% of '
+            'exits are carried-forward prices).'),
     ),
     dict(
         signal_id='H18', passed=False, layer=2,
-        metrics={'n_trades': 245, 'gates_tested': 6, 'targets_qualifying': '0-1 of 2',
+        metrics={'n_trades': 233, 'gates_tested': 6, 'targets_qualifying': '0-1 of 2',
                  'control_drift': 'KKR -1 loss on autocorr gates, DIS 0 on all',
-                 'gates_making_it_worse': '5 of 6',
+                 'gates_making_it_worse': '4 of 6 (other 2 suppress nothing)',
                  'result_file': 'results/016_trend_gate.md'},
         failure_reason=(
             'No gate cleared >=30% relative loss reduction on >=2 loss-bearing tickers. '
-            'Five of six gates raise the loss rate. The single hit (AAPL autocorr '
-            'percentile>70, 4 losses -> 0) rests on 4 losses in 33 trades, moves a '
+            'Four of six gates raise the loss rate. The single hit (AAPL autocorr '
+            'percentile>70, 4 losses -> 0) rests on 4 losses in 30 trades, moves a '
             'control, and is the worst gate on GOOGL. Controls behaved correctly, so '
             'the framework is sound and the answer is no. GOOGL — the ticker that '
             'motivated the hypothesis — has 5 days of option data and cannot be tested.'),

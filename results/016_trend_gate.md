@@ -8,13 +8,18 @@ hypotheses: ["H18: suppressing call sales in strong uptrends cuts loss rate >=30
 status: completed
 verdict: FAIL
 deployed: false
-finding: "H18 FAILS on all six candidate gates. Five of six make the loss rate WORSE on the loss-bearing tickers. The one apparent hit — 252-day autocorrelation percentile > 70 removing all four AAPL test losses — rests on 4 losses in 33 trades and simultaneously moves a control ticker, which is exactly the pattern the control design exists to catch. The controls behaved correctly throughout (KKR/DIS moved by at most 1 loss), so the framework is sound and the answer is simply no."
+finding: "H18 FAILS on all six candidate gates. Four of six make the loss rate WORSE on the loss-bearing tickers, two do nothing. The one apparent hit — 252-day autocorrelation percentile > 70 removing all four AAPL test losses — rests on 4 losses in 30 trades and simultaneously moves a control ticker, which is exactly the pattern the control design exists to catch. The controls behaved correctly throughout (KKR/DIS moved by at most 1 loss), so the framework is sound and the answer is simply no."
 ---
 
 # Experiment 016: Trend Gate on Call Entry (H18)
 
 **Pre-registration:** `experiments/016_trend_gate/README.md` (frozen before the run)
 **Reproduce:** `python3 experiments/016_trend_gate/run.py`
+
+> **Revision note.** Re-run on the post-review simulator (stale-fill tracking,
+> sticky CLOSE_SOON, no `spot()` look-ahead fallback, no fabricated IV rank).
+> **The verdict did not change.** Individual percentages moved; the table below
+> is the corrected run.
 
 ## Verdict: FAIL
 
@@ -23,15 +28,15 @@ loss-bearing tickers, ≤ 25% entries skipped, controls unmoved).
 
 | Gate | AAPL | TMUS | Targets qualifying | Controls | Verdict |
 |---|---|---|---|---|---|
-| 20d return > +5% | −22% rel / skip 18% | −11% rel / skip 10% | 0 / 2 | OK | FAIL |
-| 20d return > +8% | 0% / skip 0% | −11% rel / skip 10% | 0 / 2 | OK | FAIL |
-| 60d return > +12% | −14% rel / skip 12% | 0% / skip 0% | 0 / 2 | OK | FAIL |
-| 60d return > +18% | −3% rel / skip 3% | 0% / skip 0% | 0 / 2 | OK | FAIL |
-| autocorr pctile > 70 | **+100% rel / skip 21%** | 0% / skip 0% | 1 / 2 | OK (KKR −1) | FAIL |
+| 20d return > +5% | −26% rel / skip 20% | −12% rel / skip 10% | 0 / 2 | OK | FAIL |
+| 20d return > +8% | 0% / skip 0% | −12% rel / skip 10% | 0 / 2 | OK | FAIL |
+| 60d return > +12% | −4% rel / skip 3% | 0% / skip 0% | 0 / 2 | OK | FAIL |
+| 60d return > +18% | 0% / skip 0% | 0% / skip 0% | 0 / 2 | OK | FAIL |
+| autocorr pctile > 70 | **+100% rel / skip 23%** | 0% / skip 0% | 1 / 2 | OK (KKR −1) | FAIL |
 | autocorr pctile > 85 | 0% / skip 0% | 0% / skip 0% | 0 / 2 | OK | FAIL |
 
-Positive = loss rate reduced. **Five of six gates make the loss rate worse**, i.e. the trades
-they suppress were disproportionately winners.
+Positive = loss rate reduced. **Four of six gates make the loss rate worse** (the other two
+suppress nothing at all), i.e. the trades they suppress were disproportionately winners.
 
 ## Method
 
@@ -60,36 +65,40 @@ broken, not the market.
 
 DIS skipped **zero** entries under every gate — its test window contains no strong-uptrend
 days by any of these definitions. KKR skipped 9–18% of entries and its loss count did not
-move at all under the return-based gates. The controls behaved exactly as the design
+move at all under the return-based gates. AAPL is the cleaner target on data quality
+(2.9% missing price days vs TMUS's 43.3%), and it is the ticker carrying the one apparent
+hit — so the hit cannot be dismissed as a data artefact, only as a small-sample one. The controls behaved exactly as the design
 predicted, which is the reason to trust the target results.
 
 ## Target results in detail (test period)
 
-### AAPL — 15% OTM, 99 entries, split 2025-11-20, ungated 4/33 losses (12.1%), net $492
+### AAPL — 15% OTM, 90 entries, split 2025-12-09, ungated 4/30 losses (13.3%), net $438
 
 | Gate | Skip | Losses | Rel. reduction | Net P&L | P&L given up | Winners' fair share |
 |---|---|---|---|---|---|---|
-| r20 > 5% | 18.2% | 4 → 4 | −22.3% | $384 | $108 | $144 |
-| r20 > 8% | 0.0% | 4 → 4 | 0% | $492 | $0 | $0 |
-| r60 > 12% | 12.1% | 4 → 4 | −14.0% | $443 | $48 | $96 |
-| r60 > 18% | 3.0% | 4 → 4 | −3.3% | $482 | $10 | $24 |
-| autocorr > 70 | 21.2% | **4 → 0** | +100% | $590 | −$98 | $72 |
-| autocorr > 85 | 0.0% | 4 → 4 | 0% | $492 | $0 | $0 |
+| r20 > 5% | 20.0% | 4 → 4 | −25.6% | $330 | $108 | $148 |
+| r20 > 8% | 0.0% | 4 → 4 | 0% | $438 | $0 | $0 |
+| r60 > 12% | 3.3% | 4 → 4 | −3.8% | $431 | $7 | $25 |
+| r60 > 18% | 0.0% | 4 → 4 | 0% | $438 | $0 | $0 |
+| autocorr > 70 | 23.3% | **4 → 0** | +100% | $536 | −$98 | $74 |
+| autocorr > 85 | 0.0% | 4 → 4 | 0% | $438 | $0 | $0 |
 
 The return gates skip trades without removing a single loss — the loss *rate* rises purely
 because the denominator shrank.
 
-### TMUS — 15% OTM, 122 entries, split 2025-11-04, ungated 13/41 losses (31.7%), net −$3,073
+### TMUS — 15% OTM, 113 entries, split 2025-11-11, ungated 14/38 losses (36.8%), net −$3,643
 
-Not one gate removed a single TMUS loss. `r20 > 5%` and `r20 > 8%` skipped 9.8% of entries,
-all winners (net fell from −$3,073 to −$3,459). The 60-day and autocorrelation gates skipped
+Not one gate removed a single TMUS loss. `r20 > 5%` and `r20 > 8%` skipped 10.5% of entries,
+all winners (net fell from −$3,643 to −$3,985). The 60-day and autocorrelation gates skipped
 nothing at all.
 
-### TXN — reference only (production tier = skip), ungated 30/40 losses (75%), net −$11,888
+TMUS has 43.3% missing price days at 15% OTM, so its per-trade loss labels are partly
+computed off carried-forward fills. It is the weaker of the two targets on data quality.
 
-`r20 > 5%` skipped 45% of entries and cut losses 30 → 18 — but that is a 45% skip rate,
-nearly double the pre-registered 25% ceiling, and the loss *rate* still rose. TXN is not
-counted.
+### TXN — reference only (production tier = skip), ungated 31/37 losses (83.8%), net −$12,558
+
+`r20 > 5%` skipped 48.6% of entries and cut losses 31 → 18 — but that is nearly double the
+pre-registered 25% ceiling, and the loss *rate* still rose. TXN is not counted.
 
 ### GOOGL — DIRECTIONAL ESTIMATE ONLY, NOT DEPLOYABLE
 
@@ -112,11 +121,11 @@ hypothesis even as a directional hint.
 
 ## Why the single apparent hit is not a finding
 
-`autocorr pctile > 70` removed all 4 of AAPL's test losses while skipping 21% of entries. It
+`autocorr pctile > 70` removed all 4 of AAPL's test losses while skipping 23% of entries. It
 fails the pass criterion (needs 2 targets, got 1), but it is worth saying why it would still
 not be a discovery if a second ticker had come along:
 
-1. **n = 4 losses.** Removing 4 losses out of 33 trades by skipping 7 entries is a 1-in-a-few
+1. **n = 4 losses.** Removing 4 losses out of 30 trades by skipping 7 entries is a 1-in-a-few
    coincidence, not an effect.
 2. **It moved a control.** KKR lost one loss under the same gate. Within the ±1 tolerance,
    but pointing the same direction as the "improvement."

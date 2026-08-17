@@ -121,12 +121,27 @@ class TestPnLAccounting:
         trade, _ = run_cohort(chain, chain.option_days[0], cfg, ALWAYS)
         assert trade.buyback == pytest.approx(1.05)
 
-    def test_covered_call_pnl_never_exceeds_premium(self):
-        """Sanity invariant: you cannot make more than you sold it for."""
+    def test_covered_call_best_case_is_exactly_the_premium(self):
+        """The best possible outcome is expiring worthless and keeping 100% of
+        the premium — never more. (The old version of this test asserted
+        pnl <= premium, which is identically true because pnl = premium -
+        buyback and buyback >= 0. It could not fail.)"""
         chain = build_chain(spots=[95, 90, 85, 80] + [80] * 6,
                             prices=[2.00] + [0.01] * 9)
         trade, _ = run_cohort(chain, chain.option_days[0], CFG, NEVER)
-        assert trade.pnl_per_share <= trade.premium + 1e-9
+        assert trade.exit_reason == 'expiry_worthless'
+        assert trade.buyback == 0.0
+        assert trade.pnl_per_share == pytest.approx(trade.premium)
+
+    def test_buyback_is_never_negative(self):
+        """The invariant that makes the bound above meaningful."""
+        for spots, prices in ([[95] * 10, [2.0] + [0.01] * 9],
+                              [[95] * 9 + [108], [2.0] + [1.0] * 9],
+                              [[95] * 10, [3.0, 1.25] + [1.0] * 8]):
+            chain = build_chain(spots=spots, prices=prices)
+            for policy in (NEVER, ALWAYS):
+                trade, _ = run_cohort(chain, chain.option_days[0], CFG, policy)
+                assert trade.buyback >= 0.0
 
 
 # ============================================================
@@ -246,6 +261,26 @@ class TestCloseSoonDelay:
         assert trade.exit_reason == 'policy_close_soon'
         assert trade.days_held <= 1   # the very first bar after entry
 
+    def test_close_soon_is_sticky_across_a_hold_day(self):
+        """The live alert does not un-say "close this week". A clock that resets
+        on any HOLD day lets an oscillating position never close on that
+        channel — and it does so on different days for different policies, so
+        the paired design would not cancel it out."""
+        calls = {'n': 0}
+
+        def oscillate(ctx):
+            calls['n'] += 1
+            return (HOLD, 'H') if calls['n'] % 2 == 0 else (CLOSE_SOON, 'S')
+
+        chain = build_chain(spots=[95] * 14, prices=[2.00] + [1.0] * 13)
+        sticky, _ = run_cohort(chain, chain.option_days[0], CFG, oscillate)
+        assert sticky.exit_reason == 'policy_close_soon'
+
+        calls['n'] = 0
+        resetting, _ = run_cohort(chain, chain.option_days[0],
+                                  {**CFG, 'close_soon_sticky': False}, oscillate)
+        assert resetting.exit_reason != 'policy_close_soon'
+
     def test_close_now_beats_an_armed_close_soon(self):
         calls = {'n': 0}
 
@@ -280,6 +315,42 @@ class TestMissingPrices:
         trades, diag = cc_sim.run(chain, CFG, NEVER, progress_every=0)
         assert diag['never_repriced_trades'] >= 1
         assert diag['missing_price_pct'] > 0
+
+    def test_exit_fill_at_a_stale_price_is_flagged(self):
+        """The exit fill sets P&L. A fill at a price that did not trade that day
+        is synthetic and must be marked, or retention gets quoted as if it were
+        measured."""
+        chain = build_chain(spots=[95] * 10, prices=[2.00, None] + [0.5] * 8)
+        trade, _ = run_cohort(chain, chain.option_days[0], CFG, ALWAYS)
+        assert trade.exit_reason == 'policy_close_now'
+        assert trade.exit_price_is_stale is True
+        assert trade.buyback == pytest.approx(2.00)   # carried from entry
+
+    def test_exit_fill_at_a_real_price_is_not_flagged(self):
+        chain = build_chain(spots=[95] * 10, prices=[2.00, 1.25] + [1.0] * 8)
+        trade, _ = run_cohort(chain, chain.option_days[0], CFG, ALWAYS)
+        assert trade.exit_price_is_stale is False
+
+    def test_score_reports_the_stale_fill_split(self):
+        stale = build_chain(spots=[95] * 10, prices=[2.00, None] + [0.5] * 8)
+        t1, _ = run_cohort(stale, stale.option_days[0], CFG, ALWAYS)
+        real = build_chain(spots=[95] * 10, prices=[2.00, 1.25] + [1.0] * 8)
+        t2, _ = run_cohort(real, real.option_days[0], CFG, ALWAYS)
+        s = cc_sim.score([t1, t2])
+        assert s['policy_exits'] == 2
+        assert s['stale_fill_exits'] == 1
+        assert s['stale_fill_pct'] == 50.0
+        assert s['pnl_from_stale_fills'] + s['pnl_from_real_fills'] == \
+            pytest.approx(s['net_pnl'])
+
+    def test_missing_stock_close_is_counted_not_silently_skipped(self):
+        """A day with no stock close must not silently vanish — and spot() must
+        NOT reach forward to the next trading day, which would be look-ahead."""
+        chain = build_chain(spots=[95] * 8, prices=[2.00] + [1.0] * 7)
+        gap = chain.option_days[3]
+        chain.stock = chain.stock.drop(gap)
+        assert chain.spot(gap) is None
+        assert gap in chain.spot_gaps
 
     def test_entry_beyond_data_window_is_rejected_not_truncated(self):
         chain = build_chain(spots=[95] * 5, prices=[2.00] * 5, expiry_offset=400,

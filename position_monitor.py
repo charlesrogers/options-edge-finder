@@ -456,6 +456,26 @@ RATIONAL_EXERCISE_DELTA = 0.95
 RATIONAL_EXERCISE_MARGIN = 1.5   # arbitrary safety margin — TUNE UPWARD ONLY
 
 
+def _is_usable_number(value, allow_zero=False):
+    """True only for a real, finite, non-negative number.
+
+    Rejects None, NaN, inf, non-numerics and (unless allow_zero) zero. Used by
+    the fail-safe guards, where "we do not have this input" must be
+    indistinguishable from "we have a nonsense value for this input".
+    """
+    if value is None or isinstance(value, bool):
+        return False
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return False
+    if v != v or v in (float('inf'), float('-inf')):   # NaN / inf
+        return False
+    if v < 0:
+        return False
+    return True if allow_zero else v > 0
+
+
 def rational_exercise_emergency(strike, current_stock, current_option_ask,
                                 days_to_exdiv, dividend_amount, delta=None,
                                 safety_margin=RATIONAL_EXERCISE_MARGIN):
@@ -474,12 +494,18 @@ def rational_exercise_emergency(strike, current_stock, current_option_ask,
     if days_to_exdiv is None or days_to_exdiv > 3:
         return False, "no ex-dividend within 3 days"
 
-    if current_option_ask is None:
-        return True, "FAIL-SAFE: no option price, cannot rule out early exercise"
-    if dividend_amount is None:
-        return True, "FAIL-SAFE: dividend amount unknown, cannot rule out early exercise"
-    if delta is None:
-        return True, "FAIL-SAFE: delta unavailable, cannot rule out early exercise"
+    # `is None` is not enough. A NaN reaches here whenever an upstream feed
+    # returns a NaN yield or price (float('nan') is not None, and bool(nan) is
+    # True, so it survives every truthiness guard). Left unchecked it silently
+    # wins every comparison below — `extrinsic >= nan` is False, so the rule
+    # falls through to silence. Zero and negative prices are equally
+    # meaningless here. All of them are missing data and must FIRE.
+    if not _is_usable_number(current_option_ask, allow_zero=True):
+        return True, "FAIL-SAFE: no usable option price, cannot rule out early exercise"
+    if not _is_usable_number(dividend_amount):
+        return True, "FAIL-SAFE: no usable dividend amount, cannot rule out early exercise"
+    if not _is_usable_number(delta, allow_zero=True):
+        return True, "FAIL-SAFE: no usable delta, cannot rule out early exercise"
 
     intrinsic = max(0.0, current_stock - strike)
     extrinsic = max(0.0, current_option_ask - intrinsic)
