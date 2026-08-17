@@ -19,7 +19,9 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
-        run: pip install pytest numpy scipy pandas
+        # `requests` is needed to import monitor_positions — the failure-policy
+        # tests exercise the live alerting path, so it must be importable here.
+        run: pip install pytest numpy scipy pandas requests
 
       - name: Run tests
         run: python -m pytest tests/ -v
