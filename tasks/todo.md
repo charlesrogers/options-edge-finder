@@ -65,6 +65,25 @@ cohorts** (25 start offsets per ticker) so each configuration is evaluated over 
 trades and we report the *distribution* over start dates, not one lucky path. Overlapping
 cohorts are not independent — reported as a robustness spread, never as an n=300 t-test.
 
+## Mid-flight course correction (worth recording)
+
+Halfway through, session `s-0815-1614` landed **Phase 1** (Exps 015-018, H17-H20 — all
+four failed) on a sibling branch, including its own fix for the `assess_position()` DTE
+bug that this session had just found independently, and a much better simulator
+(`experiments/cc_sim.py`: real ex-dividend dates, simulated early/expiry assignment,
+every-day cohorts, an `expiry_beyond_data` guard). Rather than leave two competing
+simulators in one repo, that branch was merged, the Phase 3 simulator was deleted, and
+Exps 019b/020/021 were rebuilt on `cc_sim.py` with only a thin Phase 3 layer
+(`experiments/lib_phase3.py`) for the guard gate and the equity curve. Every number in
+`results/` is from the merged engine.
+
+The switch changed answers: TMUS and KKR both flipped the SIGN of their overlay P&L, and
+the H22a leg ordering reversed. Both are reported as unsettled rather than as findings.
+
 ## Review
 
 See `results/PHASE3_SUMMARY.md`.
+
+**Verdicts:** H21 BLOCKED, H22 PENDING, H22a FAIL, H23 FAIL, H24(a) PENDING, H24(b) FAIL.
+**Deployed:** KKR liquidity cap (7 contracts), GOOGL `probation` tier. Nothing else.
+**Tests:** 171 passing, 37 new.

@@ -17,9 +17,9 @@ IV-rank ≥ 50 entry gate, copilot exits from `position_monitor.py`) produces, o
    losses (the Monte Carlo claim from Exp 010, tested against history).
 
 Run BOTH the distance-based buyback rule and, if Exp 015 (H17) passed, the
-probability-based rule. **Exp 015 has not been run** (Phase 1 was never executed — there
-is no `experiments/015*` in any branch as of 2026-08-16), so only the current production
-distance-based rule is in scope.
+probability-based rule. Exp 015 ran on 2026-08-16 (Phase 1, merged into this branch) and
+**H17 FAILED** — probability triggers were worse than the corrected baseline on 3 of 4
+tickers. Only the current production distance-based rule is therefore in scope for H21.
 
 ## Pass / Fail (immutable)
 
