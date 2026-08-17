@@ -19,7 +19,10 @@ TICKER_STRATEGIES = {
         'otm_pct': 0.15,
         'min_dte': 20,
         'max_dte': 45,
-        'tier': 'good',
+        # Exp 022 deployment rule 2 (pre-registered, restricting-only): repricing coverage
+        # 56.0% is below the 70% floor fixed before the run, so TMUS drops from 'good' to
+        # 'probation' — we looked, but with a weaker instrument. Parameters unchanged.
+        'tier': 'probation',
         # Exp 022 (H25 FAIL, -66%): re-derived on cc_sim.py, median of 25 staggered chains.
         # Read the real-fill line before trusting the headline: TMUS has 56% repricing
         # coverage, and on exits that were actual Databento prints the same configuration
@@ -39,7 +42,10 @@ TICKER_STRATEGIES = {
         'otm_pct': 0.15,
         'min_dte': 20,
         'max_dte': 45,
-        'tier': 'good',
+        # Exp 022 deployment rule 2 (pre-registered, restricting-only): repricing coverage
+        # 36.3% is the worst in the set and far below the 70% floor fixed before the run.
+        # 'good' claimed evidence KKR does not have. Parameters unchanged.
+        'tier': 'probation',
         # Exp 022 (H25 FAIL on win rate, -36.7pp): the deployed 100% win rate was an
         # artefact of the broken clock. Re-derived on cc_sim.py over 753 days, median of 25
         # staggered chains. KKR has 36.3% repricing coverage — the worst of the set — and on
