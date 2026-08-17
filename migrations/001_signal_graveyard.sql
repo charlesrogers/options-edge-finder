@@ -6,13 +6,21 @@
 -- gitignored local SQLite file instead, because db.py falls back without
 -- saying so. Only H01-H04 survive, all still `untested`.
 --
+-- STATUS: APPLIED 2026-08-17. The table now exists on the self-hosted Supabase
+-- and holds 13 rows (H01-H04 untested, H17-H20 from Week 2, H21-H24 from
+-- Phase 3). Verified by read-back, not by write count. This file is kept
+-- idempotent so re-running it is a no-op.
+--
 -- Apply with:
 --   ssh root@95.216.205.160 \
 --     "docker exec -i supabase-db psql -U postgres -d postgres" \
 --     < migrations/001_signal_graveyard.sql
 --
--- Then backfill from local.db (H01-H04, H17-H20) — see
--- register_hypotheses.py.
+-- Note the fallback trap that hid this for five months: db.py silently writes
+-- to a gitignored local SQLite when the `supabase` client is missing or the
+-- creds are unset, and returns the same value either way. signal_registry
+-- .backend() now prints the destination on every call. If it says `sqlite:...`,
+-- the row did NOT reach this table.
 
 CREATE TABLE IF NOT EXISTS signal_graveyard (
     signal_id           TEXT PRIMARY KEY,
