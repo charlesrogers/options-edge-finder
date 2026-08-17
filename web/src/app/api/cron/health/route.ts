@@ -52,9 +52,14 @@ async function sendDiscordAlert(checks: Check[]) {
 }
 
 export async function GET(request: Request) {
+  // Never open-fail: `CRON_SECRET && ...` meant an unset env var silently
+  // disabled auth and exposed this endpoint publicly.
+  if (!CRON_SECRET) {
+    return NextResponse.json({ error: 'CRON_SECRET unset — refusing to serve' }, { status: 500 })
+  }
   const url = new URL(request.url)
   const secret = url.searchParams.get('secret') || request.headers.get('authorization')?.replace('Bearer ', '')
-  if (CRON_SECRET && secret !== CRON_SECRET) {
+  if (secret !== CRON_SECRET) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 

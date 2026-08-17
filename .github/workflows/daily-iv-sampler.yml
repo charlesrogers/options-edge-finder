@@ -38,6 +38,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          REQUIRE_SUPABASE: "1"
         run: |
           if [ "${{ github.event.inputs.bootstrap }}" = "true" ]; then
             if [ -n "${{ github.event.inputs.tickers }}" ]; then

@@ -4,6 +4,15 @@ Includes prediction logging for scorecard verification.
 Environment variables:
   SUPABASE_URL - your Supabase project URL
   SUPABASE_KEY - your Supabase anon/service key
+  REQUIRE_SUPABASE - set to 1 in every headless context (CI, cron, container).
+      Makes a missing/unusable Supabase client a hard failure instead of a
+      silent fall-through to local SQLite.
+
+Why REQUIRE_SUPABASE exists: the SQLite fallback below is a dev convenience that
+becomes a data-loss bug in a container. With no credentials, every write lands in
+an ephemeral local.db and vanishes when the job exits — while the job prints its
+row count and exits 0. That is the same silent-outage shape as the 2026-03/08
+incident, through a different door.
 """
 
 import os
@@ -41,6 +50,15 @@ SUPABASE_KEY = _read_secret("SUPABASE_KEY")
 _supabase_client = None
 
 
+def supabase_required():
+    """True in headless contexts (CI, cron, container) where SQLite is never correct."""
+    return os.environ.get("REQUIRE_SUPABASE", "").strip().lower() in ("1", "true", "yes")
+
+
+class SupabaseUnavailable(RuntimeError):
+    """Raised when REQUIRE_SUPABASE is set but no usable client can be built."""
+
+
 def _get_supabase():
     global _supabase_client, SUPABASE_URL, SUPABASE_KEY
     # Re-read secrets on first call in case module loaded before st.secrets was ready
@@ -50,6 +68,12 @@ def _get_supabase():
     if _supabase_client is None and SUPABASE_URL and SUPABASE_KEY:
         from supabase import create_client
         _supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    if _supabase_client is None and supabase_required():
+        missing = [k for k, v in (("SUPABASE_URL", SUPABASE_URL), ("SUPABASE_KEY", SUPABASE_KEY)) if not v]
+        raise SupabaseUnavailable(
+            f"REQUIRE_SUPABASE is set but no Supabase client could be built (missing: {', '.join(missing) or 'unknown'}). "
+            "Refusing to fall back to local SQLite — writes would be silently discarded."
+        )
     return _supabase_client
 
 
@@ -67,6 +91,13 @@ SQLITE_PATH = os.path.join(DB_DIR, "local.db")
 
 
 def _get_sqlite():
+    # Second line of defence: even if a caller branches to SQLite on its own
+    # (`if using_supabase(): ... else: ...`), a headless job must never write here.
+    if supabase_required():
+        raise SupabaseUnavailable(
+            "REQUIRE_SUPABASE is set — refusing to open the local SQLite fallback. "
+            "Writes to local.db are discarded when the container exits."
+        )
     conn = sqlite3.connect(SQLITE_PATH)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS iv_snapshots (

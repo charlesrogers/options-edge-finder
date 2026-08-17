@@ -61,9 +61,11 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          REQUIRE_SUPABASE: "1"
         run: python3 register_hypotheses.py
       - name: Backfill CLV for scored predictions
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          REQUIRE_SUPABASE: "1"
         run: python3 backfill_clv.py

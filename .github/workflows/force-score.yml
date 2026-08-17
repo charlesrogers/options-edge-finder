@@ -17,6 +17,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          REQUIRE_SUPABASE: "1"
         run: |
           python3 -c "
           from db import reset_predictions_missing_pnl, score_pending_predictions, get_pending_predictions_count
@@ -35,4 +36,5 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          REQUIRE_SUPABASE: "1"
         run: python3 run_gate_h01_h04.py

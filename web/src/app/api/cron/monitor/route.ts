@@ -27,10 +27,14 @@ async function sendPushover(title: string, message: string, priority: number, so
 }
 
 export async function GET(request: Request) {
-  // Auth check
+  // Auth check. Never open-fail: an unset CRON_SECRET used to disable auth
+  // entirely and expose this endpoint publicly.
+  if (!CRON_SECRET) {
+    return NextResponse.json({ error: 'CRON_SECRET unset — refusing to serve' }, { status: 500 })
+  }
   const url = new URL(request.url)
   const secret = url.searchParams.get('secret') || request.headers.get('authorization')?.replace('Bearer ', '')
-  if (CRON_SECRET && secret !== CRON_SECRET) {
+  if (secret !== CRON_SECRET) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
@@ -39,18 +43,31 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'no db' }, { status: 500 })
   }
 
-  // Get open trades
-  const { data: trades } = await sb.from('trades').select('*').eq('status', 'open')
+  // Get open trades. A read failure must never render as "no open trades" —
+  // that is an all-clear produced by a broken monitor.
+  const { data: trades, error: tradesError } = await sb.from('trades').select('*').eq('status', 'open')
+  if (tradesError) {
+    return NextResponse.json(
+      { error: `trades read failed: ${tradesError.message}`, alerts: 0 },
+      { status: 500 },
+    )
+  }
   if (!trades?.length) {
     return NextResponse.json({ message: 'no open trades', alerts: 0 })
   }
 
   const alerts: { ticker: string; level: string; reason: string }[] = []
+  // Positions we could not evaluate. Their level is UNKNOWN, never SAFE.
+  const unassessed: string[] = []
 
   for (const trade of trades) {
+    const label = `${trade.ticker} $${trade.strike} exp ${trade.expiration}`
     try {
       const spot = await getStockPrice(trade.ticker)
-      if (!spot) continue
+      if (!spot) {
+        unassessed.push(`${label}: no price data`)
+        continue
+      }
 
       // Get option price
       let optAsk: number | null = null
@@ -60,14 +77,18 @@ export async function GET(request: Request) {
         if (match) optAsk = ((match.bid || 0) + (match.ask || 0)) / 2 || match.lastPrice || null
       } catch { /* no chain */ }
 
-      // Get ex-div
+      // Get ex-div. A FAILED LOOKUP IS NOT "NO DIVIDEND" — swallowing this error
+      // leaves exDivDate null, which silently downgrades EMERGENCY to SAFE.
       let exDivDate: string | null = null
       try {
         const info = await getStockInfo(trade.ticker)
         if (info.exDividendDate) {
           exDivDate = new Date(info.exDividendDate * 1000).toISOString().split('T')[0]
         }
-      } catch { /* no info */ }
+      } catch (e) {
+        unassessed.push(`${label}: ex-div lookup failed (${e})`)
+        continue
+      }
 
       const alert = assessPosition({
         ticker: trade.ticker,
@@ -103,12 +124,31 @@ export async function GET(request: Request) {
         )
         alerts.push({ ticker: trade.ticker, level: 'CLOSE_SOON', reason: alert.reason })
       }
-    } catch { /* skip failed ticker */ }
+    } catch (e) {
+      unassessed.push(`${label}: ${e}`)
+    }
+  }
+
+  // A run that could not assess every position is a failed run, not a quiet one.
+  if (unassessed.length > 0) {
+    await sendPushover(
+      `⚠️ Monitor DEGRADED — ${unassessed.length} position(s) unchecked`,
+      `${unassessed.length} of ${trades.length} positions could not be assessed. ` +
+        `Their alert level is UNKNOWN, not safe.\n\n${unassessed.slice(0, 6).map(u => `• ${u}`).join('\n')}`,
+      1, 'persistent',
+    )
+    return NextResponse.json({
+      message: `Checked ${trades.length - unassessed.length}/${trades.length} positions`,
+      alerts: alerts.length,
+      details: alerts,
+      unassessed,
+    }, { status: 500 })
   }
 
   return NextResponse.json({
     message: `Checked ${trades.length} positions`,
     alerts: alerts.length,
     details: alerts,
+    unassessed: [],
   })
 }
