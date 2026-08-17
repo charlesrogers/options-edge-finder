@@ -518,3 +518,51 @@ base from `github.event.pull_request.base.ref`, never a hardcoded branch name. W
 any CI gate, verify it has PASSED at least once on a real PR — a red or never-triggered
 gate is not a gate.
 **Category:** mistake
+
+### 2026-08-17 — A backtest can look profitable purely because the option did not trade
+**What went wrong:** Exp 022 re-derived the per-ticker baselines and found TMUS at +$151/yr
+and KKR at +$316/yr per contract. Restricting the sample to trades whose exit price was an
+actual Databento print — rather than a price carried forward from an earlier day — flipped
+both to −$81 and −$88. TMUS has 56% repricing coverage and KKR 36%. AAPL, at 97.5%, did not
+move by a dollar. Two of the four production tickers had a *sign* determined by missing data.
+**Why it's wrong:** carrying the last price forward is the correct way to avoid silently
+dropping a day, and it is exactly what `cc_sim` was built to do. But a buyback paid at a
+stale price is not a buyback that could have been executed, and a strategy whose profit
+lives in those fills has no measured profit at all. Counting the missing days (which the
+engine did) is necessary and not sufficient — nobody looks at a coverage percentage and
+concludes "the sign is wrong."
+**Rule:** Any backtest on trade-based data (OHLCV, prints, fills) must report its headline
+metric twice: on all trades, and on the subset whose *exit* was priced by a real
+observation. If the two disagree in sign or by more than the effect being tested, the
+real-fill number is the result and the other is a diagnostic. Report coverage per ticker,
+never pooled.
+**Category:** mistake
+
+### 2026-08-17 — A tolerance can license keeping a claim you have just measured to be false
+**What went wrong:** H25 pre-registered a ±10pp win-rate tolerance. AAPL's deployed claim
+was "100% win rate — never loses"; the fixed engine measured 91.7%. That is inside ±10pp, so
+the pre-registered rule said leave the field alone — leaving a live, user-facing claim that
+the strategy cannot lose, on a ticker whose worst trade in the window was −$971.
+**Why it's wrong:** an equivalence tolerance answers "do the two engines agree?", which is
+not the same question as "is the published number true?". Passing the first does not license
+publishing a value the second says is wrong.
+**Rule:** When pre-registering a tolerance on a number that is *published to a user*, add a
+standing clause: whatever the verdict, no live claim may sit above the best available
+measurement in the optimistic direction. Restricting a live claim toward the measurement is
+always permitted; it is never a retrofit of the verdict, and it must be labelled as a
+separate change rather than folded into the experiment's result.
+**Category:** anti-pattern
+
+### 2026-08-17 — workflow_dispatch only works from the default branch
+**What went wrong:** Added `.github/workflows/registry-sync.yml` so graveyard
+pre-registrations could be written to Supabase (no dev machine has the credentials, so
+`db.py` falls back to gitignored SQLite). `gh workflow run` returned HTTP 404: GitHub only
+dispatches workflows that exist on the default branch, whatever `--ref` says.
+**Why it's wrong:** it makes "add a workflow to do X on this branch, then run it" impossible
+for exactly the case where it is most useful — a one-off operation needed *before* the
+branch merges.
+**Rule:** A workflow that a feature branch needs to dispatch must land on `main` first, as
+its own small PR, before the work that depends on it. When that is not possible, do not let
+the durable side effect become the proof: use the pushed commit's timestamp as the
+pre-registration record and state plainly that the database write happens on merge.
+**Category:** mistake
