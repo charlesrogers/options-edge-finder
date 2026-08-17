@@ -475,3 +475,46 @@ This is the testing gate working exactly as designed. The retro rule + revert + 
 **Rule:** REINFORCE: The analyze → validate → deploy pipeline is non-negotiable. Analysis alone is insufficient. Walk-forward ALWAYS reveals something the in-sample analysis missed. Every experiment that changes production parameters must have a validation companion experiment.
 
 **Category:** positive-pattern
+
+### 2026-08-16 — Built a second simulator instead of checking for an existing one
+**What went wrong:** Wrote `experiments/lib_cc_sim.py` from scratch for Phase 3 while a
+parallel session was landing `experiments/cc_sim.py` for Phase 1 — a strictly better engine
+(real ex-div dates, simulated assignment, `expiry_beyond_data` guard). Both sessions also
+independently found and fixed the same `assess_position()` DTE bug and independently wrote
+the same `signal_graveyard` migration. Two experiments' worth of results had to be thrown
+away and re-run on the merged engine, and the re-run flipped the sign of two tickers' P&L.
+**Why it's wrong:** Sibling worktrees under `.claude/worktrees/` are part of the codebase's
+present state, not someone else's problem. `git log --all`, `git branch -a` and a glance at
+the other worktrees costs 30 seconds; a duplicated simulator costs an afternoon and leaves
+two engines that will disagree forever.
+**Rule:** Before writing any shared module or fixing any bug in a repo with sibling
+worktrees, check every worktree and every branch (`git branch -a`, `ls ../`, `git log --all
+--oneline -20`) for work already in flight on the same file. If found, merge and build on
+it — never build beside it.
+**Category:** anti-pattern
+
+### 2026-08-16 — A ratio metric silently inverts when its numerator goes negative
+**What went wrong:** H23 was pre-registered on "total return ÷ max drawdown". On a
+down-trending window every return was negative, and for a negative numerator a *larger*
+drawdown produces a *better* ratio. The metric nearly delivered a backwards recommendation.
+**Why it's wrong:** return/risk ratios are only monotone in the intended direction when the
+return is positive. Nobody notices because the number still looks like a number.
+**Rule:** Before pre-registering any ratio metric, state what it does when the numerator is
+negative, and report the numerator and denominator separately alongside it. Add a
+zero-overlay/stock-only baseline row so it is visible how much of the denominator the
+treatment is even capable of moving.
+**Category:** near-miss
+
+### 2026-08-16 — Two CI gates that had never run once
+**What went wrong:** `approval-gate.yml` — the gate that blocks unvalidated changes to
+`ticker_strategies.py` — exited 128 on every PR because `actions/checkout@v4` fetches
+shallow and `origin/main` did not exist in the checkout. `test.yml` had
+`pull_request: branches: [main]`, so a PR onto any other branch ran no tests at all.
+**Why it's wrong:** a gate that fails on infrastructure looks identical to a gate that is
+protecting you, right up until you read the log. This is the same silent-failure class as
+the dead crons.
+**Rule:** When a workflow diffs against a base branch, set `fetch-depth: 0` and resolve the
+base from `github.event.pull_request.base.ref`, never a hardcoded branch name. When adding
+any CI gate, verify it has PASSED at least once on a real PR — a red or never-triggered
+gate is not a gate.
+**Category:** mistake
