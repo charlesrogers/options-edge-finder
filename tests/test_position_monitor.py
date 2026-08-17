@@ -448,3 +448,63 @@ class TestReturnType:
         assert isinstance(alert.action, str)
         assert len(alert.reason) > 0
         assert len(alert.action) > 0
+
+
+# ============================================================
+# as_of — the parameter every backtest must pass
+#
+# Without it, DTE is measured against the wall clock. On a historical
+# expiry that collapses to 0, which silently disables every
+# DTE-conditional rule (WATCH, CLOSE_SOON at 7+ DTE) and makes the
+# copilot behave as a pure distance rule. Experiments 007-013 all ran
+# this way; see results/015_probability_buybacks.md.
+# ============================================================
+
+class TestAsOf:
+    def _bare(self, **kw):
+        base = dict(ticker="AAPL", strike=250, expiry="2025-06-20",
+                    sold_price=3.50, contracts=1, current_stock=240,
+                    current_option_ask=1.00)
+        base.update(kw)
+        return assess_position(**base)
+
+    def test_as_of_string_sets_dte(self):
+        alert = self._bare(as_of="2025-05-21")
+        assert alert.dte == 30
+
+    def test_as_of_datetime_sets_dte(self):
+        alert = self._bare(as_of=datetime(2025, 5, 21))
+        assert alert.dte == 30
+
+    def test_as_of_accepts_tz_aware_timestamp(self):
+        pd = pytest.importorskip("pandas")
+        alert = self._bare(as_of=pd.Timestamp("2025-05-21", tz="UTC"))
+        assert alert.dte == 30
+
+    def test_omitting_as_of_collapses_historical_dte(self):
+        """Regression guard: this is the bug, demonstrated.
+
+        A 2025 expiry evaluated without as_of reports 0 DTE today. The fix is
+        not to change this default (the live app genuinely means 'now') but to
+        make sure backtests pass as_of.
+        """
+        assert self._bare().dte == 0
+
+    def test_dte_conditional_rule_requires_as_of(self):
+        """2% from strike + 20 DTE is CLOSE_SOON; the same position with a
+        collapsed DTE is CLOSE_NOW. The rule only reachable with as_of."""
+        with_as_of = self._bare(strike=250, current_stock=245.5,
+                                expiry="2025-06-20", as_of="2025-05-31")
+        assert with_as_of.dte == 20
+        assert with_as_of.level == "CLOSE_SOON"
+
+        without = self._bare(strike=250, current_stock=245.5, expiry="2025-06-20")
+        assert without.dte == 0
+        assert without.level == "CLOSE_NOW"
+
+    def test_ex_div_relative_to_as_of(self):
+        """ITM + ex-div within 3 days of as_of (not of today) is EMERGENCY."""
+        alert = self._bare(strike=250, current_stock=252,
+                           ex_div_date="2025-06-02", as_of="2025-05-31")
+        assert alert.days_to_exdiv == 2
+        assert alert.level == "EMERGENCY"

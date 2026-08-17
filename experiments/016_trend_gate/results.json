@@ -1,0 +1,997 @@
+{
+  "results": {
+    "AAPL": {
+      "ticker": "AAPL",
+      "config": {
+        "otm_pct": 0.15,
+        "min_dte": 20,
+        "max_dte": 45
+      },
+      "split_date": "2025-11-20",
+      "diagnostics": {
+        "candidate_days": 251,
+        "entries": 99,
+        "skipped": {
+          "gate": 138,
+          "expiry_beyond_data": 14
+        },
+        "missing_price_days": 39,
+        "priced_days": 1516,
+        "never_repriced_trades": 0,
+        "data_ended_trades": 0,
+        "missing_price_pct": 2.5
+      },
+      "ungated_test": {
+        "n": 33,
+        "losses": 4,
+        "loss_rate": 12.1,
+        "net_pnl": 491.77
+      },
+      "gates": [
+        {
+          "gate": "r20_gt_5",
+          "feature": "r20",
+          "threshold": 0.05,
+          "kept": {
+            "n": 27,
+            "losses": 4,
+            "loss_rate": 14.8,
+            "net_pnl": 383.73
+          },
+          "skipped": {
+            "n": 6,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 108.04
+          },
+          "skip_pct": 18.2,
+          "loss_delta": 0,
+          "relative_reduction_pct": -22.3,
+          "winners_skipped": 6,
+          "winners_fair_share": 144.12,
+          "pnl_given_up": 108.04,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "r20_gt_8",
+          "feature": "r20",
+          "threshold": 0.08,
+          "kept": {
+            "n": 33,
+            "losses": 4,
+            "loss_rate": 12.1,
+            "net_pnl": 491.77
+          },
+          "skipped": {
+            "n": 0,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 0.0
+          },
+          "skip_pct": 0.0,
+          "loss_delta": 0,
+          "relative_reduction_pct": 0.0,
+          "winners_skipped": 0,
+          "winners_fair_share": 0.0,
+          "pnl_given_up": 0.0,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "r60_gt_12",
+          "feature": "r60",
+          "threshold": 0.12,
+          "kept": {
+            "n": 29,
+            "losses": 4,
+            "loss_rate": 13.8,
+            "net_pnl": 443.38
+          },
+          "skipped": {
+            "n": 4,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 48.39
+          },
+          "skip_pct": 12.1,
+          "loss_delta": 0,
+          "relative_reduction_pct": -14.0,
+          "winners_skipped": 4,
+          "winners_fair_share": 96.08,
+          "pnl_given_up": 48.39,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "r60_gt_18",
+          "feature": "r60",
+          "threshold": 0.18,
+          "kept": {
+            "n": 32,
+            "losses": 4,
+            "loss_rate": 12.5,
+            "net_pnl": 482.21
+          },
+          "skipped": {
+            "n": 1,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 9.56
+          },
+          "skip_pct": 3.0,
+          "loss_delta": 0,
+          "relative_reduction_pct": -3.3,
+          "winners_skipped": 1,
+          "winners_fair_share": 24.02,
+          "pnl_given_up": 9.56,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "autocorr_pct_gt_70",
+          "feature": "autocorr_pct",
+          "threshold": 70.0,
+          "kept": {
+            "n": 26,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 589.97
+          },
+          "skipped": {
+            "n": 7,
+            "losses": 4,
+            "loss_rate": 57.1,
+            "net_pnl": -98.2
+          },
+          "skip_pct": 21.2,
+          "loss_delta": -4,
+          "relative_reduction_pct": 100.0,
+          "winners_skipped": 3,
+          "winners_fair_share": 72.06,
+          "pnl_given_up": -98.2,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "autocorr_pct_gt_85",
+          "feature": "autocorr_pct",
+          "threshold": 85.0,
+          "kept": {
+            "n": 33,
+            "losses": 4,
+            "loss_rate": 12.1,
+            "net_pnl": 491.77
+          },
+          "skipped": {
+            "n": 0,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 0.0
+          },
+          "skip_pct": 0.0,
+          "loss_delta": 0,
+          "relative_reduction_pct": 0.0,
+          "winners_skipped": 0,
+          "winners_fair_share": 0.0,
+          "pnl_given_up": 0.0,
+          "entries_without_trend_data": 0
+        }
+      ]
+    },
+    "TMUS": {
+      "ticker": "TMUS",
+      "config": {
+        "otm_pct": 0.15,
+        "min_dte": 20,
+        "max_dte": 45
+      },
+      "split_date": "2025-11-04",
+      "diagnostics": {
+        "candidate_days": 251,
+        "entries": 122,
+        "skipped": {
+          "gate": 120,
+          "expiry_beyond_data": 9
+        },
+        "missing_price_days": 883,
+        "priced_days": 1123,
+        "never_repriced_trades": 2,
+        "data_ended_trades": 0,
+        "missing_price_pct": 44.0
+      },
+      "ungated_test": {
+        "n": 41,
+        "losses": 13,
+        "loss_rate": 31.7,
+        "net_pnl": -3073.21
+      },
+      "gates": [
+        {
+          "gate": "r20_gt_5",
+          "feature": "r20",
+          "threshold": 0.05,
+          "kept": {
+            "n": 37,
+            "losses": 13,
+            "loss_rate": 35.1,
+            "net_pnl": -3458.85
+          },
+          "skipped": {
+            "n": 4,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 385.64
+          },
+          "skip_pct": 9.8,
+          "loss_delta": 0,
+          "relative_reduction_pct": -10.7,
+          "winners_skipped": 4,
+          "winners_fair_share": 279.5,
+          "pnl_given_up": 385.64,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "r20_gt_8",
+          "feature": "r20",
+          "threshold": 0.08,
+          "kept": {
+            "n": 37,
+            "losses": 13,
+            "loss_rate": 35.1,
+            "net_pnl": -3458.85
+          },
+          "skipped": {
+            "n": 4,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 385.64
+          },
+          "skip_pct": 9.8,
+          "loss_delta": 0,
+          "relative_reduction_pct": -10.7,
+          "winners_skipped": 4,
+          "winners_fair_share": 279.5,
+          "pnl_given_up": 385.64,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "r60_gt_12",
+          "feature": "r60",
+          "threshold": 0.12,
+          "kept": {
+            "n": 41,
+            "losses": 13,
+            "loss_rate": 31.7,
+            "net_pnl": -3073.21
+          },
+          "skipped": {
+            "n": 0,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 0.0
+          },
+          "skip_pct": 0.0,
+          "loss_delta": 0,
+          "relative_reduction_pct": 0.0,
+          "winners_skipped": 0,
+          "winners_fair_share": 0.0,
+          "pnl_given_up": 0.0,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "r60_gt_18",
+          "feature": "r60",
+          "threshold": 0.18,
+          "kept": {
+            "n": 41,
+            "losses": 13,
+            "loss_rate": 31.7,
+            "net_pnl": -3073.21
+          },
+          "skipped": {
+            "n": 0,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 0.0
+          },
+          "skip_pct": 0.0,
+          "loss_delta": 0,
+          "relative_reduction_pct": 0.0,
+          "winners_skipped": 0,
+          "winners_fair_share": 0.0,
+          "pnl_given_up": 0.0,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "autocorr_pct_gt_70",
+          "feature": "autocorr_pct",
+          "threshold": 70.0,
+          "kept": {
+            "n": 41,
+            "losses": 13,
+            "loss_rate": 31.7,
+            "net_pnl": -3073.21
+          },
+          "skipped": {
+            "n": 0,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 0.0
+          },
+          "skip_pct": 0.0,
+          "loss_delta": 0,
+          "relative_reduction_pct": 0.0,
+          "winners_skipped": 0,
+          "winners_fair_share": 0.0,
+          "pnl_given_up": 0.0,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "autocorr_pct_gt_85",
+          "feature": "autocorr_pct",
+          "threshold": 85.0,
+          "kept": {
+            "n": 41,
+            "losses": 13,
+            "loss_rate": 31.7,
+            "net_pnl": -3073.21
+          },
+          "skipped": {
+            "n": 0,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 0.0
+          },
+          "skip_pct": 0.0,
+          "loss_delta": 0,
+          "relative_reduction_pct": 0.0,
+          "winners_skipped": 0,
+          "winners_fair_share": 0.0,
+          "pnl_given_up": 0.0,
+          "entries_without_trend_data": 0
+        }
+      ]
+    },
+    "KKR": {
+      "ticker": "KKR",
+      "config": {
+        "otm_pct": 0.15,
+        "min_dte": 20,
+        "max_dte": 45
+      },
+      "split_date": "2025-03-14",
+      "diagnostics": {
+        "candidate_days": 753,
+        "entries": 388,
+        "skipped": {
+          "gate": 346,
+          "expiry_beyond_data": 19
+        },
+        "missing_price_days": 3430,
+        "priced_days": 1958,
+        "never_repriced_trades": 61,
+        "data_ended_trades": 0,
+        "missing_price_pct": 63.7
+      },
+      "ungated_test": {
+        "n": 129,
+        "losses": 18,
+        "loss_rate": 14.0,
+        "net_pnl": 7615.99
+      },
+      "gates": [
+        {
+          "gate": "r20_gt_5",
+          "feature": "r20",
+          "threshold": 0.05,
+          "kept": {
+            "n": 111,
+            "losses": 18,
+            "loss_rate": 16.2,
+            "net_pnl": 5824.99
+          },
+          "skipped": {
+            "n": 18,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 1791.0
+          },
+          "skip_pct": 14.0,
+          "loss_delta": 0,
+          "relative_reduction_pct": -15.7,
+          "winners_skipped": 18,
+          "winners_fair_share": 2216.51,
+          "pnl_given_up": 1791.0,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "r20_gt_8",
+          "feature": "r20",
+          "threshold": 0.08,
+          "kept": {
+            "n": 113,
+            "losses": 18,
+            "loss_rate": 15.9,
+            "net_pnl": 6020.99
+          },
+          "skipped": {
+            "n": 16,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 1595.0
+          },
+          "skip_pct": 12.4,
+          "loss_delta": 0,
+          "relative_reduction_pct": -13.6,
+          "winners_skipped": 16,
+          "winners_fair_share": 1970.23,
+          "pnl_given_up": 1595.0,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "r60_gt_12",
+          "feature": "r60",
+          "threshold": 0.12,
+          "kept": {
+            "n": 106,
+            "losses": 18,
+            "loss_rate": 17.0,
+            "net_pnl": 4969.16
+          },
+          "skipped": {
+            "n": 23,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 2646.83
+          },
+          "skip_pct": 17.8,
+          "loss_delta": 0,
+          "relative_reduction_pct": -21.4,
+          "winners_skipped": 20,
+          "winners_fair_share": 2462.79,
+          "pnl_given_up": 2646.83,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "r60_gt_18",
+          "feature": "r60",
+          "threshold": 0.18,
+          "kept": {
+            "n": 117,
+            "losses": 18,
+            "loss_rate": 15.4,
+            "net_pnl": 5945.16
+          },
+          "skipped": {
+            "n": 12,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 1670.83
+          },
+          "skip_pct": 9.3,
+          "loss_delta": 0,
+          "relative_reduction_pct": -10.0,
+          "winners_skipped": 12,
+          "winners_fair_share": 1477.67,
+          "pnl_given_up": 1670.83,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "autocorr_pct_gt_70",
+          "feature": "autocorr_pct",
+          "threshold": 70.0,
+          "kept": {
+            "n": 128,
+            "losses": 17,
+            "loss_rate": 13.3,
+            "net_pnl": 8199.99
+          },
+          "skipped": {
+            "n": 1,
+            "losses": 1,
+            "loss_rate": 100.0,
+            "net_pnl": -584.0
+          },
+          "skip_pct": 0.8,
+          "loss_delta": -1,
+          "relative_reduction_pct": 5.0,
+          "winners_skipped": 0,
+          "winners_fair_share": 0.0,
+          "pnl_given_up": -584.0,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "autocorr_pct_gt_85",
+          "feature": "autocorr_pct",
+          "threshold": 85.0,
+          "kept": {
+            "n": 128,
+            "losses": 17,
+            "loss_rate": 13.3,
+            "net_pnl": 8199.99
+          },
+          "skipped": {
+            "n": 1,
+            "losses": 1,
+            "loss_rate": 100.0,
+            "net_pnl": -584.0
+          },
+          "skip_pct": 0.8,
+          "loss_delta": -1,
+          "relative_reduction_pct": 5.0,
+          "winners_skipped": 0,
+          "winners_fair_share": 0.0,
+          "pnl_given_up": -584.0,
+          "entries_without_trend_data": 0
+        }
+      ]
+    },
+    "DIS": {
+      "ticker": "DIS",
+      "config": {
+        "otm_pct": 0.07,
+        "min_dte": 30,
+        "max_dte": 60
+      },
+      "split_date": "2025-10-24",
+      "diagnostics": {
+        "candidate_days": 251,
+        "entries": 126,
+        "skipped": {
+          "gate": 110,
+          "expiry_beyond_data": 15
+        },
+        "missing_price_days": 245,
+        "priced_days": 1466,
+        "never_repriced_trades": 0,
+        "data_ended_trades": 0,
+        "missing_price_pct": 14.3
+      },
+      "ungated_test": {
+        "n": 42,
+        "losses": 2,
+        "loss_rate": 4.8,
+        "net_pnl": 5873.03
+      },
+      "gates": [
+        {
+          "gate": "r20_gt_5",
+          "feature": "r20",
+          "threshold": 0.05,
+          "kept": {
+            "n": 42,
+            "losses": 2,
+            "loss_rate": 4.8,
+            "net_pnl": 5873.03
+          },
+          "skipped": {
+            "n": 0,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 0.0
+          },
+          "skip_pct": 0.0,
+          "loss_delta": 0,
+          "relative_reduction_pct": 0.0,
+          "winners_skipped": 0,
+          "winners_fair_share": 0.0,
+          "pnl_given_up": 0.0,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "r20_gt_8",
+          "feature": "r20",
+          "threshold": 0.08,
+          "kept": {
+            "n": 42,
+            "losses": 2,
+            "loss_rate": 4.8,
+            "net_pnl": 5873.03
+          },
+          "skipped": {
+            "n": 0,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 0.0
+          },
+          "skip_pct": 0.0,
+          "loss_delta": 0,
+          "relative_reduction_pct": 0.0,
+          "winners_skipped": 0,
+          "winners_fair_share": 0.0,
+          "pnl_given_up": 0.0,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "r60_gt_12",
+          "feature": "r60",
+          "threshold": 0.12,
+          "kept": {
+            "n": 42,
+            "losses": 2,
+            "loss_rate": 4.8,
+            "net_pnl": 5873.03
+          },
+          "skipped": {
+            "n": 0,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 0.0
+          },
+          "skip_pct": 0.0,
+          "loss_delta": 0,
+          "relative_reduction_pct": 0.0,
+          "winners_skipped": 0,
+          "winners_fair_share": 0.0,
+          "pnl_given_up": 0.0,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "r60_gt_18",
+          "feature": "r60",
+          "threshold": 0.18,
+          "kept": {
+            "n": 42,
+            "losses": 2,
+            "loss_rate": 4.8,
+            "net_pnl": 5873.03
+          },
+          "skipped": {
+            "n": 0,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 0.0
+          },
+          "skip_pct": 0.0,
+          "loss_delta": 0,
+          "relative_reduction_pct": 0.0,
+          "winners_skipped": 0,
+          "winners_fair_share": 0.0,
+          "pnl_given_up": 0.0,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "autocorr_pct_gt_70",
+          "feature": "autocorr_pct",
+          "threshold": 70.0,
+          "kept": {
+            "n": 42,
+            "losses": 2,
+            "loss_rate": 4.8,
+            "net_pnl": 5873.03
+          },
+          "skipped": {
+            "n": 0,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 0.0
+          },
+          "skip_pct": 0.0,
+          "loss_delta": 0,
+          "relative_reduction_pct": 0.0,
+          "winners_skipped": 0,
+          "winners_fair_share": 0.0,
+          "pnl_given_up": 0.0,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "autocorr_pct_gt_85",
+          "feature": "autocorr_pct",
+          "threshold": 85.0,
+          "kept": {
+            "n": 42,
+            "losses": 2,
+            "loss_rate": 4.8,
+            "net_pnl": 5873.03
+          },
+          "skipped": {
+            "n": 0,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 0.0
+          },
+          "skip_pct": 0.0,
+          "loss_delta": 0,
+          "relative_reduction_pct": 0.0,
+          "winners_skipped": 0,
+          "winners_fair_share": 0.0,
+          "pnl_given_up": 0.0,
+          "entries_without_trend_data": 0
+        }
+      ]
+    },
+    "TXN": {
+      "ticker": "TXN",
+      "config": {
+        "otm_pct": 0.1,
+        "min_dte": 20,
+        "max_dte": 45
+      },
+      "split_date": "2025-10-29",
+      "diagnostics": {
+        "candidate_days": 251,
+        "entries": 120,
+        "skipped": {
+          "gate": 118,
+          "expiry_beyond_data": 13
+        },
+        "missing_price_days": 222,
+        "priced_days": 1181,
+        "never_repriced_trades": 0,
+        "data_ended_trades": 0,
+        "missing_price_pct": 15.8
+      },
+      "ungated_test": {
+        "n": 40,
+        "losses": 30,
+        "loss_rate": 75.0,
+        "net_pnl": -11888.28
+      },
+      "gates": [
+        {
+          "gate": "r20_gt_5",
+          "feature": "r20",
+          "threshold": 0.05,
+          "kept": {
+            "n": 22,
+            "losses": 18,
+            "loss_rate": 81.8,
+            "net_pnl": -8229.27
+          },
+          "skipped": {
+            "n": 18,
+            "losses": 12,
+            "loss_rate": 66.7,
+            "net_pnl": -3659.01
+          },
+          "skip_pct": 45.0,
+          "loss_delta": -12,
+          "relative_reduction_pct": -9.1,
+          "winners_skipped": 6,
+          "winners_fair_share": 905.19,
+          "pnl_given_up": -3659.01,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "r20_gt_8",
+          "feature": "r20",
+          "threshold": 0.08,
+          "kept": {
+            "n": 27,
+            "losses": 22,
+            "loss_rate": 81.5,
+            "net_pnl": -10171.8
+          },
+          "skipped": {
+            "n": 13,
+            "losses": 8,
+            "loss_rate": 61.5,
+            "net_pnl": -1716.48
+          },
+          "skip_pct": 32.5,
+          "loss_delta": -8,
+          "relative_reduction_pct": -8.7,
+          "winners_skipped": 5,
+          "winners_fair_share": 754.32,
+          "pnl_given_up": -1716.48,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "r60_gt_12",
+          "feature": "r60",
+          "threshold": 0.12,
+          "kept": {
+            "n": 33,
+            "losses": 26,
+            "loss_rate": 78.8,
+            "net_pnl": -10736.16
+          },
+          "skipped": {
+            "n": 7,
+            "losses": 4,
+            "loss_rate": 57.1,
+            "net_pnl": -1152.12
+          },
+          "skip_pct": 17.5,
+          "loss_delta": -4,
+          "relative_reduction_pct": -5.1,
+          "winners_skipped": 3,
+          "winners_fair_share": 452.6,
+          "pnl_given_up": -1152.12,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "r60_gt_18",
+          "feature": "r60",
+          "threshold": 0.18,
+          "kept": {
+            "n": 36,
+            "losses": 29,
+            "loss_rate": 80.6,
+            "net_pnl": -12131.13
+          },
+          "skipped": {
+            "n": 4,
+            "losses": 1,
+            "loss_rate": 25.0,
+            "net_pnl": 242.85
+          },
+          "skip_pct": 10.0,
+          "loss_delta": -1,
+          "relative_reduction_pct": -7.5,
+          "winners_skipped": 3,
+          "winners_fair_share": 452.6,
+          "pnl_given_up": 242.85,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "autocorr_pct_gt_70",
+          "feature": "autocorr_pct",
+          "threshold": 70.0,
+          "kept": {
+            "n": 40,
+            "losses": 30,
+            "loss_rate": 75.0,
+            "net_pnl": -11888.28
+          },
+          "skipped": {
+            "n": 0,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 0.0
+          },
+          "skip_pct": 0.0,
+          "loss_delta": 0,
+          "relative_reduction_pct": 0.0,
+          "winners_skipped": 0,
+          "winners_fair_share": 0.0,
+          "pnl_given_up": 0.0,
+          "entries_without_trend_data": 0
+        },
+        {
+          "gate": "autocorr_pct_gt_85",
+          "feature": "autocorr_pct",
+          "threshold": 85.0,
+          "kept": {
+            "n": 40,
+            "losses": 30,
+            "loss_rate": 75.0,
+            "net_pnl": -11888.28
+          },
+          "skipped": {
+            "n": 0,
+            "losses": 0,
+            "loss_rate": 0.0,
+            "net_pnl": 0.0
+          },
+          "skip_pct": 0.0,
+          "loss_delta": 0,
+          "relative_reduction_pct": 0.0,
+          "winners_skipped": 0,
+          "winners_fair_share": 0.0,
+          "pnl_given_up": 0.0,
+          "entries_without_trend_data": 0
+        }
+      ]
+    }
+  },
+  "googl_directional": {
+    "ticker": "GOOGL",
+    "directional_only": true,
+    "ungated_above_strike_pct": 39.6,
+    "gates": [
+      {
+        "gate": "r20_gt_5",
+        "kept": 195,
+        "rate": 40.0,
+        "skip_pct": 49.2,
+        "relative_reduction_pct": -1.1
+      },
+      {
+        "gate": "r20_gt_8",
+        "kept": 244,
+        "rate": 40.6,
+        "skip_pct": 36.5,
+        "relative_reduction_pct": -2.5
+      },
+      {
+        "gate": "r60_gt_12",
+        "kept": 155,
+        "rate": 39.4,
+        "skip_pct": 59.6,
+        "relative_reduction_pct": 0.6
+      },
+      {
+        "gate": "r60_gt_18",
+        "kept": 194,
+        "rate": 38.7,
+        "skip_pct": 49.5,
+        "relative_reduction_pct": 2.3
+      },
+      {
+        "gate": "autocorr_pct_gt_70",
+        "kept": 308,
+        "rate": 47.4,
+        "skip_pct": 19.8,
+        "relative_reduction_pct": -19.8
+      },
+      {
+        "gate": "autocorr_pct_gt_85",
+        "kept": 347,
+        "rate": 42.4,
+        "skip_pct": 9.6,
+        "relative_reduction_pct": -7.0
+      }
+    ]
+  },
+  "control_ok": {
+    "r20_gt_5": true,
+    "r20_gt_8": true,
+    "r60_gt_12": true,
+    "r60_gt_18": true,
+    "autocorr_pct_gt_70": true,
+    "autocorr_pct_gt_85": true
+  },
+  "verdicts": {
+    "r20_gt_5": {
+      "targets_qualifying": 0,
+      "controls_ok": true,
+      "pass": false
+    },
+    "r20_gt_8": {
+      "targets_qualifying": 0,
+      "controls_ok": true,
+      "pass": false
+    },
+    "r60_gt_12": {
+      "targets_qualifying": 0,
+      "controls_ok": true,
+      "pass": false
+    },
+    "r60_gt_18": {
+      "targets_qualifying": 0,
+      "controls_ok": true,
+      "pass": false
+    },
+    "autocorr_pct_gt_70": {
+      "targets_qualifying": 1,
+      "controls_ok": true,
+      "pass": false
+    },
+    "autocorr_pct_gt_85": {
+      "targets_qualifying": 0,
+      "controls_ok": true,
+      "pass": false
+    }
+  },
+  "overall_pass": false,
+  "gates": [
+    [
+      "r20_gt_5",
+      "r20",
+      0.05
+    ],
+    [
+      "r20_gt_8",
+      "r20",
+      0.08
+    ],
+    [
+      "r60_gt_12",
+      "r60",
+      0.12
+    ],
+    [
+      "r60_gt_18",
+      "r60",
+      0.18
+    ],
+    [
+      "autocorr_pct_gt_70",
+      "autocorr_pct",
+      70.0
+    ],
+    [
+      "autocorr_pct_gt_85",
+      "autocorr_pct",
+      85.0
+    ]
+  ],
+  "train_frac": 0.67
+}

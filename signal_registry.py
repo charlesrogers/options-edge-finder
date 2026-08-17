@@ -19,6 +19,19 @@ from datetime import datetime
 import db
 
 
+def backend():
+    """Which store is the graveyard actually writing to?
+
+    db.py falls back to a local, gitignored SQLite file when Supabase creds are
+    absent or the client is uninstallable. That fallback is silent, so a
+    pre-registration can appear to succeed while landing nowhere durable — the
+    exact class of failure that produced the 4.5-month data outage
+    (tasks/lessons.md 2026-08-15). Every registry call announces the backend so
+    'registered' can never mean 'wrote to a temp file on this laptop'.
+    """
+    return "supabase" if db._get_supabase() is not None else f"sqlite:{db.SQLITE_PATH}"
+
+
 def pre_register(signal_id, name, tier, hypothesis,
                  filter_desc=None, trade_direction=None,
                  primary_metric="Realized VRP", pass_thresholds=None,
@@ -55,7 +68,8 @@ def pre_register(signal_id, name, tier, hypothesis,
         full_hypothesis += "\n" + "\n".join(parts)
 
     db.register_hypothesis(signal_id, name, tier, full_hypothesis)
-    print(f"[registry] Pre-registered {signal_id}: {name} (Tier {tier})")
+    print(f"[registry] Pre-registered {signal_id}: {name} (Tier {tier}) "
+          f"-> {backend()}")
     return True
 
 
@@ -101,7 +115,8 @@ def mark_result(signal_id, passed, layer, metrics=None, failure_reason=None):
     )
     verb = "PASSED" if passed else "FAILED"
     print(f"[registry] {signal_id}: {verb} at Layer {layer}"
-          + (f" — {failure_reason}" if failure_reason else ""))
+          + (f" — {failure_reason}" if failure_reason else "")
+          + f" -> {backend()}")
 
 
 def validate_pre_registration(signal_id):

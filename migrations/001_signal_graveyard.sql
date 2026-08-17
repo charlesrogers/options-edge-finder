@@ -1,34 +1,46 @@
--- Signal graveyard — hypothesis pre-registration + verdict tracking.
+-- signal_graveyard — the hypothesis pre-registration table.
 --
--- db.py / signal_registry.py have referenced public.signal_graveyard since March 2026,
--- but the table was never created in the self-hosted Supabase. Every pre_register() /
--- mark_result() call against Supabase failed with PGRST205 ("table not found in schema
--- cache"), so the research-discipline audit trail existed only in a local SQLite file
--- (local.db, 4 rows, never updated since 2026-03-26). This migration creates it for real.
+-- Discovered missing 2026-08-16 (independently, by two sessions): db.register_hypothesis()
+-- targets `signal_graveyard` on Supabase, but the table has never existed there.
+-- Every pre-registration since H01 (2026-03-22) silently landed in the
+-- gitignored local SQLite file instead, because db.py falls back without
+-- saying so. Only H01-H04 survive, all still `untested`.
 --
--- Column set matches the SQLite DDL in db.py so both backends behave identically.
---
--- Apply:
---   ssh root@95.216.205.160 "docker exec -i supabase-db psql -U postgres -d postgres" \
+-- Apply with:
+--   ssh root@95.216.205.160 \
+--     "docker exec -i supabase-db psql -U postgres -d postgres" \
 --     < migrations/001_signal_graveyard.sql
+--
+-- Then backfill from local.db (H01-H04, H17-H20) — see
+-- register_hypotheses.py. Phase 3 registers H21-H24 via register_h21_h24.py.
 
-CREATE TABLE IF NOT EXISTS public.signal_graveyard (
-    signal_id            TEXT PRIMARY KEY,
-    name                 TEXT NOT NULL,
-    tier                 INTEGER,
-    hypothesis           TEXT,
-    pre_registered_date  TEXT NOT NULL,
-    tested_date          TEXT,
-    status               TEXT DEFAULT 'untested',
-    layer_reached        INTEGER DEFAULT 0,
-    best_sharpe          DOUBLE PRECISION,
-    best_clv             DOUBLE PRECISION,
-    n_trades             INTEGER,
-    failure_reason       TEXT,
-    notes                TEXT
+CREATE TABLE IF NOT EXISTS signal_graveyard (
+    signal_id           TEXT PRIMARY KEY,
+    name                TEXT NOT NULL,
+    tier                INTEGER,
+    hypothesis          TEXT,
+    pre_registered_date TEXT NOT NULL,
+    tested_date         TEXT,
+    status              TEXT NOT NULL DEFAULT 'untested',
+    layer_reached       INTEGER NOT NULL DEFAULT 0,
+    best_sharpe         DOUBLE PRECISION,
+    best_clv            DOUBLE PRECISION,
+    n_trades            INTEGER,
+    failure_reason      TEXT,
+    notes               TEXT
 );
 
+CREATE INDEX IF NOT EXISTS signal_graveyard_status_idx
+    ON signal_graveyard (status);
+
+-- Without the grant, PostgREST answers 401/403 for the anon and service_role
+-- keys the app and CI actually use — the table exists but is unreachable.
 GRANT ALL ON public.signal_graveyard TO anon, authenticated, service_role;
 
--- PostgREST caches the schema; without this the table stays invisible to the client.
+-- PostgREST caches the schema; without this the table stays invisible to the
+-- client until the container restarts.
 NOTIFY pgrst, 'reload schema';
+
+-- The graveyard is append-and-annotate. A row is never deleted: the Deflated
+-- Sharpe denominator is the count of everything ever tested, including the
+-- failures. Deleting a failed signal silently inflates every later result.
