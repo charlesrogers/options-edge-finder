@@ -134,8 +134,32 @@ passing pair.
 
 ## Gate 2: Walk-Forward Results
 
-[FILLED IN AFTER RUNNING — pre-registration above is frozen]
+**VERDICT: FAIL.** Full write-up: `results/015_probability_buybacks.md`.
 
-## Gate 3-5
+- Primary (spec literal, selects on test): **1 / 4 tickers** — needed ≥ 3.
+- Secondary (train-selected → test, honest walk-forward): **0 / 4 tickers** — needed ≥ 3.
 
-[Deployment status]
+Test-period retention, baseline vs best probability arm:
+
+| Ticker | Baseline | Best arm | Assignments in best arm |
+|---|---|---|---|
+| AAPL | 52.5% | 57.9% (+$1.50/entry, t=0.36 — noise) | 0 |
+| DIS | 86.5% | 26.5% | 0 |
+| TMUS | −79.7% | −17.9% | 0 (2 at CLOSE_NOW P>35%) |
+| KKR | 34.1% | 21.5% | 0 |
+
+Two things the pre-registration could not have known:
+
+1. The corrected baseline is 52.5–86.5% retention, not 13%. The "≥ 20%" bar is cleared by
+   the baseline itself on 3 of 4 tickers; the binding clause was "net P&L ≥ baseline". The
+   bar was left immutable.
+2. The hypothesis's premise is wrong. 39–95% of baseline exits come from the
+   75%-premium-captured take-profit clause, not from distance triggers. The probability
+   policy deletes that clause, which is the mechanism of the failure.
+
+No re-grid was run.
+
+## Gate 3-5: Deployment
+
+**Nothing deployed.** No ticker cleared the walk-forward gate, so no per-ticker commit, no
+shadow period, no production change.

@@ -4,6 +4,54 @@ Rules derived from mistakes in this project. Claude MUST review this file at the
 
 ---
 
+### 2026-08-16 — Six experiments ran with DTE silently pinned to 0
+
+**What went wrong:** `assess_position()` computed `dte = max(0, expiry - datetime.now())`. Every backtest passed a *historical* expiry, so DTE evaluated to 0 on every observation in Experiments 007, 008, 009, 010, 012 and 013. That made every DTE-conditional alert rule unreachable (CLOSE_SOON at 7+ DTE, both WATCH rules) and left one rule permanently armed (CLOSE_NOW at "DTE < 3 and within 3%"). The copilot those experiments measured was a pure distance rule with the entire DTE dimension deleted. The headline "13% premium retention" in `results/009_crush_it.md` — the number that motivated a whole week of research into fixing it — was an artefact. Corrected, baseline retention is 52.5% (AAPL) and 86.5% (DIS). The same experiments also passed `ex_div_date=None`, so the EMERGENCY rule and both ex-dividend rules never fired in any backtest either.
+
+**Why it's wrong:** a function that reads the wall clock is not a pure function of its arguments, and a backtest is by definition evaluating a past state. `datetime.now()` inside scoring or alerting logic is a time bomb that only detonates in historical evaluation — where it produces plausible-looking numbers rather than an error. Nothing crashed. Nothing was flagged. Six experiments and a production parameter table were built on it.
+
+**Rule:** Any function used by both the live app and a backtest MUST take an explicit evaluation timestamp (`as_of`), defaulting to `datetime.now()` only for the live path. Backtests must always pass it. Before trusting any backtest of alerting/scoring logic, assert that a DTE-conditional or date-conditional branch is actually reachable in the simulated data — e.g. log the distribution of DTE values seen, and treat a degenerate distribution (all zeros, all identical) as a bug. The same check applies to any input a backtest passes as `None` "for now": log how often each alert clause fires, and treat a clause that never fires across thousands of observations as unwired rather than unlucky.
+
+**Category:** mistake (CRITICAL — invalidated six experiments and a production config)
+
+---
+
+### 2026-08-16 — A "premium retention" problem that was really a take-profit rule
+
+**What went wrong:** the Week 2 spec framed the problem as "the copilot triggers CLOSE_SOON/CLOSE_NOW on *distance to strike*, and 74% of gross premium goes to buyback costs," and proposed replacing the distance triggers with assignment-probability triggers. Once the DTE bug was fixed and the exits were tallied by which clause actually fired, 39–95% of closes came from the "75% of premium captured" take-profit clause — which has nothing to do with distance or assignment probability. Replacing the distance triggers deleted the take-profit rule as a side effect, which is exactly why the treatment bled money.
+
+**Why it's wrong:** the hypothesis named a mechanism ("distance triggers cause the buybacks") that nobody had measured. Attributing an aggregate outcome to a mechanism without counting which code path produced it means the fix can address a minority of the behaviour while silently removing the majority.
+
+**Rule:** before proposing to replace a rule, instrument it: count how many times each individual clause fires and what fraction of the outcome each one owns. If the hypothesis says "X causes Y," produce the count showing X causes Y *first*. A one-line tally is cheaper than an experiment grid and would have reframed this one before it was written.
+
+**Category:** anti-pattern
+
+---
+
+### 2026-08-16 — The pre-registration threshold was calibrated against a broken baseline
+
+**What went wrong:** H17's pass bar was "retention ≥ 20%," chosen because the (buggy) baseline was 13%. After the DTE fix the baseline was 52.5–86.5% on three of four tickers, so the bar was cleared by the control arm itself and carried no information. The threshold was correctly left immutable, but only the secondary "net P&L ≥ baseline" clause did any work.
+
+**Why it's wrong:** an absolute threshold encodes an assumption about the current state. When that state turns out to be mismeasured, the threshold silently becomes either trivial or impossible, and the experiment stops testing what it was written to test.
+
+**Rule:** state pass criteria **relative to a baseline computed in the same run** ("retention ≥ baseline + 7pp") rather than as an absolute constant, whenever the baseline comes from a previous experiment rather than from first principles. If an absolute bar is used anyway, re-measure the baseline before freezing the pre-registration, and record the measured baseline *in* the pre-registration.
+
+**Category:** anti-pattern
+
+---
+
+### 2026-08-16 — signal_graveyard has never existed in Supabase
+
+**What went wrong:** `db.register_hypothesis()` writes to a `signal_graveyard` table on Supabase, and `db.py` falls back to a local, gitignored SQLite file when the client is unavailable — silently, with no warning and the same return value. The table does not exist in the Supabase schema and never has. Every pre-registration since H01 (2026-03-22) landed in someone's laptop-local `local.db`; only H01–H04 survive anywhere, all still `untested`, despite `register_hypotheses.py` defining 39 hypotheses. The pre-registration discipline the whole research process rests on had no durable store.
+
+**Why it's wrong:** same shape as the 4.5-month chain-capture outage — a write path that cannot report where it wrote. A fallback that is indistinguishable from success turns "we pre-registered this" into an unverifiable claim.
+
+**Rule:** any storage helper with a fallback MUST report which backend it actually used, on every call, in its return value or its log line. Never let "wrote to the durable store" and "wrote to a local temp file" produce identical output. Before relying on a persistence layer for a process guarantee (pre-registration, audit trail, alerting), verify the target table exists by reading it back.
+
+**Category:** anti-pattern
+
+---
+
 ### 2026-08-15 — Write helpers returned attempted count, hiding a 4-month data outage
 
 **What went wrong:** `db.record_chain_snapshot()` wrapped every Supabase upsert in `except Exception: pass` and then `return len(rows)` — the attempted count, not the written count. The Supabase key went stale after 2026-03-30; every write 401'd; the job kept printing "Total: 2675 option chain rows captured" and exiting 0. Daily Option Chain Capture showed a green checkmark for ~2.5 months while writing literally zero rows. `web/src/app/api/paper-trades/route.ts` had the same shape — it discarded `error` from the destructure and served an all-zeros scorecard with HTTP 200.

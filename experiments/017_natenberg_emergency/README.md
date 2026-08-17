@@ -106,4 +106,26 @@ Nothing automatic. Charles reviews shadow logs and signs off, or does not.
 
 ## Gate 2: Backtest + Shadow Results
 
-[FILLED IN AFTER RUNNING — pre-registration above is frozen]
+**VERDICT: FAIL.** Full write-up: `results/017_natenberg_emergency.md`.
+
+| Criterion | Required | Measured |
+|---|---|---|
+| Events for a verdict | ≥ 20 | 172 (127 distinct situations) ✓ |
+| False positives suppressed | ≥ 50% | 61.6% ✓ |
+| Missed true-assignment scenarios | **0** | **38** ✗ |
+
+38 misses: 9 calls **actually exercised early** (delta 0.79–0.946, every one silenced by the
+`delta ≥ 0.95` condition) and 34 suppressions where the empirical table put assignment at
+≥ 90%. 53 of the 106 suppressed events were on calls that finished ITM.
+
+The failure is **structural, not tunable**. No delta threshold / margin combination reaches
+zero misses — dropping delta entirely and tripling the margin still leaves 12. The current
+`ITM + ex-div ≤ 3d` rule is doing two jobs: catching early exercise (what Natenberg
+addresses) and catching near-certain assignment at expiry (what he does not). Refining on
+early-exercise logic alone silences the second job wholesale.
+
+**Shadow mode shipped as pre-registered**, and is more useful on a fail than it would have
+been on a pass: `assess_position_shadow()`, `rational_exercise_emergency()` (fail-safe: any
+missing input FIRES), `bsm.py`, JSONL logging in `monitor_positions.py`, 27 tests.
+
+**Production unchanged. Nothing for Charles to sign off on.**

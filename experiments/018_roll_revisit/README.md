@@ -48,4 +48,11 @@ at least 50% of the original premium. Otherwise close.
 
 ## Gate 2: Walk-Forward Results
 
-[FILLED IN AFTER RUNNING — pre-registration above is frozen]
+**NOT RUN — `skipped_dependency`.** Write-up: `results/018_roll_revisit.md`.
+
+H17 failed (1/4 primary, 0/4 walk-forward), so the "winning probability triggers" this
+hypothesis was defined against do not exist. Running it would mean selecting an arm of a
+failed grid post hoc — the exact thing pre-registration exists to prevent.
+
+Rolling remains worth testing, but as a new hypothesis against the *current* copilot rules,
+sequenced after the take-profit question raised in `results/015_probability_buybacks.md`.

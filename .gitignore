@@ -16,3 +16,9 @@ yfinance-proxy/node_modules/
 
 # Databento raw option data (~145MB, paid, pulled once)
 data/databento
+
+# Week 2 experiment caches (parsed Databento, stock, dividends)
+experiments/_cache/
+
+# H19 shadow-mode log (research artefact, machine-local)
+emergency_shadow.jsonl

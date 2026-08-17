@@ -93,4 +93,25 @@ week.
 
 ## Gate 2: Walk-Forward Results
 
-[FILLED IN AFTER RUNNING — pre-registration above is frozen]
+**VERDICT: FAIL.** Full write-up: `results/016_trend_gate.md`.
+
+No gate cleared the bar. Five of six gates make the loss rate *worse* on the loss-bearing
+tickers — they suppress winners without removing losses.
+
+| Gate | AAPL rel. reduction / skip | TMUS | Targets | Controls |
+|---|---|---|---|---|
+| r20 > +5% | −22% / 18% | −11% / 10% | 0/2 | OK |
+| r20 > +8% | 0% / 0% | −11% / 10% | 0/2 | OK |
+| r60 > +12% | −14% / 12% | 0% / 0% | 0/2 | OK |
+| r60 > +18% | −3% / 3% | 0% / 0% | 0/2 | OK |
+| autocorr pctile > 70 | +100% / 21% | 0% / 0% | 1/2 | OK (KKR −1) |
+| autocorr pctile > 85 | 0% / 0% | 0% / 0% | 0/2 | OK |
+
+**The control design worked.** KKR and DIS moved by at most 1 loss on every gate, so the
+framework is sound and the null result is trustworthy. The single AAPL hit rests on 4 losses
+in 33 trades, nudges a control the same direction, and is the *worst* gate on GOOGL.
+
+GOOGL, the ticker that motivated this hypothesis, was tested stock-only and labelled
+directional-estimate-only as pre-registered. It does not support the hypothesis either.
+
+**Nothing deployed.** `ticker_strategies.py` is unchanged.
