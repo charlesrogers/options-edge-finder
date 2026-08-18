@@ -523,3 +523,24 @@ This is the testing gate working exactly as designed. The retro rule + revert + 
 **Rule:** REINFORCE: The analyze → validate → deploy pipeline is non-negotiable. Analysis alone is insufficient. Walk-forward ALWAYS reveals something the in-sample analysis missed. Every experiment that changes production parameters must have a validation companion experiment.
 
 **Category:** positive-pattern
+
+### 2026-08-17 — Acted on a truncated spec instead of finding the source file
+**What went wrong:** A handoff spec was pasted into the session cut off mid-sentence
+("...never a"). I reconstructed intent from the fragment, priced scopes, and put a
+purchase menu to Charles — omitting the $25 balance floor, the per-pull ACTUAL
+reporting requirement, the 1.3× abort trigger, the mandatory TMUS 2022 inclusion,
+and the three-location backup rule. All five were written down in
+`tasks/data-purchase-handoff-spec.md` §0–§4 in a sibling worktree the whole time.
+One of the three options I offered (all-5 full-year 2020, $143.68) would have
+breached the balance floor outright.
+**Why it's wrong:** A truncated paste is evidence that a *file* exists somewhere —
+specs of that shape are written to disk, not composed in chat. Sibling worktrees are
+plain local directories (`~/.claude/worktrees/<project>/<session>/`) and are readable
+without pushing anything. Reconstructing from a fragment reproduces the fragment's
+gaps, and the parts most likely to be missing are the hard constraints, because those
+cluster at the end in a §0/§4 tail.
+**Rule:** When a spec arrives truncated, incomplete, or referenced secondhand, STOP
+and locate the source file before acting on it — glob `~/.claude/worktrees/*/tasks/`
+and the project's `tasks/`, `docs/`, `results/` first. Never put options to the user
+that were derived from a fragment, and never spend money against one.
+**Category:** mistake
