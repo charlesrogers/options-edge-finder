@@ -564,3 +564,93 @@ silent-corruption path where none existed.
 copy or explicitly say which you left. When adding a parameter that changes what a
 cached function returns, change the cache key in the same commit.
 **Category:** anti-pattern
+### 2026-08-16 — Built a second simulator instead of checking for an existing one
+**What went wrong:** Wrote `experiments/lib_cc_sim.py` from scratch for Phase 3 while a
+parallel session was landing `experiments/cc_sim.py` for Phase 1 — a strictly better engine
+(real ex-div dates, simulated assignment, `expiry_beyond_data` guard). Both sessions also
+independently found and fixed the same `assess_position()` DTE bug and independently wrote
+the same `signal_graveyard` migration. Two experiments' worth of results had to be thrown
+away and re-run on the merged engine, and the re-run flipped the sign of two tickers' P&L.
+**Why it's wrong:** Sibling worktrees under `.claude/worktrees/` are part of the codebase's
+present state, not someone else's problem. `git log --all`, `git branch -a` and a glance at
+the other worktrees costs 30 seconds; a duplicated simulator costs an afternoon and leaves
+two engines that will disagree forever.
+**Rule:** Before writing any shared module or fixing any bug in a repo with sibling
+worktrees, check every worktree and every branch (`git branch -a`, `ls ../`, `git log --all
+--oneline -20`) for work already in flight on the same file. If found, merge and build on
+it — never build beside it.
+**Category:** anti-pattern
+
+### 2026-08-16 — A ratio metric silently inverts when its numerator goes negative
+**What went wrong:** H23 was pre-registered on "total return ÷ max drawdown". On a
+down-trending window every return was negative, and for a negative numerator a *larger*
+drawdown produces a *better* ratio. The metric nearly delivered a backwards recommendation.
+**Why it's wrong:** return/risk ratios are only monotone in the intended direction when the
+return is positive. Nobody notices because the number still looks like a number.
+**Rule:** Before pre-registering any ratio metric, state what it does when the numerator is
+negative, and report the numerator and denominator separately alongside it. Add a
+zero-overlay/stock-only baseline row so it is visible how much of the denominator the
+treatment is even capable of moving.
+**Category:** near-miss
+
+### 2026-08-16 — Two CI gates that had never run once
+**What went wrong:** `approval-gate.yml` — the gate that blocks unvalidated changes to
+`ticker_strategies.py` — exited 128 on every PR because `actions/checkout@v4` fetches
+shallow and `origin/main` did not exist in the checkout. `test.yml` had
+`pull_request: branches: [main]`, so a PR onto any other branch ran no tests at all.
+**Why it's wrong:** a gate that fails on infrastructure looks identical to a gate that is
+protecting you, right up until you read the log. This is the same silent-failure class as
+the dead crons.
+**Rule:** When a workflow diffs against a base branch, set `fetch-depth: 0` and resolve the
+base from `github.event.pull_request.base.ref`, never a hardcoded branch name. When adding
+any CI gate, verify it has PASSED at least once on a real PR — a red or never-triggered
+gate is not a gate.
+**Category:** mistake
+
+### 2026-08-17 — A backtest can look profitable purely because the option did not trade
+**What went wrong:** Exp 022 re-derived the per-ticker baselines and found TMUS at +$151/yr
+and KKR at +$316/yr per contract. Restricting the sample to trades whose exit price was an
+actual Databento print — rather than a price carried forward from an earlier day — flipped
+both to −$81 and −$88. TMUS has 56% repricing coverage and KKR 36%. AAPL, at 97.5%, did not
+move by a dollar. Two of the four production tickers had a *sign* determined by missing data.
+**Why it's wrong:** carrying the last price forward is the correct way to avoid silently
+dropping a day, and it is exactly what `cc_sim` was built to do. But a buyback paid at a
+stale price is not a buyback that could have been executed, and a strategy whose profit
+lives in those fills has no measured profit at all. Counting the missing days (which the
+engine did) is necessary and not sufficient — nobody looks at a coverage percentage and
+concludes "the sign is wrong."
+**Rule:** Any backtest on trade-based data (OHLCV, prints, fills) must report its headline
+metric twice: on all trades, and on the subset whose *exit* was priced by a real
+observation. If the two disagree in sign or by more than the effect being tested, the
+real-fill number is the result and the other is a diagnostic. Report coverage per ticker,
+never pooled.
+**Category:** mistake
+
+### 2026-08-17 — A tolerance can license keeping a claim you have just measured to be false
+**What went wrong:** H25 pre-registered a ±10pp win-rate tolerance. AAPL's deployed claim
+was "100% win rate — never loses"; the fixed engine measured 91.7%. That is inside ±10pp, so
+the pre-registered rule said leave the field alone — leaving a live, user-facing claim that
+the strategy cannot lose, on a ticker whose worst trade in the window was −$971.
+**Why it's wrong:** an equivalence tolerance answers "do the two engines agree?", which is
+not the same question as "is the published number true?". Passing the first does not license
+publishing a value the second says is wrong.
+**Rule:** When pre-registering a tolerance on a number that is *published to a user*, add a
+standing clause: whatever the verdict, no live claim may sit above the best available
+measurement in the optimistic direction. Restricting a live claim toward the measurement is
+always permitted; it is never a retrofit of the verdict, and it must be labelled as a
+separate change rather than folded into the experiment's result.
+**Category:** anti-pattern
+
+### 2026-08-17 — workflow_dispatch only works from the default branch
+**What went wrong:** Added `.github/workflows/registry-sync.yml` so graveyard
+pre-registrations could be written to Supabase (no dev machine has the credentials, so
+`db.py` falls back to gitignored SQLite). `gh workflow run` returned HTTP 404: GitHub only
+dispatches workflows that exist on the default branch, whatever `--ref` says.
+**Why it's wrong:** it makes "add a workflow to do X on this branch, then run it" impossible
+for exactly the case where it is most useful — a one-off operation needed *before* the
+branch merges.
+**Rule:** A workflow that a feature branch needs to dispatch must land on `main` first, as
+its own small PR, before the work that depends on it. When that is not possible, do not let
+the durable side effect become the proof: use the pushed commit's timestamp as the
+pre-registration record and state plainly that the database write happens on merge.
+**Category:** mistake
