@@ -1,3 +1,25 @@
 name = "yfinance-proxy"
 main = "src/worker.js"
 compatibility_date = "2024-01-01"
+
+# Outer loop of the dead-man's switch (spec A3 Layer 2).
+#
+# Every 30 minutes, ask the copilot's health endpoint whether it is alive and
+# push to Charles's phone if it is not — including if it does not answer at all.
+#
+# This Worker is the only watcher that is not on Hetzner and not on GitHub:
+#   - the inner loop runs on the same box as the app it checks, so it cannot
+#     report that the box is gone
+#   - GitHub Actions auto-disables scheduled workflows after ~60 days of repo
+#     inactivity, which is exactly how all seven schedules switched themselves
+#     off during the outage
+# Cloudflare cron triggers have neither property. All three layers would have to
+# die silently at once, which is what the monthly drill in docs/fire-drill.md
+# exists to catch.
+[triggers]
+crons = ["*/30 * * * *"]
+
+# Secrets — set with `wrangler secret put`, never committed:
+#   HEALTH_CRON_SECRET  must equal CRON_SECRET in Coolify (both is_preview scopes)
+#   PUSHOVER_TOKEN
+#   PUSHOVER_USER

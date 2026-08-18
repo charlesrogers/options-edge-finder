@@ -42,22 +42,84 @@ Consolidation moves *where* logic lives, never *what* it decides.
 
 ## Plan
 
-- [ ] **P0 — FACT-11.** One field contract for `public.trades`, both alert paths corrected,
+- [x] **P0 — FACT-11.** One field contract for `public.trades`, both alert paths corrected,
       `db.add_trade` corrected, pytest pinning the live column set so this cannot re-rot.
-- [ ] **P1 — FACT-1.** Repoint server cron at the Python authority (A2), not the TS route.
+- [~] **P1 — FACT-1.** Repoint server cron at the Python authority (A2), not the TS route.
       Deploy `/opt/options-monitor` on Hetzner. Kill the unsatisfiable `supabase-kong` guard.
-- [ ] **P2 — Layer 0 heartbeat.** `monitor_heartbeats` + `position_assessments` tables;
+- [x] **P2 — Layer 0 heartbeat.** `monitor_heartbeats` + `position_assessments` tables;
       monitor writes both with read-back verification.
-- [ ] **P3 — FACT-3 + FACT-12.** Health returns non-200 on fail; add heartbeat check;
+- [~] **P3 — FACT-3 + FACT-12.** Health returns non-200 on fail; add heartbeat check;
       set the missing Coolify notification env vars.
-- [ ] **P4 — FACT-5 (A6).** Market-calendar-aware freshness from a real NYSE calendar.
-- [ ] **P5 — Layer 2.** Cloudflare Worker cron trigger → health → Pushover.
-- [ ] **P6 — FACT-4.** Secrets to a 0600 env file; rotate CRON_SECRET across every consumer.
-- [ ] **P7 — notification ownership.** Python-on-Hetzner is primary; GH Actions fallback
+- [x] **P4 — FACT-5 (A6).** Market-calendar-aware freshness from a real NYSE calendar.
+- [~] **P5 — Layer 2.** Cloudflare Worker cron trigger → health → Pushover.
+- [x] **P6 — FACT-4.** Secrets to a 0600 env file; rotate CRON_SECRET across every consumer.
+- [x] **P7 — notification ownership.** Python-on-Hetzner is primary; GH Actions fallback
       alerts only when the primary heartbeat is stale. No duplicate buzzes.
-- [ ] **P8 — docs/crons.md**, duplicate health cron resolved, Uptime Kuma Tier 2 monitor.
-- [ ] **P9 — demonstrations.** Kill the cron → alert ≤45 min. Force a write failure → loud.
+- [x] **P8 — docs/crons.md**, duplicate health cron resolved, Uptime Kuma Tier 2 monitor.
+- [~] **P9 — demonstrations.** Kill the cron → alert ≤45 min. Force a write failure → loud.
       Weekend/holiday → zero alerts.
 
-## Review
-(filled at end)
+## Review — 2026-08-18
+
+Legend: `[x]` done and demonstrated · `[~]` code complete, blocked on credentials.
+
+### Demonstrated, not asserted
+
+- **The column mismatch is real.** Fed the actual `public.trades` row shape to
+  `assess_position`: raises `ValueError`. Fed the corrected shape: `EMERGENCY`.
+- **The live database agrees.** `test_live_supabase_columns_exist` passed in CI
+  against production Supabase. PostgREST rejects an unknown column on an empty
+  table, so this is a real contract check with zero rows in the table.
+- **The heartbeat persists.** A real monitor run against production wrote
+  heartbeat `b46f7a31-ef10-4528-ab87-9e87839dc79a` and read it back.
+- **The failure tests are not vacuous.** Three mutations applied — swallow the
+  trades-read error, ignore a heartbeat write failure, assume the primary is
+  alive when its heartbeat is unreadable — each caught by exactly one test,
+  3 failed / 217 passed. Reverted, 220 pass.
+- **The FACT-1 guard really cannot succeed.** `curl -sf http://supabase-kong:8000`
+  run on the host exits **6**. 36 firings in 24h, zero effect.
+- **The secrets are off disk.** `grep -c "Authorization: Bearer"
+  /etc/cron.d/coolify-apps` → 0. Both wrapper scripts return 0 against live
+  endpoints. Cron restarted clean.
+- **Uptime Kuma Tier 2 is live.** Monitor 13 on the authenticated health path,
+  60s / 3 retries, wired to Discord Red Alert, first heartbeat `200 - OK`. All
+  13 monitors green after the restart.
+- **A weekend produces no alarm.** Replayed the exact false alarm (run
+  31984884170, 01:25 Sunday): old arithmetic gives 49h → red; trading-day
+  arithmetic gives 0 sessions → quiet. A genuinely missed Monday capture still
+  reads as 1 session stale, so the check was fixed, not softened.
+
+### Blocked, and honestly so
+
+`PUSHOVER_TOKEN`, `PUSHOVER_USER`, `DISCORD_WEBHOOK` exist only as GitHub
+secrets — not in Coolify, not on the server, not anywhere readable. Without
+them:
+
+- the Hetzner primary monitor cannot deliver an alert, so it is written and
+  installed but **not enabled**. Enabling it would replace a cron that lies with
+  a cron that runs and delivers nothing, which is the same fault wearing a
+  different colour.
+- the Cloudflare outer loop is written but not deployed (also needs a
+  Cloudflare login).
+- the app's own Discord alerts have been dropping to `console.error` this entire
+  time, which is its own finding.
+
+Acceptance criteria 1, 2, and 9 (kill-the-cron, Hetzner-is-gone, fire drill) all
+end in "a notification arrives on Charles's phone" and cannot be demonstrated
+until those three values exist.
+
+### Deliberately not done
+
+- **FACT-13 / RLS.** `trades`, `portfolio_holdings`, `paper_trades` and
+  `option_chain_snapshots` have `relrowsecurity = false`, and the anon key is
+  shipped to the browser. Anyone with the public key can read or write them.
+  Blast radius is 91 tables across every app on this Supabase, so it is not a
+  change to make as a side effect of a monitoring session.
+- **Chain-capture DST drift.** `50 19 * * 1-5` is 15:50 ET in summer and 14:50
+  ET in winter. Changing it changes the research data, so it is a research
+  decision. Recorded in `docs/crons.md`.
+- **A1 UI work.** The web still derives verdicts in `copilot.ts` rather than
+  reading `position_assessments`. The store is now written and populated; the
+  read side, the "as of" timestamp and the stale banner are not built. Doing it
+  before the primary path is enabled would swap a correct live derivation for a
+  stored one that nothing is reliably writing.

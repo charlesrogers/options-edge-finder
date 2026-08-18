@@ -523,3 +523,60 @@ This is the testing gate working exactly as designed. The retro rule + revert + 
 **Rule:** REINFORCE: The analyze → validate → deploy pipeline is non-negotiable. Analysis alone is insufficient. Walk-forward ALWAYS reveals something the in-sample analysis missed. Every experiment that changes production parameters must have a validation companion experiment.
 
 **Category:** positive-pattern
+
+### 2026-08-18 — Verify the data contract before verifying the schedule
+**What went wrong:** The reliability spec listed ten faults about crons, guards,
+status codes and secrets. None of them mentioned that both alerting paths read
+`expiration`/`premium_received` from a `public.trades` table whose columns are
+`expiry`/`sold_price`. Every scheduled job could have been repaired perfectly and
+the monitor would still have assessed nothing correctly.
+**Why it's wrong:** Reliability work naturally aims at the schedule — does the job
+run, does it alert, does it fail loudly. A job that runs flawlessly on the wrong
+columns passes every one of those checks. Schedule correctness and data
+correctness are independent, and the second one is invisible while the source
+table is empty.
+**Rule:** Before fixing how often a job runs, run it once against the real data
+and read the output. For anything reading a database, assert the live column set
+in a test — PostgREST rejects an unknown column even on an empty table, so the
+contract is checkable before the first real row exists.
+**Category:** anti-pattern
+
+### 2026-08-18 — A default on a lookup is how a missing field becomes a plausible value
+**What went wrong:** `trade.get("expiration", "")` and `trade.get("premium_received", 0)`.
+The column did not exist, so the monitor assessed positions with `expiry=""` and
+`premium=0` instead of failing.
+**Why it's wrong:** The default converts "this field is absent" into "this field
+is empty", which are opposite facts. On the TypeScript side the same shape gave
+`dte = NaN`, and every DTE-gated comparison silently evaluated false — a monitor
+that under-alerts with no error anywhere.
+**Rule:** In safety-critical read paths, required fields have no defaults. Parse
+the row through one validator that raises on absence. Reserve `.get(k, default)`
+for fields that are genuinely optional.
+**Category:** mistake
+
+### 2026-08-18 — Fixing a broken guard can be worse than disabling the job
+**What went wrong:** FACT-1's cron short-circuited on an unsatisfiable guard, so
+the obvious fix was to repair the guard. But the route it calls has no Pushover
+credentials in Coolify, so a repaired cron would have run every 15 minutes and
+delivered nothing — while now genuinely appearing to work.
+**Why it's wrong:** The fault was never the guard. It was that the crontab
+claimed coverage that did not exist. Repairing the guard preserves the claim and
+removes the evidence.
+**Rule:** Before repairing a broken scheduled job, trace its full path to the
+human — including credentials at the delivery end. If any link is missing,
+disable the job with the reason written in place rather than making it run.
+**Category:** anti-pattern
+
+### 2026-08-18 — Put a vacuity guard in every regression test
+**What went wrong:** `test_wall_clock_would_have_cried_wolf` asserted the old
+rule really did fire before asserting the new one does not. That guard failed on
+first run, which is what surfaced a second cause of the weekend false alarm: the
+DATE column parsed as midnight UTC, 20 hours before the capture it represented.
+Without the guard the test would have passed and hidden it.
+**Why it's wrong:** A test that only asserts the new behaviour passes trivially
+if the scenario it claims to reproduce never actually reproduced the bug.
+**Rule:** Every regression test asserts the bug first and the fix second. Also:
+when correcting a fixture to a new schema, re-check which existing tests were
+passing for the wrong reason — three failure tests here had started passing
+because every row was rejected before the behaviour under test ran.
+**Category:** near-miss

@@ -14,6 +14,78 @@ const CACHE_TTL = {
   options: 5 * 60, // 5 minutes
 };
 
+/**
+ * Outer loop of the dead-man's switch (spec A3 Layer 2).
+ *
+ * The inner loop lives on Hetzner, which is also where the app it checks runs.
+ * A checker on the same box as the thing it checks cannot report that the box
+ * is gone. This one is on Cloudflare: different provider, different failure
+ * domain, free cron triggers, and — unlike GitHub Actions — no auto-disable
+ * after 60 days of repo inactivity, which is the mechanism that silently
+ * switched off all seven scheduled workflows during the outage.
+ *
+ * It is deliberately the dumbest thing that can work: one request, look at the
+ * status code, push on anything that is not 200. That only became possible when
+ * /api/cron/health started returning 503 on failure instead of 200 with
+ * {"status":"fail"} in the body.
+ *
+ * A timeout counts as a failure. From out here, "Hetzner is unreachable" and
+ * "the monitor is dead" are the same fact: nobody is watching the positions.
+ *
+ * Secrets (wrangler secret put): HEALTH_CRON_SECRET, PUSHOVER_TOKEN, PUSHOVER_USER.
+ */
+const HEALTH_URL = "https://options.imprevista.com/api/cron/health";
+const HEALTH_TIMEOUT_MS = 20000;
+
+async function pushover(env, title, message, priority) {
+  if (!env.PUSHOVER_TOKEN || !env.PUSHOVER_USER) {
+    console.error(`[watchdog] Pushover unconfigured — "${title}" NOT DELIVERED`);
+    return false;
+  }
+  const body = new URLSearchParams({
+    token: env.PUSHOVER_TOKEN,
+    user: env.PUSHOVER_USER,
+    title,
+    message,
+    priority: String(priority),
+  });
+  if (priority === 2) {
+    body.set("retry", "60");
+    body.set("expire", "600");
+  }
+  const resp = await fetch("https://api.pushover.net/1/messages.json", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  if (!resp.ok) {
+    console.error(`[watchdog] Pushover ${resp.status} — "${title}" NOT DELIVERED`);
+    return false;
+  }
+  return true;
+}
+
+async function checkHealth(env) {
+  if (!env.HEALTH_CRON_SECRET) {
+    // Refuse to be a watchdog that cannot authenticate: every poll would 401,
+    // which is indistinguishable from a real outage and would page continuously.
+    console.error("[watchdog] HEALTH_CRON_SECRET unset — cannot check health");
+    return { ok: false, detail: "watchdog misconfigured: HEALTH_CRON_SECRET unset" };
+  }
+
+  try {
+    const resp = await fetch(HEALTH_URL, {
+      headers: { Authorization: `Bearer ${env.HEALTH_CRON_SECRET}` },
+      signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
+    });
+    if (resp.status === 200) return { ok: true, detail: "healthy" };
+    const body = (await resp.text()).slice(0, 300);
+    return { ok: false, detail: `HTTP ${resp.status}: ${body}` };
+  } catch (e) {
+    return { ok: false, detail: `unreachable (${e})` };
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     // Handle CORS preflight
@@ -95,6 +167,12 @@ export default {
     } catch (err) {
       return jsonResponse({ error: "Internal server error", message: err.message }, 500);
     }
+  },
+
+  // Cron-triggered watchdog. Declared here so Cloudflare invokes it; the body
+  // lives in scheduledHandler above.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(scheduledHandler(event, env, ctx));
   },
 };
 
@@ -345,6 +423,23 @@ async function fetchOptionChain(ticker, expiration) {
     calls: (options.calls || []).map(formatContract),
     puts: (options.puts || []).map(formatContract),
   };
+}
+
+export async function scheduledHandler(event, env, ctx) {
+  const result = await checkHealth(env);
+  if (result.ok) {
+    console.log(`[watchdog] ${new Date().toISOString()} healthy`);
+    return;
+  }
+  console.error(`[watchdog] UNHEALTHY: ${result.detail}`);
+  await pushover(
+    env,
+    "🚨 Options Copilot is not responding",
+    `The Cloudflare watchdog could not confirm the copilot is healthy.\n\n${result.detail}\n\n` +
+      "This check runs outside Hetzner and outside GitHub, so it is still speaking " +
+      "even if both are down. Positions may be unmonitored.",
+    1,
+  );
 }
 
 // --- Helpers ---
