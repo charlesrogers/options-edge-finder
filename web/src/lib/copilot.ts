@@ -1,6 +1,18 @@
 /* ──────────────────────────────────────────────────────────
  * Covered Call Copilot — threshold-based alert system
  * Port of position_monitor.py
+ *
+ * ⚠️ THIS IS NOT THE DISPLAY ENGINE. As of 2026-08-18, /positions renders
+ * verdicts that position_monitor.py computed and stored in
+ * `position_assessments`; /api/copilot reads them and derives nothing. A port
+ * is a second implementation of the same rules, and two implementations of an
+ * alert rule drift — which meant the phone could say CLOSE_NOW while the screen
+ * said SAFE, with nothing in the system able to notice.
+ *
+ * The one remaining caller is /api/cron/monitor, a TypeScript alerting path
+ * that duplicates the Python monitor. Deleting it is an infra-lane decision
+ * (it is a live alerting endpoint), so it is flagged rather than removed here.
+ * Do not add new callers: if you need a verdict, read the stored one.
  * ────────────────────────────────────────────────────────── */
 
 // ITM probability table from 145,099 real observations
