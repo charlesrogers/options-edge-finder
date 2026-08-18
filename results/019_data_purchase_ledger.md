@@ -78,3 +78,50 @@ SHA-256 matched, loaded to 178,307 rows spanning 2022-01-03 → 2022-12-30.
 
 Purchase, validation, and durability are complete. **H21 is NOT started** — it waits
 on Exp 022's corrected baselines, per Charles. Nothing further is authorized.
+
+---
+
+## Caveat 1 RESOLVED 2026-08-17 — loader date window is now mandatory
+
+The blocking precondition for Exp 022 is implemented. Findings while doing it:
+
+**The bug had three independent copies, not one.** The spec named
+`backtest_engine.load_option_data`, but the experiment actually blocked (Exp 022)
+runs on `cc_sim.py`, whose `load_calls` globs `{ticker}_ohlcv*` and concatenates
+the same way. `experiments/002_put_spread_real_prices/run.py` carries a third
+private copy. Fixing only the named loader would have left Exp 022 contaminated.
+
+**`cc_sim` had a second, quieter trap:** it caches parsed calls to
+`_cache/{ticker}_calls.parquet` with **no window in the cache key**. Any window
+would have served — or poisoned — any other window's cache entry. No caches
+existed yet, so nothing was actually corrupted; the key now includes the window.
+
+### What changed
+
+- `cc_sim.load_calls(ticker, start, end)` and `cc_sim.load_ticker(ticker, start, end)`
+  — window REQUIRED, raises with a pointer to the constants if omitted.
+- `backtest_engine.load_option_data(ticker, start, end)` — same.
+- Window constants in both modules: `WINDOW_LEGACY_PRE_STRESS` = 2023-01-01→2026-12-31
+  (reproduces pre-purchase inputs exactly, including KKR's 2023 start),
+  `WINDOW_STRESS_2020` / `_CRASH`, `WINDOW_STRESS_2022`.
+- All 7 call sites in Exps 002/004/005/015/016/017 pinned to
+  `WINDOW_LEGACY_PRE_STRESS`, preserving their original inputs.
+- An empty window now **raises** instead of returning an empty frame.
+- `UNUSABLE_TICKERS['GOOGL']` corrected: GOOGL is usable inside 2020, not at all
+  recently. `load_ticker` enforces exactly that.
+
+**Note on the baseline definition:** `WINDOW_LEGACY_PRE_STRESS` starts 2023-01-01,
+not 2024-01-01. KKR's existing data starts 2023-03 and every prior experiment used
+it, so a 2024 cut would silently change KKR's results. If Exp 022 wants a strict
+2024–26 baseline it must pass that window explicitly and accept that KKR's numbers
+will not match `results/012_walk_forward.md`. **Flagging rather than deciding —
+that is Exp 022's call.**
+
+### Verification
+
+`tests/test_loader_date_window.py` — 12 tests, all passing on real data:
+window required on both loaders, reversed window rejected, constants disjoint and
+in sync across modules, legacy window excludes 2020/2022, stress window is 2020-only,
+empty window raises, cache keyed by window, GOOGL gated by era. The partition test
+asserts `len(legacy) + len(stress) == len(all)` on the real AAPL archive — no rows
+dropped, none double-counted. Full suite: **167 passed, no regressions.**

@@ -47,6 +47,16 @@ def load_option_data(ticker):
     combined = pd.concat(dfs).sort_index()
     # Remove exact duplicates only (same date + same symbol + same publisher)
     combined = combined.reset_index().drop_duplicates().set_index('ts_event')
+
+    # Exp 019 (2026-08-17) added 2020/2022 files to raw_dir. This loader globs
+    # '{ticker}_ohlcv*', so without this filter a re-run of Exp 002 would
+    # silently include stress years its published results never saw. Pinned to
+    # the pre-purchase era to keep this experiment reproducible.
+    idx = combined.index.normalize()
+    lo, hi = pd.Timestamp('2023-01-01'), pd.Timestamp('2026-12-31')
+    if idx.tz is not None:
+        lo, hi = lo.tz_localize(idx.tz), hi.tz_localize(idx.tz)
+    combined = combined[(idx >= lo) & (idx <= hi)]
     return combined
 
 

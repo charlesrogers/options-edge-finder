@@ -61,9 +61,34 @@ CACHE_DIR = os.path.join(os.path.dirname(__file__), '_cache')
 # Measured 2026-08-16 — see experiments/015_probability_buybacks/README.md.
 USABLE_TICKERS = ['AAPL', 'DIS', 'TMUS', 'KKR', 'TXN']
 UNUSABLE_TICKERS = {
-    'GOOGL': 'only 5 trading days of Databento option data (2026-03-16..20)',
+    # GOOGL gained 2020-02-01..06-30 in the Exp 019 purchase (103 days) and IS
+    # usable inside WINDOW_STRESS_2020. It remains unusable for the recent
+    # baseline, which is what load_ticker's default callers ask for.
+    'GOOGL': 'only 5 trading days of recent Databento data (2026-03-16..20); '
+             'usable only within WINDOW_STRESS_2020',
     'AMZN': 'no Databento option data was ever purchased',
 }
+
+# ------------------------------------------------------------------
+# Date windows — REQUIRED by every loader. See results/019_data_purchase_ledger.md.
+#
+# The Exp 019 purchase (2026-08-17) added 2020 and 2022 files to RAW_DIR. The
+# loaders glob '{ticker}_ohlcv*' and concatenate, so without an explicit window
+# a "recent baseline" run silently ingests the stress years and any later
+# stress comparison measures those years against themselves. The window is
+# mandatory precisely so that contamination cannot happen by omission.
+# ------------------------------------------------------------------
+
+# Reproduces pre-purchase behaviour exactly: every file that existed in RAW_DIR
+# before 2026-08-17 (KKR from 2023-03, the rest from 2025-03), and nothing from
+# the stress years. Use this to re-run any experiment numbered <= 018 and get
+# its original inputs back.
+WINDOW_LEGACY_PRE_STRESS = ('2023-01-01', '2026-12-31')
+
+# The stress windows bought in Exp 019.
+WINDOW_STRESS_2020 = ('2020-02-01', '2020-09-30')   # crash + melt-up (AAPL only past 06-30)
+WINDOW_STRESS_2020_CRASH = ('2020-02-01', '2020-06-30')
+WINDOW_STRESS_2022 = ('2022-01-01', '2022-12-31')   # TMUS only
 
 
 # ============================================================
@@ -113,9 +138,30 @@ def _cache_path(name):
     return os.path.join(CACHE_DIR, name)
 
 
-def load_calls(ticker):
-    """Parse Databento OHLCV into a tidy call table. Cached to parquet."""
-    cache = _cache_path(f'{ticker}_calls.parquet')
+def load_calls(ticker, start, end):
+    """Parse Databento OHLCV into a tidy call table for [start, end] inclusive.
+
+    `start` and `end` are REQUIRED ('YYYY-MM-DD' or anything pd.Timestamp takes).
+    RAW_DIR holds several disjoint eras per ticker (2020 stress, 2022, 2023-26)
+    and this function globs and concatenates all of them, so an implicit window
+    would silently mix eras. Pass one of the WINDOW_* constants.
+
+    The cache key includes the window — two windows never share a cache entry.
+    """
+    if start is None or end is None:
+        raise ValueError(
+            f'load_calls({ticker!r}) requires an explicit start and end. '
+            f'RAW_DIR mixes stress years with the recent baseline; an implicit '
+            f'window silently concatenates them. Use cc_sim.WINDOW_LEGACY_PRE_STRESS '
+            f'to reproduce pre-2026-08-17 results, or a WINDOW_STRESS_* constant.'
+        )
+    start_ts = pd.Timestamp(start).normalize()
+    end_ts = pd.Timestamp(end).normalize()
+    if start_ts > end_ts:
+        raise ValueError(f'load_calls({ticker!r}): start {start} is after end {end}')
+
+    tag = f'{start_ts.date()}_{end_ts.date()}'
+    cache = _cache_path(f'{ticker}_calls_{tag}.parquet')
     if os.path.exists(cache):
         return pd.read_parquet(cache)
 
@@ -140,12 +186,26 @@ def load_calls(ticker):
 
     calls = raw.merge(uniq, on='symbol', how='inner')
     calls['date'] = pd.to_datetime(calls['ts_event']).dt.tz_localize(None).dt.normalize()
+
+    # Apply the window BEFORE aggregating and caching, so the cached artefact
+    # contains exactly the requested era and nothing else.
+    before = len(calls)
+    calls = calls[(calls['date'] >= start_ts) & (calls['date'] <= end_ts)]
+    if calls.empty:
+        raise ValueError(
+            f'load_calls({ticker!r}, {start}, {end}): no option data in that '
+            f'window ({before:,} rows exist outside it across {len(files)} '
+            f'file(s)). An empty window is a spec error, not an empty market.'
+        )
+
     calls = (calls.groupby(['date', 'symbol', 'strike', 'expiration'], as_index=False)
                   .agg(close=('close', 'mean'), volume=('volume', 'sum')))
     calls = calls[calls['close'] > 0]
 
     calls.to_parquet(cache, index=False)
-    print(f'    [{ticker}] {len(calls):,} call-days cached', flush=True)
+    print(f'    [{ticker}] {len(calls):,} call-days cached '
+          f'({start_ts.date()} -> {end_ts.date()}, {before - len(calls):,} rows '
+          f'outside window dropped)', flush=True)
     return calls
 
 
@@ -245,14 +305,29 @@ def compute_trend_features(stock):
     })
 
 
-def load_ticker(ticker, verbose=True):
-    """Load everything for one ticker. Expensive; call once, reuse."""
-    if ticker in UNUSABLE_TICKERS:
-        raise ValueError(f'{ticker} is not backtestable: {UNUSABLE_TICKERS[ticker]}')
-    if verbose:
-        print(f'  Loading {ticker}...', flush=True)
+def load_ticker(ticker, start=None, end=None, verbose=True):
+    """Load everything for one ticker over [start, end]. Expensive; reuse it.
 
-    calls = load_calls(ticker)
+    The window is REQUIRED — see load_calls. Callers re-running a pre-2026-08-17
+    experiment should pass cc_sim.WINDOW_LEGACY_PRE_STRESS to get the original
+    inputs back; stress work passes a WINDOW_STRESS_* constant.
+    """
+    if start is None or end is None:
+        raise ValueError(
+            f'load_ticker({ticker!r}) requires an explicit start and end date. '
+            f'Pass cc_sim.WINDOW_LEGACY_PRE_STRESS (reproduces pre-purchase '
+            f'results) or a WINDOW_STRESS_* constant. Without a window the '
+            f'loader concatenates 2020/2022 stress data into the baseline.'
+        )
+    # GOOGL is unusable for recent baselines but IS usable inside 2020.
+    if ticker in UNUSABLE_TICKERS:
+        window_is_2020 = pd.Timestamp(end).year == 2020
+        if not (ticker == 'GOOGL' and window_is_2020):
+            raise ValueError(f'{ticker} is not backtestable: {UNUSABLE_TICKERS[ticker]}')
+    if verbose:
+        print(f'  Loading {ticker} [{start} -> {end}]...', flush=True)
+
+    calls = load_calls(ticker, start, end)
     stock = load_stock(ticker)
     divs = sorted(load_dividends(ticker))
 

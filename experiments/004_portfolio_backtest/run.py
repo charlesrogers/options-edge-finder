@@ -12,7 +12,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 import numpy as np
-from backtest_engine import PortfolioBacktest, load_option_data, load_stock_data
+from backtest_engine import (PortfolioBacktest, load_option_data, load_stock_data,
+                             WINDOW_LEGACY_PRE_STRESS)
 
 
 def run_variant(label, tickers, option_data, stock_data, **kwargs):
@@ -69,7 +70,8 @@ def main():
     stock_data = {}
     for ticker in tickers:
         print(f"  {ticker}...", end=" ", flush=True)
-        od = load_option_data(ticker)
+        # Exp 019 added 2020/2022 files; pin the original pre-purchase era.
+        od = load_option_data(ticker, *WINDOW_LEGACY_PRE_STRESS)
         sd = load_stock_data(ticker)
         if not od.empty and not sd.empty:
             option_data[ticker] = od
