@@ -28,15 +28,38 @@
 
 $125, one chance. The purpose is regime coverage: everything validated so far ran on 2024–2026, a favorable regime (KKR excepted, 3 years). The purchase order is fixed; the *pre-registrations for Exps 019 and 021 must be committed before the first pull.*
 
-**Purchase order (REVISED 2026-08-17 — information-per-dollar over cheapest-first, per Exp 019b executor's finding that TMUS carries 44% missing repricing vs AAPL's 2.5%; stop when budget is exhausted):**
-1. AAPL option OHLCV **2020** ← pull FIRST. It is the single most information-dense item (cleanest fills + the crash/V-recovery regime); if the budget only covers one thing, it must be this. OHLCV estimates were accurate last time ($4.07 est vs $4.08 actual) — pull OHLCV, check actual charge, THEN pull its definitions (the 2×-miss risk lives in definitions), re-plan with the corrected factor.
-2. AAPL option OHLCV **2022** + definitions
-3. DIS **2020** then **2022** + definitions (14.3% missing — second-cleanest name)
-4. GOOGL option OHLCV **most recent full year** + definitions
-5. TMUS stress years — only if budget remains (44% missing repricing caps what any TMUS verdict can claim; say so in the results)
-6. MSFT most recent year — only if budget remains
+**Purchase order (RE-REVISED 2026-08-17 with actual Databento estimates — obtained free via `metadata.get_cost`, $0 spent):**
+
+Real prices killed the wish list: AAPL 2020 $79.69 (ohlcv+defs), AAPL 2022 $66.78, DIS 2020/2022 ~$33 each, TMUS 2022 **$5.58**, GOOGL recent year $74.42, MSFT $90.00. Total wish list $382.50 vs ~$125 balance.
+
+**Charles's binding constraints: report every actual charge as it happens; the account balance NEVER goes below $25** (max spend ≈ $100 assuming $125 balance — confirm the actual balance in the Databento portal BEFORE the first pull; if < $111, drop to AAPL-2020-only).
+
+**The approved package (pending Charles's veto):**
+1. AAPL **2020** OHLCV (est. $78.70) ← first. Verify actual charge ≈ estimate before ANYTHING else; abort and report if actual > 1.3× estimate.
+2. AAPL 2020 definitions (est. $0.99)
+3. TMUS **2022** OHLCV + defs (est. ~$6) — the $6 bear-year ticket; every TMUS verdict carries the mandatory "44% missing repricing" caveat.
+4. STOP. Expected total ≈ $86–88, ending balance ≈ $37. Nothing else is affordable under the floor.
+
+**Struck from the purchase list permanently (unaffordable):** GOOGL real-year ($74), MSFT ($90), AAPL 2022, DIS stress years. GOOGL and MSFT validate via the free path — daily chain capture accruing forward, probation tier, 6-month upgrade review.
+
+**API key:** `~/.config/databento/key` (mode 600, outside the repo — never commit it, never echo it into logs).
 
 **Blocking prerequisite before ANY pull:** Part 0 (Exp 022) must have re-derived the walk-forward baseline on `cc_sim.py` — including reproducing/replacing `results/012_walk_forward.md`, which predates the as_of clock fix. H21 compares stress years to that baseline; buying data to compare against an unmeasured number is the failure mode.
+
+---
+
+## PURCHASE EXECUTED 2026-08-17 — data inventory & binding caveats
+
+**Owned:** all 5 tickers Feb–Jun 2020 (crash window), AAPL Jul–Sep 2020 (melt-up), TMUS full-year 2022, probe week, definitions. Total spend $86.59; portal balance **$39.80 confirmed** (floor $25 intact). Three hash-verified copies (laptop / Hetzner `/data/backups/databento/` / Dropbox), restore-tested. AAPL 2020 region coverage 80.4% — matches the 80.0% 2025 baseline every shipped backtest runs on.
+
+**H21 anchoring rule (added 2026-08-18, after the Exp 022 audit):** H25's per-ticker tolerance verdicts have now reversed twice across engine versions (PR #4's engine vs the six-defect-fixed engine) — per the two-reversal rule they are an unstable intermediate, not a baseline. Therefore H21's pre-registration must: (a) record the exact engine commit SHA its baseline and its stress runs both use — same SHA for both, non-negotiable; (b) compare against the corrected-engine baseline RANGES from the results/022 addendum, never point values; (c) anchor pass/fail to range endpoints (a stress-year loss rate is "within tolerance" only if inside [range_min − 10pp, range_max + 10pp]). Every results file from now on states its engine SHA — a number without its engine lineage is not a measurement.
+
+**Three data caveats — status as of 2026-08-17 evening:**
+1. **RESOLVED — loader date windows now enforced in code** (not just this spec). All THREE loader copies (`backtest_engine.load_option_data`, `cc_sim.load_calls`, Exp 002's private copy) require explicit start/end; omission raises. `WINDOW_LEGACY_PRE_STRESS` (2023-01-01→2026-12-31) reproduces pre-purchase inputs exactly; `WINDOW_STRESS_*` cover the new data; cc_sim's cache key includes the window; 12 tests incl. a partition test (legacy+stress == whole archive, AAPL). All 7 existing call sites pinned to legacy.
+   **Baseline-window ruling for Exp 022 (spec-owner decision, 2026-08-17):** use `WINDOW_LEGACY_PRE_STRESS` verbatim — it reproduces results/012's inputs exactly, so the re-derivation isolates the engine fix (the as_of clock bug) as the ONLY changed variable vs 012. Do not also redefine the window (e.g., strict 2024-start) in the same run; that would confound engine correction with sample change and silently move KKR's numbers (its data begins 2023-03). A different window is permitted only as a separately-labeled sensitivity run, pre-registered as such.
+1b. (superseded original text) **`backtest_engine.load_option_data` globs `{ticker}_ohlcv*` and concatenates.** Any re-run now silently ingests 2020/2022 alongside 2025. **Exp 022 must add an explicit date-window filter FIRST** — its corrected baseline is defined as 2024–26; without the filter the "baseline" would be contaminated by the stress years it's later compared against. No experiment re-runs until the loader takes an explicit date range.
+2. **AAPL 4:1 split 2020-08-31** sits mid-melt-up (strikes $75–$1000 → $19–$250). Raw data crossing that date reads a −78.8% crash that never happened. H21's melt-up leg requires split-adjustment handling (OCC-adjusted strikes/contracts) in the loader, with a test asserting continuity across 2020-08-31, before any AAPL Jul–Sep result is real.
+3. **KKR 2020 coverage is UNMEASURED, not 0%** — parity-based spot inference needs ≥10 matched strikes/expiry; KKR 2020 medians 4, so spot returned None by construction over 4,842 real bars. Re-measure using stock closes for spot (KKR had no 2020 split; yfinance safe). The validator's original "0.0% + ALL FILES VALID" is the exact silent-corruption class this project keeps finding — the fixed validator (UNMEASURED + fail) is the pattern to keep.
 
 **Protocol (lessons.md 2026-03-23, verbatim discipline):**
 - Estimate with `get_cost()`, pull, check the **actual** charge, recompute the correction factor, re-plan remaining pulls. Never trust the estimator's first number.
