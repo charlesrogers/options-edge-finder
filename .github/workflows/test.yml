@@ -24,4 +24,19 @@ jobs:
         run: pip install pytest numpy scipy pandas requests
 
       - name: Run tests
+        env:
+          # The trades-schema contract tests ask the live database whether the
+          # columns the monitor reads still exist. Without credentials they skip,
+          # which would make the check that matters most silently vacuous in CI.
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python -m pytest tests/ -v
+
+      # The NYSE session list is generated from `exchange_calendars`, not
+      # maintained by hand (spec A6). If the library revises a holiday or the
+      # committed range runs short, this fails here rather than silently
+      # skewing every freshness check in the health endpoint.
+      - name: NYSE calendar is current
+        run: |
+          pip install exchange_calendars
+          python3 scripts/generate_nyse_calendar.py --check
