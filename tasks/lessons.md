@@ -544,3 +544,23 @@ and locate the source file before acting on it — glob `~/.claude/worktrees/*/t
 and the project's `tasks/`, `docs/`, `results/` first. Never put options to the user
 that were derived from a fragment, and never spend money against one.
 **Category:** mistake
+
+### 2026-08-17 — A spec named one loader; the bug had three copies
+**What went wrong:** The Exp 019 caveat named `backtest_engine.load_option_data` as
+the glob-and-concatenate contamination risk. Fixing only that would have left the
+blocked experiment broken: Exp 022 runs on `cc_sim.py`, which has its own
+`load_calls` with the identical `{ticker}_ohlcv*` glob, and
+`experiments/002_put_spread_real_prices/run.py` carries a third private copy.
+`cc_sim` also cached to `_cache/{ticker}_calls.parquet` with no date window in the
+cache key, so post-fix any window could have served another window's cached rows.
+**Why it's wrong:** A spec caveat names the instance its author happened to be
+looking at, not the class. Data-loading helpers get copy-pasted between experiment
+runners precisely because they are convenient, so a loader defect is almost never
+singular. And a fix that adds a parameter to a *cached* function is incomplete
+until the cache key includes that parameter — otherwise the fix creates a new
+silent-corruption path where none existed.
+**Rule:** When a spec names a defective function, grep for the defect's *pattern*
+(here: `startswith(f'{ticker}_ohlcv'`) across the repo before fixing, and fix every
+copy or explicitly say which you left. When adding a parameter that changes what a
+cached function returns, change the cache key in the same commit.
+**Category:** anti-pattern
