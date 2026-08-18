@@ -748,3 +748,9 @@ the ones that move in the restricting direction and state explicitly which raise
 withheld and why. A published claim may sit below the best available measurement
 (conservative); it may never sit above it. Add a test asserting the ceiling.
 **Category:** near-miss
+
+### 2026-08-18 — Declared DONE while the product surface still served invalidated numbers
+**What went wrong:** A session closed with ✅ DONE after merging six PRs and wiring infra — while options.imprevista.com/sell still displayed the broken-simulator world (AAPL $351/100%, KKR 100 contracts, GOOGL "Good", AMZN recommendable at 5% OTM, "Exp 009 +204%"). The corrected values lived in ticker_strategies.py; the web reads a hand-copied web/src/lib/strategies.ts frozen in March.
+**Why it's wrong:** "Pushed is not live" extends further: merged is not rendered. The user-facing surface is the deliverable; a repo that is correct behind a screen that is wrong is a failure with extra steps — worse than an honest gap, because the screen looks authoritative.
+**Rule:** No ✅ DONE on any session that touches research conclusions or production parameters until the RENDERED production surface is verified consistent with the source of truth — curl the live page and grep for the corrected values (and the absence of the stale ones). A duplicated data file (strategies.ts, copilot thresholds, any TS mirror of a Python truth) is treated as production code drift: codegen it or CI-diff it, never hand-sync it.
+**Category:** mistake
