@@ -239,7 +239,7 @@ def main():
     per_ticker = {}
     for ticker in TICKERS:
         try:
-            chain = cc_sim.load_ticker(ticker)
+            chain = cc_sim.load_ticker(ticker, *cc_sim.WINDOW_LEGACY_PRE_STRESS)
         except Exception as e:
             print(f'  {ticker}: SKIP ({type(e).__name__}: {e})')
             continue

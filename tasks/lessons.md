@@ -579,4 +579,172 @@ if the scenario it claims to reproduce never actually reproduced the bug.
 when correcting a fixture to a new schema, re-check which existing tests were
 passing for the wrong reason — three failure tests here had started passing
 because every row was rejected before the behaviour under test ran.
+
+### 2026-08-17 — Acted on a truncated spec instead of finding the source file
+**What went wrong:** A handoff spec was pasted into the session cut off mid-sentence
+("...never a"). I reconstructed intent from the fragment, priced scopes, and put a
+purchase menu to Charles — omitting the $25 balance floor, the per-pull ACTUAL
+reporting requirement, the 1.3× abort trigger, the mandatory TMUS 2022 inclusion,
+and the three-location backup rule. All five were written down in
+`tasks/data-purchase-handoff-spec.md` §0–§4 in a sibling worktree the whole time.
+One of the three options I offered (all-5 full-year 2020, $143.68) would have
+breached the balance floor outright.
+**Why it's wrong:** A truncated paste is evidence that a *file* exists somewhere —
+specs of that shape are written to disk, not composed in chat. Sibling worktrees are
+plain local directories (`~/.claude/worktrees/<project>/<session>/`) and are readable
+without pushing anything. Reconstructing from a fragment reproduces the fragment's
+gaps, and the parts most likely to be missing are the hard constraints, because those
+cluster at the end in a §0/§4 tail.
+**Rule:** When a spec arrives truncated, incomplete, or referenced secondhand, STOP
+and locate the source file before acting on it — glob `~/.claude/worktrees/*/tasks/`
+and the project's `tasks/`, `docs/`, `results/` first. Never put options to the user
+that were derived from a fragment, and never spend money against one.
+**Category:** mistake
+
+### 2026-08-17 — A spec named one loader; the bug had three copies
+**What went wrong:** The Exp 019 caveat named `backtest_engine.load_option_data` as
+the glob-and-concatenate contamination risk. Fixing only that would have left the
+blocked experiment broken: Exp 022 runs on `cc_sim.py`, which has its own
+`load_calls` with the identical `{ticker}_ohlcv*` glob, and
+`experiments/002_put_spread_real_prices/run.py` carries a third private copy.
+`cc_sim` also cached to `_cache/{ticker}_calls.parquet` with no date window in the
+cache key, so post-fix any window could have served another window's cached rows.
+**Why it's wrong:** A spec caveat names the instance its author happened to be
+looking at, not the class. Data-loading helpers get copy-pasted between experiment
+runners precisely because they are convenient, so a loader defect is almost never
+singular. And a fix that adds a parameter to a *cached* function is incomplete
+until the cache key includes that parameter — otherwise the fix creates a new
+silent-corruption path where none existed.
+**Rule:** When a spec names a defective function, grep for the defect's *pattern*
+(here: `startswith(f'{ticker}_ohlcv'`) across the repo before fixing, and fix every
+copy or explicitly say which you left. When adding a parameter that changes what a
+cached function returns, change the cache key in the same commit.
+**Category:** anti-pattern
+### 2026-08-16 — Built a second simulator instead of checking for an existing one
+**What went wrong:** Wrote `experiments/lib_cc_sim.py` from scratch for Phase 3 while a
+parallel session was landing `experiments/cc_sim.py` for Phase 1 — a strictly better engine
+(real ex-div dates, simulated assignment, `expiry_beyond_data` guard). Both sessions also
+independently found and fixed the same `assess_position()` DTE bug and independently wrote
+the same `signal_graveyard` migration. Two experiments' worth of results had to be thrown
+away and re-run on the merged engine, and the re-run flipped the sign of two tickers' P&L.
+**Why it's wrong:** Sibling worktrees under `.claude/worktrees/` are part of the codebase's
+present state, not someone else's problem. `git log --all`, `git branch -a` and a glance at
+the other worktrees costs 30 seconds; a duplicated simulator costs an afternoon and leaves
+two engines that will disagree forever.
+**Rule:** Before writing any shared module or fixing any bug in a repo with sibling
+worktrees, check every worktree and every branch (`git branch -a`, `ls ../`, `git log --all
+--oneline -20`) for work already in flight on the same file. If found, merge and build on
+it — never build beside it.
+**Category:** anti-pattern
+
+### 2026-08-16 — A ratio metric silently inverts when its numerator goes negative
+**What went wrong:** H23 was pre-registered on "total return ÷ max drawdown". On a
+down-trending window every return was negative, and for a negative numerator a *larger*
+drawdown produces a *better* ratio. The metric nearly delivered a backwards recommendation.
+**Why it's wrong:** return/risk ratios are only monotone in the intended direction when the
+return is positive. Nobody notices because the number still looks like a number.
+**Rule:** Before pre-registering any ratio metric, state what it does when the numerator is
+negative, and report the numerator and denominator separately alongside it. Add a
+zero-overlay/stock-only baseline row so it is visible how much of the denominator the
+treatment is even capable of moving.
+**Category:** near-miss
+
+### 2026-08-16 — Two CI gates that had never run once
+**What went wrong:** `approval-gate.yml` — the gate that blocks unvalidated changes to
+`ticker_strategies.py` — exited 128 on every PR because `actions/checkout@v4` fetches
+shallow and `origin/main` did not exist in the checkout. `test.yml` had
+`pull_request: branches: [main]`, so a PR onto any other branch ran no tests at all.
+**Why it's wrong:** a gate that fails on infrastructure looks identical to a gate that is
+protecting you, right up until you read the log. This is the same silent-failure class as
+the dead crons.
+**Rule:** When a workflow diffs against a base branch, set `fetch-depth: 0` and resolve the
+base from `github.event.pull_request.base.ref`, never a hardcoded branch name. When adding
+any CI gate, verify it has PASSED at least once on a real PR — a red or never-triggered
+gate is not a gate.
+**Category:** mistake
+
+### 2026-08-17 — A backtest can look profitable purely because the option did not trade
+**What went wrong:** Exp 022 re-derived the per-ticker baselines and found TMUS at +$151/yr
+and KKR at +$316/yr per contract. Restricting the sample to trades whose exit price was an
+actual Databento print — rather than a price carried forward from an earlier day — flipped
+both to −$81 and −$88. TMUS has 56% repricing coverage and KKR 36%. AAPL, at 97.5%, did not
+move by a dollar. Two of the four production tickers had a *sign* determined by missing data.
+**Why it's wrong:** carrying the last price forward is the correct way to avoid silently
+dropping a day, and it is exactly what `cc_sim` was built to do. But a buyback paid at a
+stale price is not a buyback that could have been executed, and a strategy whose profit
+lives in those fills has no measured profit at all. Counting the missing days (which the
+engine did) is necessary and not sufficient — nobody looks at a coverage percentage and
+concludes "the sign is wrong."
+**Rule:** Any backtest on trade-based data (OHLCV, prints, fills) must report its headline
+metric twice: on all trades, and on the subset whose *exit* was priced by a real
+observation. If the two disagree in sign or by more than the effect being tested, the
+real-fill number is the result and the other is a diagnostic. Report coverage per ticker,
+never pooled.
+**Category:** mistake
+
+### 2026-08-17 — A tolerance can license keeping a claim you have just measured to be false
+**What went wrong:** H25 pre-registered a ±10pp win-rate tolerance. AAPL's deployed claim
+was "100% win rate — never loses"; the fixed engine measured 91.7%. That is inside ±10pp, so
+the pre-registered rule said leave the field alone — leaving a live, user-facing claim that
+the strategy cannot lose, on a ticker whose worst trade in the window was −$971.
+**Why it's wrong:** an equivalence tolerance answers "do the two engines agree?", which is
+not the same question as "is the published number true?". Passing the first does not license
+publishing a value the second says is wrong.
+**Rule:** When pre-registering a tolerance on a number that is *published to a user*, add a
+standing clause: whatever the verdict, no live claim may sit above the best available
+measurement in the optimistic direction. Restricting a live claim toward the measurement is
+always permitted; it is never a retrofit of the verdict, and it must be labelled as a
+separate change rather than folded into the experiment's result.
+**Category:** anti-pattern
+
+### 2026-08-17 — workflow_dispatch only works from the default branch
+**What went wrong:** Added `.github/workflows/registry-sync.yml` so graveyard
+pre-registrations could be written to Supabase (no dev machine has the credentials, so
+`db.py` falls back to gitignored SQLite). `gh workflow run` returned HTTP 404: GitHub only
+dispatches workflows that exist on the default branch, whatever `--ref` says.
+**Why it's wrong:** it makes "add a workflow to do X on this branch, then run it" impossible
+for exactly the case where it is most useful — a one-off operation needed *before* the
+branch merges.
+**Rule:** A workflow that a feature branch needs to dispatch must land on `main` first, as
+its own small PR, before the work that depends on it. When that is not possible, do not let
+the durable side effect become the proof: use the pushed commit's timestamp as the
+pre-registration record and state plainly that the database write happens on merge.
+**Category:** mistake
+
+### 2026-08-17 — Trusted an experiment's numbers without checking which engine lineage produced them
+**What went wrong:** Exp 022/023 (PR #4, branch `session/s-0816-2159-part0`) were run on a
+branch that does not contain `bbbddaa`, "Fix a live-monitor regression and six simulator
+defects found by review." One of those six: `cc_sim` returned a hardcoded `iv_rank = 50.0`
+when it had fewer than 10 observations, and `50.0` passes the production `iv_rank >= 50`
+gate — so the first ~9 days of every ticker entered on an invented rank. Exp 022 shipped
+`AAPL.expected_pnl = $299` into `ticker_strategies.py` and `docs/dad-pitch.md`; the same
+`run.py` on the fixed engine measures **$141**. Exp 023's Clause-1 verdicts happened to
+reproduce exactly, so the defect was invisible from its output alone.
+**Why it's wrong:** In a repo with sibling worktrees, "the code" is not one thing. A branch
+is a *lineage*, and an experiment inherits every defect its lineage has not yet merged. A
+fix landing at 22:54 on branch A does not retroactively correct a run performed at 16:13 on
+branch B, and nothing in the run's own output says so — the numbers look equally plausible.
+The tell here was arithmetic, not narrative: every ticker lost exactly nine entries.
+**Rule:** Before trusting or shipping any experiment's numbers, run `git log --oneline
+<experiment-branch>..<other-branches>` (or `git merge-base --is-ancestor <fix> <branch>`)
+for fixes to the engine that produced them, and record the engine commit SHA in the results
+file. When a numeric result changes after merging an engine fix, diff the entry/observation
+*counts* first — a constant offset across every ticker names the defect faster than any
+P&L comparison.
+**Category:** anti-pattern
+
+### 2026-08-17 — Corrected a published number downward, but withheld the upward corrections
+**What went wrong:** Nothing yet — recording the decision rule, because the temptation was
+real. The corrected engine moved AAPL $299 → $141 (down) and DIS $267 → $442, TMUS $151 →
+$178, KKR $316 → $329 (all up). Shipping all four "corrections" in one commit would have
+looked consistent and been wrong.
+**Why it's wrong:** Lowering a published income claim is *restricting* — it can only make a
+live recommendation safer, and needs no new licence. Raising one is *loosening*: it inflates
+what the user is told to expect on the strength of a single re-measurement, and DIS had
+already reversed direction between engines ($822 → $267 → $442). Symmetry of *arithmetic* is
+not symmetry of *risk*.
+**Rule:** When a re-measurement moves several published claims in both directions, ship only
+the ones that move in the restricting direction and state explicitly which raises were
+withheld and why. A published claim may sit below the best available measurement
+(conservative); it may never sit above it. Add a test asserting the ceiling.
 **Category:** near-miss

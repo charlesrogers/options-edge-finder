@@ -1,0 +1,506 @@
+{
+  "guard": {
+    "drawdown_pct": 0.15,
+    "high_lookback": 60,
+    "note": "arbitrary starting values from the spec"
+  },
+  "engine": "experiments/cc_sim.py",
+  "contracts": 100,
+  "vix_days": 1895,
+  "vix_backwardation_days": 131,
+  "tickers": {
+    "AAPL": {
+      "coverage": "2025-03-21 -> 2026-03-20",
+      "otm_pct": 0.15,
+      "dte": [
+        20,
+        45
+      ],
+      "missing_price_pct": 2.5,
+      "baseline": {
+        "n_trades": 99,
+        "entries": 99,
+        "net_pnl": 127653.0,
+        "gross_premium": 461336.0,
+        "buyback_cost": 333682.0,
+        "retention_pct": 27.7,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "loss_rate_pct": 9.1,
+        "worst_trade": -97067.0,
+        "missing_price_pct": 2.5,
+        "never_repriced_trades": 0
+      },
+      "guard": {
+        "n_trades": 76,
+        "entries": 76,
+        "net_pnl": 155251.0,
+        "gross_premium": 251165.0,
+        "buyback_cost": 95913.0,
+        "retention_pct": 61.8,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "loss_rate_pct": 7.9,
+        "worst_trade": -23543.0,
+        "missing_price_pct": 3.2,
+        "never_repriced_trades": 0
+      },
+      "guard_entries_skipped_pct": 23.23,
+      "guard_pnl_delta_pct": 21.62,
+      "guard_blocked": {
+        "n_blocked": 23,
+        "blocked_mean_pnl": -1199.91,
+        "blocked_median_pnl": 4730.0,
+        "blocked_total_pnl": -27598.0,
+        "blocked_winners": 20,
+        "blocked_losers": 3
+      },
+      "guard_backwardation_only": {
+        "n_trades": 82,
+        "entries": 82,
+        "net_pnl": 178170.0,
+        "gross_premium": 276357.0,
+        "buyback_cost": 98186.0,
+        "retention_pct": 64.5,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "loss_rate_pct": 7.3,
+        "worst_trade": -23543.0,
+        "missing_price_pct": 3.0,
+        "never_repriced_trades": 0
+      },
+      "guard_backwardation_only_entries_skipped_pct": 17.17,
+      "guard_backwardation_only_pnl_delta_pct": 39.57,
+      "guard_backwardation_only_blocked": {
+        "n_blocked": 17,
+        "blocked_mean_pnl": -2971.59,
+        "blocked_median_pnl": 7206.0,
+        "blocked_total_pnl": -50517.0,
+        "blocked_winners": 14,
+        "blocked_losers": 3
+      },
+      "guard_drawdown_only": {
+        "n_trades": 81,
+        "entries": 81,
+        "net_pnl": 170027.0,
+        "gross_premium": 266953.0,
+        "buyback_cost": 96925.0,
+        "retention_pct": 63.7,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "loss_rate_pct": 7.4,
+        "worst_trade": -23543.0,
+        "missing_price_pct": 3.0,
+        "never_repriced_trades": 0
+      },
+      "guard_drawdown_only_entries_skipped_pct": 18.18,
+      "guard_drawdown_only_pnl_delta_pct": 33.19,
+      "guard_drawdown_only_blocked": {
+        "n_blocked": 18,
+        "blocked_mean_pnl": -2354.11,
+        "blocked_median_pnl": 5972.5,
+        "blocked_total_pnl": -42374.0,
+        "blocked_winners": 15,
+        "blocked_losers": 3
+      }
+    },
+    "DIS": {
+      "coverage": "2025-03-21 -> 2026-03-20",
+      "otm_pct": 0.07,
+      "dte": [
+        30,
+        60
+      ],
+      "missing_price_pct": 14.3,
+      "baseline": {
+        "n_trades": 126,
+        "entries": 126,
+        "net_pnl": 702791.0,
+        "gross_premium": 1931651.0,
+        "buyback_cost": 1228858.0,
+        "retention_pct": 36.4,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "loss_rate_pct": 20.6,
+        "worst_trade": -66482.0,
+        "missing_price_pct": 14.3,
+        "never_repriced_trades": 0
+      },
+      "guard": {
+        "n_trades": 102,
+        "entries": 102,
+        "net_pnl": 1139760.0,
+        "gross_premium": 1423743.0,
+        "buyback_cost": 283981.0,
+        "retention_pct": 80.1,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "loss_rate_pct": 6.9,
+        "worst_trade": -13246.0,
+        "missing_price_pct": 14.7,
+        "never_repriced_trades": 0
+      },
+      "guard_entries_skipped_pct": 19.05,
+      "guard_pnl_delta_pct": 62.18,
+      "guard_blocked": {
+        "n_blocked": 24,
+        "blocked_mean_pnl": -18207.04,
+        "blocked_median_pnl": -19698.5,
+        "blocked_total_pnl": -436969.0,
+        "blocked_winners": 5,
+        "blocked_losers": 19
+      },
+      "guard_backwardation_only": {
+        "n_trades": 107,
+        "entries": 107,
+        "net_pnl": 953512.0,
+        "gross_premium": 1515597.0,
+        "buyback_cost": 562082.0,
+        "retention_pct": 62.9,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "loss_rate_pct": 11.2,
+        "worst_trade": -42350.0,
+        "missing_price_pct": 14.7,
+        "never_repriced_trades": 0
+      },
+      "guard_backwardation_only_entries_skipped_pct": 15.08,
+      "guard_backwardation_only_pnl_delta_pct": 35.68,
+      "guard_backwardation_only_blocked": {
+        "n_blocked": 19,
+        "blocked_mean_pnl": -13195.84,
+        "blocked_median_pnl": -14894.0,
+        "blocked_total_pnl": -250721.0,
+        "blocked_winners": 5,
+        "blocked_losers": 14
+      },
+      "guard_drawdown_only": {
+        "n_trades": 107,
+        "entries": 107,
+        "net_pnl": 1163296.0,
+        "gross_premium": 1470218.0,
+        "buyback_cost": 306920.0,
+        "retention_pct": 79.1,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "loss_rate_pct": 7.5,
+        "worst_trade": -13246.0,
+        "missing_price_pct": 14.7,
+        "never_repriced_trades": 0
+      },
+      "guard_drawdown_only_entries_skipped_pct": 15.08,
+      "guard_drawdown_only_pnl_delta_pct": 65.53,
+      "guard_drawdown_only_blocked": {
+        "n_blocked": 19,
+        "blocked_mean_pnl": -24237.11,
+        "blocked_median_pnl": -22613.0,
+        "blocked_total_pnl": -460505.0,
+        "blocked_winners": 1,
+        "blocked_losers": 18
+      }
+    },
+    "TMUS": {
+      "coverage": "2025-03-21 -> 2026-03-20",
+      "otm_pct": 0.15,
+      "dte": [
+        20,
+        45
+      ],
+      "missing_price_pct": 44.0,
+      "baseline": {
+        "n_trades": 122,
+        "entries": 122,
+        "net_pnl": 451984.0,
+        "gross_premium": 1507769.0,
+        "buyback_cost": 1055784.0,
+        "retention_pct": 30.0,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "loss_rate_pct": 13.9,
+        "worst_trade": -91900.0,
+        "missing_price_pct": 44.0,
+        "never_repriced_trades": 2
+      },
+      "guard": {
+        "n_trades": 77,
+        "entries": 77,
+        "net_pnl": 351049.0,
+        "gross_premium": 865186.0,
+        "buyback_cost": 514137.0,
+        "retention_pct": 40.6,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "loss_rate_pct": 13.0,
+        "worst_trade": -91900.0,
+        "missing_price_pct": 46.8,
+        "never_repriced_trades": 1
+      },
+      "guard_entries_skipped_pct": 36.89,
+      "guard_pnl_delta_pct": -22.33,
+      "guard_blocked": {
+        "n_blocked": 45,
+        "blocked_mean_pnl": 2243.0,
+        "blocked_median_pnl": 4347.0,
+        "blocked_total_pnl": 100935.0,
+        "blocked_winners": 38,
+        "blocked_losers": 7
+      },
+      "guard_backwardation_only": {
+        "n_trades": 105,
+        "entries": 105,
+        "net_pnl": 209607.0,
+        "gross_premium": 1029652.0,
+        "buyback_cost": 820044.0,
+        "retention_pct": 20.4,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "loss_rate_pct": 14.3,
+        "worst_trade": -91900.0,
+        "missing_price_pct": 44.1,
+        "never_repriced_trades": 2
+      },
+      "guard_backwardation_only_entries_skipped_pct": 13.93,
+      "guard_backwardation_only_pnl_delta_pct": -53.63,
+      "guard_backwardation_only_blocked": {
+        "n_blocked": 17,
+        "blocked_mean_pnl": 14257.47,
+        "blocked_median_pnl": 9480.0,
+        "blocked_total_pnl": 242377.0,
+        "blocked_winners": 15,
+        "blocked_losers": 2
+      },
+      "guard_drawdown_only": {
+        "n_trades": 93,
+        "entries": 93,
+        "net_pnl": 590026.0,
+        "gross_premium": 1339703.0,
+        "buyback_cost": 749677.0,
+        "retention_pct": 44.0,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "loss_rate_pct": 12.9,
+        "worst_trade": -91900.0,
+        "missing_price_pct": 46.4,
+        "never_repriced_trades": 1
+      },
+      "guard_drawdown_only_entries_skipped_pct": 23.77,
+      "guard_drawdown_only_pnl_delta_pct": 30.54,
+      "guard_drawdown_only_blocked": {
+        "n_blocked": 29,
+        "blocked_mean_pnl": -4760.07,
+        "blocked_median_pnl": 3267.0,
+        "blocked_total_pnl": -138042.0,
+        "blocked_winners": 24,
+        "blocked_losers": 5
+      }
+    },
+    "KKR": {
+      "coverage": "2023-03-21 -> 2026-03-20",
+      "otm_pct": 0.15,
+      "dte": [
+        20,
+        45
+      ],
+      "missing_price_pct": 63.7,
+      "baseline": {
+        "n_trades": 388,
+        "entries": 388,
+        "net_pnl": 311642.0,
+        "gross_premium": 5654000.0,
+        "buyback_cost": 5342356.0,
+        "retention_pct": 5.5,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "loss_rate_pct": 26.8,
+        "worst_trade": -58400.0,
+        "missing_price_pct": 63.7,
+        "never_repriced_trades": 61
+      },
+      "guard": {
+        "n_trades": 278,
+        "entries": 278,
+        "net_pnl": -68155.0,
+        "gross_premium": 3795120.0,
+        "buyback_cost": 3863274.0,
+        "retention_pct": -1.8,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "loss_rate_pct": 30.2,
+        "worst_trade": -52400.0,
+        "missing_price_pct": 64.5,
+        "never_repriced_trades": 41
+      },
+      "guard_entries_skipped_pct": 28.35,
+      "guard_pnl_delta_pct": -121.87,
+      "guard_blocked": {
+        "n_blocked": 110,
+        "blocked_mean_pnl": 3452.7,
+        "blocked_median_pnl": 6500.0,
+        "blocked_total_pnl": 379797.0,
+        "blocked_winners": 79,
+        "blocked_losers": 20
+      },
+      "guard_backwardation_only": {
+        "n_trades": 354,
+        "entries": 354,
+        "net_pnl": 523363.0,
+        "gross_premium": 4832986.0,
+        "buyback_cost": 4309621.0,
+        "retention_pct": 10.8,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "loss_rate_pct": 26.0,
+        "worst_trade": -52400.0,
+        "missing_price_pct": 63.3,
+        "never_repriced_trades": 49
+      },
+      "guard_backwardation_only_entries_skipped_pct": 8.76,
+      "guard_backwardation_only_pnl_delta_pct": 67.94,
+      "guard_backwardation_only_blocked": {
+        "n_blocked": 34,
+        "blocked_mean_pnl": -6227.09,
+        "blocked_median_pnl": 0.0,
+        "blocked_total_pnl": -211721.0,
+        "blocked_winners": 14,
+        "blocked_losers": 12
+      },
+      "guard_drawdown_only": {
+        "n_trades": 286,
+        "entries": 286,
+        "net_pnl": -93176.0,
+        "gross_premium": 4023559.0,
+        "buyback_cost": 4116734.0,
+        "retention_pct": -2.3,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "loss_rate_pct": 30.1,
+        "worst_trade": -52400.0,
+        "missing_price_pct": 64.4,
+        "never_repriced_trades": 45
+      },
+      "guard_drawdown_only_entries_skipped_pct": 26.29,
+      "guard_drawdown_only_pnl_delta_pct": -129.9,
+      "guard_drawdown_only_blocked": {
+        "n_blocked": 102,
+        "blocked_mean_pnl": 3968.8,
+        "blocked_median_pnl": 6856.0,
+        "blocked_total_pnl": 404818.0,
+        "blocked_winners": 77,
+        "blocked_losers": 18
+      }
+    }
+  },
+  "calm_control": {
+    "AAPL": {
+      "2021": {
+        "entry_opportunities": 15,
+        "blocked_backwardation": 0,
+        "blocked_drawdown": 0,
+        "blocked_pct": 0.0
+      },
+      "2023": {
+        "entry_opportunities": 15,
+        "blocked_backwardation": 0,
+        "blocked_drawdown": 1,
+        "blocked_pct": 6.67
+      }
+    },
+    "DIS": {
+      "2021": {
+        "entry_opportunities": 15,
+        "blocked_backwardation": 0,
+        "blocked_drawdown": 1,
+        "blocked_pct": 6.67
+      },
+      "2023": {
+        "entry_opportunities": 15,
+        "blocked_backwardation": 0,
+        "blocked_drawdown": 2,
+        "blocked_pct": 13.33
+      }
+    },
+    "TMUS": {
+      "2021": {
+        "entry_opportunities": 15,
+        "blocked_backwardation": 0,
+        "blocked_drawdown": 2,
+        "blocked_pct": 13.33
+      },
+      "2023": {
+        "entry_opportunities": 15,
+        "blocked_backwardation": 0,
+        "blocked_drawdown": 0,
+        "blocked_pct": 0.0
+      }
+    },
+    "KKR": {
+      "2021": {
+        "entry_opportunities": 15,
+        "blocked_backwardation": 0,
+        "blocked_drawdown": 0,
+        "blocked_pct": 0.0
+      },
+      "2023": {
+        "entry_opportunities": 15,
+        "blocked_backwardation": 0,
+        "blocked_drawdown": 2,
+        "blocked_pct": 13.33
+      }
+    }
+  },
+  "aggregate": {
+    "baseline": 1594070.0,
+    "guard": 1577905.0,
+    "guard_backwardation_only": 1864652.0,
+    "guard_drawdown_only": 1830173.0
+  },
+  "aggregate_ex_kkr": {
+    "baseline": 1282428.0,
+    "guard": 1646060.0,
+    "guard_backwardation_only": 1341289.0,
+    "guard_drawdown_only": 1923349.0,
+    "guard_delta_pct": 28.35,
+    "guard_backwardation_only_delta_pct": 4.59,
+    "guard_drawdown_only_delta_pct": 49.98
+  },
+  "clauses": {
+    "c1_entries_skipped_le_15pct": {
+      "value": 27.48,
+      "threshold": 15,
+      "pass": false
+    },
+    "c2_aggregate_pnl_ge_plus10pct": {
+      "value": -1.01,
+      "threshold": 10,
+      "pass": false
+    },
+    "c3_no_new_assignments": {
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "c4_calm_control_le_5pct": {
+      "value": 13.33,
+      "threshold": 5,
+      "pass": false
+    }
+  },
+  "verdict_H22a": "FAIL",
+  "verdict_H22": "PENDING \u2014 needs 2020/2022 option prices (Part A not purchased)"
+}

@@ -1,10 +1,18 @@
 ---
-title: "Experiment 012: Walk-Forward Validation — Strategies Hold Out-of-Sample"
+title: "Experiment 012: Walk-Forward Validation — Strategies Hold Out-of-Sample [SUPERSEDED]"
 date: 2026-03-26
 experiment: 012
-status: completed
-finding: "PASS — 4 of 5 tickers profitable out-of-sample. Train on first 2/3, test on last 1/3. AAPL test BEATS training (1.05x). TMUS, DIS, KKR all positive OOS. TXN fails (expected — already flagged as skip). Strategies are validated, not overfit."
+status: superseded
+superseded_by: 022
+finding: "SUPERSEDED 2026-08-17 by Exp 022. Every number below was produced by the simulator that measured DTE against datetime.now(), so each observation was evaluated at DTE=0 with ex_div_date=None. Kept as the record of what was believed, not as a result. The re-derivation on the fixed engine is results/022_baseline_rederivation.md. Original finding, no longer supported: 'PASS — 4 of 5 tickers profitable out-of-sample.'"
 ---
+
+> **⚠️ SUPERSEDED — do not cite these numbers.** Experiment 015 found that
+> `assess_position()` computed DTE from the wall clock (fixed in commit `8040440`), which
+> invalidated every backtest from Exp 007 to Exp 014, this one included. The baseline was
+> re-derived on `experiments/cc_sim.py` in **Exp 022** — see
+> `results/022_baseline_rederivation.md`. Nothing here is deleted, because the record of
+> what was believed is itself worth keeping.
 
 # Experiment 012: Walk-Forward Validation
 

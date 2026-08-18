@@ -68,7 +68,7 @@ def select_on_train(arms, baseline_train):
 
 def run_ticker(ticker, cfg_extra=None):
     cfg = {**ticker_config(ticker), **(cfg_extra or {})}
-    chain = cc_sim.load_ticker(ticker)
+    chain = cc_sim.load_ticker(ticker, *cc_sim.WINDOW_LEGACY_PRE_STRESS)
     gate = cc_sim.iv_rank_gate(IV_THRESHOLD)
 
     print(f'\n  --- {ticker} @ {cfg["otm_pct"]*100:.0f}% OTM, '
@@ -185,7 +185,8 @@ def main():
             continue
         arm = next(a for a in r['arms'] if a['label'] == r['train_selected'])
         cfg = {**ticker_config(ticker), 'slippage': 0.05}
-        chain = cc_sim.load_ticker(ticker, verbose=False)
+        chain = cc_sim.load_ticker(ticker, *cc_sim.WINDOW_LEGACY_PRE_STRESS,
+                                   verbose=False)
         gate = cc_sim.iv_rank_gate(IV_THRESHOLD)
         policy = cc_sim.make_probability_policy(arm['close_soon_p'], arm['close_now_p'])
         tr, _ = cc_sim.run(chain, cfg, policy, gate=gate, progress_every=0)

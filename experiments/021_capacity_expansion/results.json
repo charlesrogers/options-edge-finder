@@ -1,0 +1,136 @@
+{
+  "clause_a_googl": {
+    "status": "NOT RUN \u2014 blocked on unpurchased data",
+    "option_days_owned": 5,
+    "coverage": "2026-03-16 -> 2026-03-20",
+    "minimum_useful": "one full year of option OHLCV + definitions",
+    "fallback": "extend GOOGL probation, unchanged production setting, upgrade from accrued chain captures at a 6-month review (~2027-02)"
+  },
+  "clause_b": {
+    "primary": [
+      {
+        "ticker": "MSFT",
+        "otm_pct": 0.15,
+        "window": "primary_2y",
+        "range": [
+          "2024-08-16",
+          "2026-08-14"
+        ],
+        "n_days": 500,
+        "train_trades": 64,
+        "train_loss_rate": 7.8,
+        "test_trades": 35,
+        "test_loss_rate": 20.0,
+        "test_wins": 28,
+        "test_losses": 7,
+        "passed": false,
+        "verdict": "FAIL \u2014 stays out"
+      },
+      {
+        "ticker": "AMZN",
+        "otm_pct": 0.15,
+        "window": "primary_2y",
+        "range": [
+          "2024-08-16",
+          "2026-08-14"
+        ],
+        "n_days": 500,
+        "train_trades": 64,
+        "train_loss_rate": 7.8,
+        "test_trades": 35,
+        "test_loss_rate": 22.9,
+        "test_wins": 27,
+        "test_losses": 8,
+        "passed": false,
+        "verdict": "FAIL \u2014 stays out"
+      }
+    ],
+    "secondary": [
+      {
+        "ticker": "MSFT",
+        "otm_pct": 0.15,
+        "window": "secondary_2019_2026",
+        "range": [
+          "2019-01-02",
+          "2026-08-14"
+        ],
+        "n_days": 1915,
+        "train_trades": 259,
+        "train_loss_rate": 6.2,
+        "test_trades": 131,
+        "test_loss_rate": 9.2,
+        "test_wins": 119,
+        "test_losses": 12
+      },
+      {
+        "ticker": "AMZN",
+        "otm_pct": 0.15,
+        "window": "secondary_2019_2026",
+        "range": [
+          "2019-01-02",
+          "2026-08-14"
+        ],
+        "n_days": 1915,
+        "train_trades": 259,
+        "train_loss_rate": 10.8,
+        "test_trades": 131,
+        "test_loss_rate": 9.9,
+        "test_wins": 118,
+        "test_losses": 13
+      }
+    ],
+    "gate": "test loss rate <= 10.0%"
+  },
+  "controls": [
+    {
+      "ticker": "AAPL",
+      "otm_pct": 0.15,
+      "window": "primary_2y",
+      "range": [
+        "2024-08-16",
+        "2026-08-14"
+      ],
+      "n_days": 500,
+      "train_trades": 64,
+      "train_loss_rate": 1.6,
+      "test_trades": 35,
+      "test_loss_rate": 11.4,
+      "test_wins": 31,
+      "test_losses": 4
+    },
+    {
+      "ticker": "DIS",
+      "otm_pct": 0.07,
+      "window": "primary_2y",
+      "range": [
+        "2024-08-16",
+        "2026-08-14"
+      ],
+      "n_days": 500,
+      "train_trades": 64,
+      "train_loss_rate": 25.0,
+      "test_trades": 35,
+      "test_loss_rate": 20.0,
+      "test_wins": 28,
+      "test_losses": 7
+    }
+  ],
+  "kkr_capacity": {
+    "coverage": "2023-03-21 -> 2026-03-20",
+    "days_scanned": 753,
+    "days_with_sellable_contract": 753,
+    "days_without": 0,
+    "mean_daily_contract_volume": 36.71,
+    "median_daily_contract_volume": 3.0,
+    "p25_daily_contract_volume": 1.0,
+    "p75_daily_contract_volume": 10.0,
+    "zero_volume_days": 0,
+    "volume_share_cap": 0.2,
+    "cap_contracts_median_basis": 0,
+    "cap_shares_median_basis": 0,
+    "cap_contracts_mean_basis": 7,
+    "cap_shares_mean_basis": 700,
+    "recommended_cap_contracts": 7,
+    "note": "Derivation: for every trading day we own, find the exact contract the production rule would sell (15% OTM, 20-45 DTE), take its total daily volume, then cap at 20% of that (the spec's arbitrary starting share). Median and mean disagree by 12x because volume is spiky, so both are reported. The mean basis is the generous reading and is the one deployed."
+  }
+}

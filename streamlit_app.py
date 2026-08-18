@@ -22,7 +22,7 @@ from db import (
     log_prediction, get_holdings, save_holding,
 )
 from eval_monitor import check_circuit_breakers
-from ticker_strategies import get_strategy, TIER_CONFIG
+from ticker_strategies import get_strategy, get_max_contracts, TIER_CONFIG
 
 st.set_page_config(
     page_title="Covered Call Copilot",
@@ -630,7 +630,7 @@ with tab_sell:
                 continue
 
             shares_owned = holdings.get(ticker, {}).get("shares", 0)
-            max_contracts = shares_owned // 100 if shares_owned >= 100 else 0
+            max_contracts, liquidity_cap_reason = get_max_contracts(ticker, shares_owned)
 
             try:
                 data = compute_analytics(ticker)
@@ -723,6 +723,7 @@ with tab_sell:
                         "target_otm": otm_pct * 100,
                         "shares_owned": shares_owned,
                         "max_contracts": max_contracts,
+                        "liquidity_cap_reason": liquidity_cap_reason,
                         "n_contracts": n_contracts,
                         "tier": strat['tier'],
                         "expected_pnl": strat.get('expected_pnl'),
@@ -759,12 +760,18 @@ with tab_sell:
 
                     # Map tier to streamlit color names
                     tier_colors = {'best': 'green', 'strong': 'blue', 'good': 'violet',
-                                   'conservative': 'orange', 'untested': 'gray'}
+                                   'conservative': 'orange', 'untested': 'gray',
+                                   'probation': 'orange'}
                     tier_color = tier_colors.get(tier, 'gray')
                     st.markdown(f"### {tick}  ${rec['price']:.2f}  :{tier_color}[{tc['icon']} {tc['label']}]")
 
                     if shares > 0:
                         st.caption(f"You own **{shares:,} shares** ({contracts_available} contracts available)")
+                        cap_reason = rec.get("liquidity_cap_reason")
+                        if cap_reason:
+                            st.caption(
+                                f":orange[Capped at {contracts_available} contracts "
+                                f"(not {shares // 100}) -- {cap_reason}]")
                     else:
                         st.caption("No shares entered -- add holdings above to enable sizing")
 
