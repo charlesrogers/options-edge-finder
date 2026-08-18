@@ -36,8 +36,19 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          REQUIRE_SUPABASE: "1"
           PUSHOVER_TOKEN: ${{ secrets.PUSHOVER_TOKEN }}
           PUSHOVER_USER: ${{ secrets.PUSHOVER_USER }}
+          # Every run writes a heartbeat row. The health endpoint alarms on the
+          # ABSENCE of one, which is the only way to detect the fault that
+          # actually happened: nothing errored, jobs just stopped running.
+          MONITOR_SOURCE: github-actions
+          # Primary for now because this is the only path holding Pushover
+          # credentials. When the Hetzner cron takes over as primary this
+          # becomes `fallback`, which assesses and stores identically but stays
+          # silent while the primary's heartbeat is fresh — so Dad never gets
+          # the same EMERGENCY twice.
+          MONITOR_ROLE: primary
         run: python3 monitor_positions.py
 
       # The runner is ephemeral and emergency_shadow.jsonl is gitignored, so

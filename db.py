@@ -4,6 +4,15 @@ Includes prediction logging for scorecard verification.
 Environment variables:
   SUPABASE_URL - your Supabase project URL
   SUPABASE_KEY - your Supabase anon/service key
+  REQUIRE_SUPABASE - set to 1 in every headless context (CI, cron, container).
+      Makes a missing/unusable Supabase client a hard failure instead of a
+      silent fall-through to local SQLite.
+
+Why REQUIRE_SUPABASE exists: the SQLite fallback below is a dev convenience that
+becomes a data-loss bug in a container. With no credentials, every write lands in
+an ephemeral local.db and vanishes when the job exits — while the job prints its
+row count and exits 0. That is the same silent-outage shape as the 2026-03/08
+incident, through a different door.
 """
 
 import os
@@ -41,6 +50,15 @@ SUPABASE_KEY = _read_secret("SUPABASE_KEY")
 _supabase_client = None
 
 
+def supabase_required():
+    """True in headless contexts (CI, cron, container) where SQLite is never correct."""
+    return os.environ.get("REQUIRE_SUPABASE", "").strip().lower() in ("1", "true", "yes")
+
+
+class SupabaseUnavailable(RuntimeError):
+    """Raised when REQUIRE_SUPABASE is set but no usable client can be built."""
+
+
 def _get_supabase():
     global _supabase_client, SUPABASE_URL, SUPABASE_KEY
     # Re-read secrets on first call in case module loaded before st.secrets was ready
@@ -50,6 +68,12 @@ def _get_supabase():
     if _supabase_client is None and SUPABASE_URL and SUPABASE_KEY:
         from supabase import create_client
         _supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    if _supabase_client is None and supabase_required():
+        missing = [k for k, v in (("SUPABASE_URL", SUPABASE_URL), ("SUPABASE_KEY", SUPABASE_KEY)) if not v]
+        raise SupabaseUnavailable(
+            f"REQUIRE_SUPABASE is set but no Supabase client could be built (missing: {', '.join(missing) or 'unknown'}). "
+            "Refusing to fall back to local SQLite — writes would be silently discarded."
+        )
     return _supabase_client
 
 
@@ -67,6 +91,13 @@ SQLITE_PATH = os.path.join(DB_DIR, "local.db")
 
 
 def _get_sqlite():
+    # Second line of defence: even if a caller branches to SQLite on its own
+    # (`if using_supabase(): ... else: ...`), a headless job must never write here.
+    if supabase_required():
+        raise SupabaseUnavailable(
+            "REQUIRE_SUPABASE is set — refusing to open the local SQLite fallback. "
+            "Writes to local.db are discarded when the container exits."
+        )
     conn = sqlite3.connect(SQLITE_PATH)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS iv_snapshots (
@@ -608,19 +639,53 @@ def get_graveyard_count():
 # TRADES
 # ============================================================
 
+# Supabase is the system of record and uses the web app's column names. This
+# module and streamlit_app.py were written against the older local-SQLite names.
+# Rather than edit ~3,000 lines of Streamlit, the translation lives here, in one
+# place, explicitly. Both spellings are present on the returned dict so callers
+# can migrate to the real names at their own pace.
+_TRADE_ALIASES = (
+    ("expiry", "expiration"),
+    ("sold_price", "premium_received"),
+    ("opened_at", "opened"),
+)
+
+
+def _to_legacy_trade(row):
+    """Add the historical Python aliases to a Supabase trades row."""
+    if not isinstance(row, dict):
+        return row
+    out = dict(row)
+    for real, legacy in _TRADE_ALIASES:
+        if real in out and legacy not in out:
+            out[legacy] = out[real]
+    return out
+
+
 def add_trade(ticker, option_type, strike, expiration, premium, contracts,
               strategy="covered_call", notes=""):
     now = datetime.now().isoformat()
     sb = _get_supabase()
     if sb:
+        # Supabase column names differ from this module's historical (SQLite)
+        # argument names: expiry/sold_price/opened_at, not expiration/
+        # premium_received/opened. Writing the old names inserted columns that do
+        # not exist, so every Streamlit "add trade" against Supabase 400'd. The
+        # mapping is explicit here, and _to_legacy_trade() reverses it on read so
+        # callers keep the argument names they have always used.
         resp = sb.table("trades").insert({
             "ticker": ticker.upper(), "option_type": option_type,
-            "strike": strike, "expiration": expiration,
-            "premium_received": premium, "contracts": contracts,
+            "strike": strike, "expiry": expiration,
+            "sold_price": premium, "contracts": contracts,
             "strategy": strategy, "notes": notes,
-            "opened": now, "status": "open",
+            "opened_at": now, "status": "open",
         }).execute()
-        return resp.data[0] if resp.data else None
+        if not resp.data:
+            raise RuntimeError(
+                f"trades insert for {ticker.upper()} returned no row — "
+                "the position was NOT recorded and will not be monitored"
+            )
+        return _to_legacy_trade(resp.data[0])
     else:
         conn = _get_sqlite()
         cur = conn.execute(
@@ -642,10 +707,15 @@ def close_trade(trade_id, close_price, reason="manual"):
     now = datetime.now().isoformat()
     sb = _get_supabase()
     if sb:
-        sb.table("trades").update({
+        resp = sb.table("trades").update({
             "status": "closed", "closed_at": now,
             "close_price": close_price, "close_reason": reason,
         }).eq("id", trade_id).execute()
+        if not resp.data:
+            raise RuntimeError(
+                f"close_trade({trade_id}) matched no row — the position is still "
+                "open in the database and the monitor will keep alerting on it"
+            )
     else:
         conn = _get_sqlite()
         conn.execute(
@@ -660,7 +730,7 @@ def get_open_trades():
     sb = _get_supabase()
     if sb:
         resp = sb.table("trades").select("*").eq("status", "open").execute()
-        return resp.data or []
+        return [_to_legacy_trade(r) for r in (resp.data or [])]
     else:
         conn = _get_sqlite()
         rows = conn.execute("SELECT * FROM trades WHERE status = 'open'").fetchall()
@@ -671,8 +741,10 @@ def get_open_trades():
 def get_all_trades():
     sb = _get_supabase()
     if sb:
-        resp = sb.table("trades").select("*").order("opened", desc=True).execute()
-        return resp.data or []
+        # "opened" is not a column on public.trades; ordering by it made this
+        # query fail outright against Supabase.
+        resp = sb.table("trades").select("*").order("opened_at", desc=True).execute()
+        return [_to_legacy_trade(r) for r in (resp.data or [])]
     else:
         conn = _get_sqlite()
         rows = conn.execute("SELECT * FROM trades ORDER BY opened DESC").fetchall()

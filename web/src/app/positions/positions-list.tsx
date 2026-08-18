@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import type { PositionAlert, AlertLevel } from '@/lib/copilot'
 import { LogTradeDialog } from './log-trade-dialog'
 
-type AlertWithId = PositionAlert & { tradeId?: number }
+type AlertWithId = PositionAlert & { tradeId?: string }
 
 /* ── Colors by alert level (matches Jebbix priority system) ── */
 
