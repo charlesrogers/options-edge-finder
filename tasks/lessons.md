@@ -654,3 +654,41 @@ its own small PR, before the work that depends on it. When that is not possible,
 the durable side effect become the proof: use the pushed commit's timestamp as the
 pre-registration record and state plainly that the database write happens on merge.
 **Category:** mistake
+
+### 2026-08-17 — Trusted an experiment's numbers without checking which engine lineage produced them
+**What went wrong:** Exp 022/023 (PR #4, branch `session/s-0816-2159-part0`) were run on a
+branch that does not contain `bbbddaa`, "Fix a live-monitor regression and six simulator
+defects found by review." One of those six: `cc_sim` returned a hardcoded `iv_rank = 50.0`
+when it had fewer than 10 observations, and `50.0` passes the production `iv_rank >= 50`
+gate — so the first ~9 days of every ticker entered on an invented rank. Exp 022 shipped
+`AAPL.expected_pnl = $299` into `ticker_strategies.py` and `docs/dad-pitch.md`; the same
+`run.py` on the fixed engine measures **$141**. Exp 023's Clause-1 verdicts happened to
+reproduce exactly, so the defect was invisible from its output alone.
+**Why it's wrong:** In a repo with sibling worktrees, "the code" is not one thing. A branch
+is a *lineage*, and an experiment inherits every defect its lineage has not yet merged. A
+fix landing at 22:54 on branch A does not retroactively correct a run performed at 16:13 on
+branch B, and nothing in the run's own output says so — the numbers look equally plausible.
+The tell here was arithmetic, not narrative: every ticker lost exactly nine entries.
+**Rule:** Before trusting or shipping any experiment's numbers, run `git log --oneline
+<experiment-branch>..<other-branches>` (or `git merge-base --is-ancestor <fix> <branch>`)
+for fixes to the engine that produced them, and record the engine commit SHA in the results
+file. When a numeric result changes after merging an engine fix, diff the entry/observation
+*counts* first — a constant offset across every ticker names the defect faster than any
+P&L comparison.
+**Category:** anti-pattern
+
+### 2026-08-17 — Corrected a published number downward, but withheld the upward corrections
+**What went wrong:** Nothing yet — recording the decision rule, because the temptation was
+real. The corrected engine moved AAPL $299 → $141 (down) and DIS $267 → $442, TMUS $151 →
+$178, KKR $316 → $329 (all up). Shipping all four "corrections" in one commit would have
+looked consistent and been wrong.
+**Why it's wrong:** Lowering a published income claim is *restricting* — it can only make a
+live recommendation safer, and needs no new licence. Raising one is *loosening*: it inflates
+what the user is told to expect on the strength of a single re-measurement, and DIS had
+already reversed direction between engines ($822 → $267 → $442). Symmetry of *arithmetic* is
+not symmetry of *risk*.
+**Rule:** When a re-measurement moves several published claims in both directions, ship only
+the ones that move in the restricting direction and state explicitly which raises were
+withheld and why. A published claim may sit below the best available measurement
+(conservative); it may never sit above it. Add a test asserting the ceiling.
+**Category:** near-miss

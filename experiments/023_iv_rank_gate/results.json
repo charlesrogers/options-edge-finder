@@ -15,195 +15,195 @@
         "no_gate": {
           "train": {
             "n_entries": 168,
-            "mean_pnl_per_entry": 16.49,
-            "median_pnl_per_entry": 27.82,
-            "total_pnl": 2770.81,
+            "mean_pnl_per_entry": 11.27,
+            "median_pnl_per_entry": 26.64,
+            "total_pnl": 1893.79,
             "loss_rate": 6.0,
             "win_rate": 94.0,
-            "retention_pct": 41.7,
+            "retention_pct": 28.5,
             "gross_premium": 6648.86,
-            "net_pnl": 2770.81,
+            "net_pnl": 1893.79,
             "assignments": 0,
             "worst_trade": -970.67
           },
           "holdout": {
             "n_entries": 63,
-            "mean_pnl_per_entry": 12.4,
+            "mean_pnl_per_entry": 12.14,
             "median_pnl_per_entry": 11.73,
-            "total_pnl": 781.47,
+            "total_pnl": 765.12,
             "loss_rate": 6.3,
             "win_rate": 93.7,
-            "retention_pct": 61.9,
+            "retention_pct": 60.6,
             "gross_premium": 1263.33,
-            "net_pnl": 781.47,
+            "net_pnl": 765.12,
             "assignments": 0,
             "worst_trade": -60.11
           },
           "full": {
             "n_entries": 231,
-            "mean_pnl_per_entry": 15.38,
-            "median_pnl_per_entry": 23.2,
-            "total_pnl": 3552.28,
+            "mean_pnl_per_entry": 11.51,
+            "median_pnl_per_entry": 23.15,
+            "total_pnl": 2658.91,
             "loss_rate": 6.1,
             "win_rate": 93.9,
-            "retention_pct": 44.9,
+            "retention_pct": 33.6,
             "gross_premium": 7912.19,
-            "net_pnl": 3552.28,
+            "net_pnl": 2658.91,
             "assignments": 0,
             "worst_trade": -970.67
           },
           "chains_annualised_full": {
             "n_chains": 25,
-            "median": 452.79,
-            "min": -570.0,
-            "max": 558.9
+            "median": 439.63,
+            "min": -590.31,
+            "max": 538.47
           }
         },
         "iv25": {
           "train": {
-            "n_entries": 119,
-            "mean_pnl_per_entry": 21.18,
-            "median_pnl_per_entry": 33.92,
-            "total_pnl": 2520.4,
-            "loss_rate": 5.0,
-            "win_rate": 95.0,
-            "retention_pct": 44.9,
-            "gross_premium": 5612.02,
-            "net_pnl": 2520.4,
+            "n_entries": 110,
+            "mean_pnl_per_entry": 17.16,
+            "median_pnl_per_entry": 33.67,
+            "total_pnl": 1887.44,
+            "loss_rate": 5.5,
+            "win_rate": 94.5,
+            "retention_pct": 34.8,
+            "gross_premium": 5422.19,
+            "net_pnl": 1887.44,
             "assignments": 0,
             "worst_trade": -970.67
           },
           "holdout": {
             "n_entries": 44,
-            "mean_pnl_per_entry": 13.92,
+            "mean_pnl_per_entry": 13.62,
             "median_pnl_per_entry": 17.33,
-            "total_pnl": 612.69,
+            "total_pnl": 599.38,
             "loss_rate": 9.1,
             "win_rate": 90.9,
-            "retention_pct": 57.2,
+            "retention_pct": 56.0,
             "gross_premium": 1070.22,
-            "net_pnl": 612.69,
+            "net_pnl": 599.38,
             "assignments": 0,
             "worst_trade": -60.11
           },
           "full": {
-            "n_entries": 163,
-            "mean_pnl_per_entry": 19.22,
-            "median_pnl_per_entry": 29.57,
-            "total_pnl": 3133.09,
-            "loss_rate": 6.1,
-            "win_rate": 93.9,
-            "retention_pct": 46.9,
-            "gross_premium": 6682.24,
-            "net_pnl": 3133.09,
+            "n_entries": 154,
+            "mean_pnl_per_entry": 16.15,
+            "median_pnl_per_entry": 28.65,
+            "total_pnl": 2486.82,
+            "loss_rate": 6.5,
+            "win_rate": 93.5,
+            "retention_pct": 38.3,
+            "gross_premium": 6492.41,
+            "net_pnl": 2486.82,
             "assignments": 0,
             "worst_trade": -970.67
           },
           "chains_annualised_full": {
             "n_chains": 25,
-            "median": 384.52,
-            "min": -604.11,
-            "max": 524.58
+            "median": 396.89,
+            "min": -592.38,
+            "max": 536.39
           }
         },
         "iv50": {
           "train": {
-            "n_entries": 65,
-            "mean_pnl_per_entry": 11.81,
-            "median_pnl_per_entry": 36.33,
-            "total_pnl": 767.65,
-            "loss_rate": 7.7,
-            "win_rate": 92.3,
-            "retention_pct": 21.0,
-            "gross_premium": 3658.14,
-            "net_pnl": 767.65,
+            "n_entries": 56,
+            "mean_pnl_per_entry": 3.83,
+            "median_pnl_per_entry": 38.0,
+            "total_pnl": 214.38,
+            "loss_rate": 8.9,
+            "win_rate": 91.1,
+            "retention_pct": 6.2,
+            "gross_premium": 3468.31,
+            "net_pnl": 214.38,
             "assignments": 0,
             "worst_trade": -970.67
           },
           "holdout": {
             "n_entries": 34,
-            "mean_pnl_per_entry": 14.97,
+            "mean_pnl_per_entry": 14.61,
             "median_pnl_per_entry": 21.62,
-            "total_pnl": 508.88,
+            "total_pnl": 496.57,
             "loss_rate": 11.8,
             "win_rate": 88.2,
-            "retention_pct": 53.3,
+            "retention_pct": 52.0,
             "gross_premium": 955.22,
-            "net_pnl": 508.88,
+            "net_pnl": 496.57,
             "assignments": 0,
             "worst_trade": -60.11
           },
           "full": {
-            "n_entries": 99,
-            "mean_pnl_per_entry": 12.89,
-            "median_pnl_per_entry": 28.98,
-            "total_pnl": 1276.53,
-            "loss_rate": 9.1,
-            "win_rate": 90.9,
-            "retention_pct": 27.7,
-            "gross_premium": 4613.36,
-            "net_pnl": 1276.53,
+            "n_entries": 90,
+            "mean_pnl_per_entry": 7.9,
+            "median_pnl_per_entry": 28.65,
+            "total_pnl": 710.95,
+            "loss_rate": 10.0,
+            "win_rate": 90.0,
+            "retention_pct": 16.1,
+            "gross_premium": 4423.53,
+            "net_pnl": 710.95,
             "assignments": 0,
             "worst_trade": -970.67
           },
           "chains_annualised_full": {
             "n_chains": 25,
-            "median": 298.8,
-            "min": -738.62,
-            "max": 389.27
+            "median": 140.68,
+            "min": -775.63,
+            "max": 352.03
           }
         },
         "iv75": {
           "train": {
             "n_entries": 22,
-            "mean_pnl_per_entry": -43.44,
+            "mean_pnl_per_entry": -53.35,
             "median_pnl_per_entry": 37.62,
-            "total_pnl": -955.7,
+            "total_pnl": -1173.78,
             "loss_rate": 18.2,
             "win_rate": 81.8,
-            "retention_pct": -57.9,
+            "retention_pct": -71.1,
             "gross_premium": 1651.07,
-            "net_pnl": -955.7,
+            "net_pnl": -1173.78,
             "assignments": 0,
             "worst_trade": -970.67
           },
           "holdout": {
             "n_entries": 17,
-            "mean_pnl_per_entry": 10.93,
+            "mean_pnl_per_entry": 10.64,
             "median_pnl_per_entry": 25.44,
-            "total_pnl": 185.88,
+            "total_pnl": 180.86,
             "loss_rate": 23.5,
             "win_rate": 76.5,
-            "retention_pct": 30.9,
+            "retention_pct": 30.0,
             "gross_premium": 601.99,
-            "net_pnl": 185.88,
+            "net_pnl": 180.86,
             "assignments": 0,
             "worst_trade": -60.11
           },
           "full": {
             "n_entries": 39,
-            "mean_pnl_per_entry": -19.74,
-            "median_pnl_per_entry": 29.88,
-            "total_pnl": -769.82,
+            "mean_pnl_per_entry": -25.46,
+            "median_pnl_per_entry": 28.32,
+            "total_pnl": -992.92,
             "loss_rate": 20.5,
             "win_rate": 79.5,
-            "retention_pct": -34.2,
+            "retention_pct": -44.1,
             "gross_premium": 2253.06,
-            "net_pnl": -769.82,
+            "net_pnl": -992.92,
             "assignments": 0,
             "worst_trade": -970.67
           },
           "chains_annualised_full": {
             "n_chains": 25,
-            "median": 316.82,
-            "min": -841.54,
+            "median": 314.45,
+            "min": -849.71,
             "max": 476.44
           }
         }
       },
       "coverage": {
         "no_gate": {
-          "repricing_coverage_pct": 96.1,
+          "repricing_coverage_pct": 96.6,
           "never_repriced_trades": 0,
           "skipped": {
             "expiry_beyond_data": 20
@@ -213,14 +213,16 @@
           "repricing_coverage_pct": 97.3,
           "never_repriced_trades": 0,
           "skipped": {
+            "gate_no_data": 9,
             "gate": 70,
             "expiry_beyond_data": 18
           }
         },
         "iv50": {
-          "repricing_coverage_pct": 97.5,
+          "repricing_coverage_pct": 97.1,
           "never_repriced_trades": 0,
           "skipped": {
+            "gate_no_data": 9,
             "gate": 138,
             "expiry_beyond_data": 14
           }
@@ -229,35 +231,36 @@
           "repricing_coverage_pct": 99.7,
           "never_repriced_trades": 0,
           "skipped": {
-            "gate": 209,
+            "gate_no_data": 9,
+            "gate": 200,
             "expiry_beyond_data": 3
           }
         }
       },
       "clause_1": {
-        "production_holdout_mean": 14.97,
-        "no_gate_holdout_mean": 12.4,
-        "relative": 0.2073,
+        "production_holdout_mean": 14.61,
+        "no_gate_holdout_mean": 12.14,
+        "relative": 0.2035,
         "passes": true,
         "blocked_entries": {
-          "n_blocked": 132,
-          "blocked_mean_pnl": 17.24,
-          "blocked_median_pnl": 19.34,
-          "blocked_total_pnl": 2275.75,
-          "blocked_winners": 127,
+          "n_blocked": 141,
+          "blocked_mean_pnl": 13.82,
+          "blocked_median_pnl": 18.22,
+          "blocked_total_pnl": 1947.96,
+          "blocked_winners": 136,
           "blocked_losers": 5
         }
       },
       "clause_2": {
         "train_means": {
-          "iv25": 21.18,
-          "iv50": 11.81,
-          "iv75": -43.44
+          "iv25": 17.16,
+          "iv50": 3.83,
+          "iv75": -53.35
         },
         "arm_selected_on_train": "iv25",
-        "selected_holdout_mean": 13.92,
-        "production_holdout_mean": 14.97,
-        "relative": -0.0701,
+        "selected_holdout_mean": 13.62,
+        "production_holdout_mean": 14.61,
+        "relative": -0.0678,
         "passes": false,
         "holdout_assignments_selected": 0,
         "holdout_assignments_production": 0,
@@ -281,155 +284,155 @@
         "no_gate": {
           "train": {
             "n_entries": 168,
-            "mean_pnl_per_entry": 18.07,
-            "median_pnl_per_entry": 56.88,
-            "total_pnl": 3036.07,
-            "loss_rate": 29.8,
-            "win_rate": 70.2,
-            "retention_pct": 14.5,
+            "mean_pnl_per_entry": 17.07,
+            "median_pnl_per_entry": 53.41,
+            "total_pnl": 2868.1,
+            "loss_rate": 32.1,
+            "win_rate": 67.9,
+            "retention_pct": 13.7,
             "gross_premium": 20957.7,
-            "net_pnl": 3036.07,
+            "net_pnl": 2868.1,
             "assignments": 0,
             "worst_trade": -664.82
           },
           "holdout": {
             "n_entries": 61,
-            "mean_pnl_per_entry": 60.48,
-            "median_pnl_per_entry": 70.89,
-            "total_pnl": 3689.34,
-            "loss_rate": 23.0,
-            "win_rate": 77.0,
-            "retention_pct": 58.4,
+            "mean_pnl_per_entry": 59.09,
+            "median_pnl_per_entry": 69.67,
+            "total_pnl": 3604.48,
+            "loss_rate": 24.6,
+            "win_rate": 75.4,
+            "retention_pct": 57.1,
             "gross_premium": 6313.77,
-            "net_pnl": 3689.34,
+            "net_pnl": 3604.48,
             "assignments": 0,
             "worst_trade": -156.23
           },
           "full": {
             "n_entries": 229,
-            "mean_pnl_per_entry": 29.37,
-            "median_pnl_per_entry": 58.5,
-            "total_pnl": 6725.41,
-            "loss_rate": 27.9,
-            "win_rate": 72.1,
-            "retention_pct": 24.7,
+            "mean_pnl_per_entry": 28.26,
+            "median_pnl_per_entry": 58.0,
+            "total_pnl": 6472.58,
+            "loss_rate": 30.1,
+            "win_rate": 69.9,
+            "retention_pct": 23.7,
             "gross_premium": 27271.47,
-            "net_pnl": 6725.41,
+            "net_pnl": 6472.58,
             "assignments": 0,
             "worst_trade": -664.82
           },
           "chains_annualised_full": {
             "n_chains": 25,
-            "median": -41.71,
-            "min": -255.42,
-            "max": 208.45
+            "median": -28.44,
+            "min": -246.91,
+            "max": 215.41
           }
         },
         "iv25": {
           "train": {
-            "n_entries": 131,
-            "mean_pnl_per_entry": 26.92,
-            "median_pnl_per_entry": 63.93,
-            "total_pnl": 3526.42,
-            "loss_rate": 25.2,
-            "win_rate": 74.8,
-            "retention_pct": 19.2,
-            "gross_premium": 18384.69,
-            "net_pnl": 3526.42,
+            "n_entries": 122,
+            "mean_pnl_per_entry": 23.72,
+            "median_pnl_per_entry": 65.83,
+            "total_pnl": 2893.76,
+            "loss_rate": 27.9,
+            "win_rate": 72.1,
+            "retention_pct": 16.3,
+            "gross_premium": 17790.12,
+            "net_pnl": 2893.76,
             "assignments": 0,
             "worst_trade": -664.82
           },
           "holdout": {
             "n_entries": 38,
-            "mean_pnl_per_entry": 94.24,
-            "median_pnl_per_entry": 113.7,
-            "total_pnl": 3581.25,
+            "mean_pnl_per_entry": 92.7,
+            "median_pnl_per_entry": 98.37,
+            "total_pnl": 3522.52,
             "loss_rate": 13.2,
             "win_rate": 86.8,
-            "retention_pct": 76.0,
+            "retention_pct": 74.8,
             "gross_premium": 4711.66,
-            "net_pnl": 3581.25,
+            "net_pnl": 3522.52,
             "assignments": 0,
             "worst_trade": -112.43
           },
           "full": {
-            "n_entries": 169,
-            "mean_pnl_per_entry": 42.06,
-            "median_pnl_per_entry": 74.0,
-            "total_pnl": 7107.67,
-            "loss_rate": 22.5,
-            "win_rate": 77.5,
-            "retention_pct": 30.8,
-            "gross_premium": 23096.35,
-            "net_pnl": 7107.67,
+            "n_entries": 160,
+            "mean_pnl_per_entry": 40.1,
+            "median_pnl_per_entry": 72.28,
+            "total_pnl": 6416.28,
+            "loss_rate": 24.4,
+            "win_rate": 75.6,
+            "retention_pct": 28.5,
+            "gross_premium": 22501.78,
+            "net_pnl": 6416.28,
             "assignments": 0,
             "worst_trade": -664.82
           },
           "chains_annualised_full": {
             "n_chains": 25,
-            "median": 38.66,
-            "min": -179.2,
-            "max": 315.8
+            "median": 202.52,
+            "min": -162.99,
+            "max": 1114.32
           }
         },
         "iv50": {
           "train": {
-            "n_entries": 100,
-            "mean_pnl_per_entry": 40.34,
-            "median_pnl_per_entry": 74.32,
-            "total_pnl": 4033.52,
-            "loss_rate": 24.0,
-            "win_rate": 76.0,
-            "retention_pct": 25.7,
-            "gross_premium": 15685.81,
-            "net_pnl": 4033.52,
+            "n_entries": 91,
+            "mean_pnl_per_entry": 37.94,
+            "median_pnl_per_entry": 81.0,
+            "total_pnl": 3452.93,
+            "loss_rate": 27.5,
+            "win_rate": 72.5,
+            "retention_pct": 22.9,
+            "gross_premium": 15091.24,
+            "net_pnl": 3452.93,
             "assignments": 0,
             "worst_trade": -664.82
           },
           "holdout": {
             "n_entries": 26,
-            "mean_pnl_per_entry": 115.17,
+            "mean_pnl_per_entry": 113.57,
             "median_pnl_per_entry": 123.25,
-            "total_pnl": 2994.39,
+            "total_pnl": 2952.74,
             "loss_rate": 7.7,
             "win_rate": 92.3,
-            "retention_pct": 82.5,
+            "retention_pct": 81.3,
             "gross_premium": 3630.7,
-            "net_pnl": 2994.39,
+            "net_pnl": 2952.74,
             "assignments": 0,
             "worst_trade": -93.19
           },
           "full": {
-            "n_entries": 126,
-            "mean_pnl_per_entry": 55.78,
-            "median_pnl_per_entry": 87.84,
-            "total_pnl": 7027.91,
-            "loss_rate": 20.6,
-            "win_rate": 79.4,
-            "retention_pct": 36.4,
-            "gross_premium": 19316.51,
-            "net_pnl": 7027.91,
+            "n_entries": 117,
+            "mean_pnl_per_entry": 54.75,
+            "median_pnl_per_entry": 91.37,
+            "total_pnl": 6405.67,
+            "loss_rate": 23.1,
+            "win_rate": 76.9,
+            "retention_pct": 34.2,
+            "gross_premium": 18721.94,
+            "net_pnl": 6405.67,
             "assignments": 0,
             "worst_trade": -664.82
           },
           "chains_annualised_full": {
             "n_chains": 25,
-            "median": 266.97,
-            "min": 51.18,
-            "max": 589.8
+            "median": 442.05,
+            "min": 48.98,
+            "max": 1443.56
           }
         },
         "iv75": {
           "train": {
             "n_entries": 43,
-            "mean_pnl_per_entry": 84.91,
+            "mean_pnl_per_entry": 84.47,
             "median_pnl_per_entry": 168.35,
-            "total_pnl": 3651.27,
+            "total_pnl": 3632.35,
             "loss_rate": 23.3,
             "win_rate": 76.7,
-            "retention_pct": 40.1,
+            "retention_pct": 39.9,
             "gross_premium": 9113.52,
-            "net_pnl": 3651.27,
+            "net_pnl": 3632.35,
             "assignments": 0,
             "worst_trade": -664.82
           },
@@ -448,82 +451,85 @@
           },
           "full": {
             "n_entries": 48,
-            "mean_pnl_per_entry": 95.03,
+            "mean_pnl_per_entry": 94.64,
             "median_pnl_per_entry": 166.18,
-            "total_pnl": 4561.59,
+            "total_pnl": 4542.67,
             "loss_rate": 20.8,
             "win_rate": 79.2,
-            "retention_pct": 45.3,
+            "retention_pct": 45.1,
             "gross_premium": 10072.52,
-            "net_pnl": 4561.59,
+            "net_pnl": 4542.67,
             "assignments": 0,
             "worst_trade": -664.82
           },
           "chains_annualised_full": {
             "n_chains": 25,
-            "median": 1157.76,
-            "min": -107.88,
-            "max": 1398.48
+            "median": 1168.57,
+            "min": -100.65,
+            "max": 1415.48
           }
         }
       },
       "coverage": {
         "no_gate": {
-          "repricing_coverage_pct": 87.2,
+          "repricing_coverage_pct": 87.1,
           "never_repriced_trades": 0,
           "skipped": {
             "expiry_beyond_data": 22
           }
         },
         "iv25": {
-          "repricing_coverage_pct": 86.3,
+          "repricing_coverage_pct": 87.7,
           "never_repriced_trades": 0,
           "skipped": {
+            "gate_no_data": 9,
             "gate": 61,
             "expiry_beyond_data": 21
           }
         },
         "iv50": {
-          "repricing_coverage_pct": 85.7,
+          "repricing_coverage_pct": 87.6,
           "never_repriced_trades": 0,
           "skipped": {
+            "gate_no_data": 9,
             "gate": 110,
             "expiry_beyond_data": 15
           }
         },
         "iv75": {
-          "repricing_coverage_pct": 87.7,
+          "repricing_coverage_pct": 87.6,
           "never_repriced_trades": 0,
           "skipped": {
-            "gate": 201,
+            "gate_no_data": 9,
+            "gate": 192,
             "expiry_beyond_data": 2
           }
         }
       },
       "clause_1": {
-        "production_holdout_mean": 115.17,
-        "no_gate_holdout_mean": 60.48,
-        "relative": 0.9043,
+        "production_holdout_mean": 113.57,
+        "no_gate_holdout_mean": 59.09,
+        "relative": 0.922,
         "passes": true,
         "blocked_entries": {
-          "n_blocked": 103,
-          "blocked_mean_pnl": -2.94,
-          "blocked_median_pnl": 40.69,
-          "blocked_total_pnl": -302.5,
-          "blocked_winners": 65,
-          "blocked_losers": 38
+          "n_blocked": 112,
+          "blocked_mean_pnl": 0.6,
+          "blocked_median_pnl": 42.3,
+          "blocked_total_pnl": 66.91,
+          "blocked_winners": 70,
+          "blocked_losers": 42
         }
       },
       "clause_2": {
         "train_means": {
-          "iv25": 26.92,
-          "iv50": 40.34,
-          "iv75": 84.91
+          "iv25": 23.72,
+          "iv50": 37.94,
+          "iv75": 84.47
         },
         "arm_selected_on_train": "iv75",
         "selected_holdout_mean": 182.06,
-        "production_holdout_mean": 115.17,
-        "relative": 0.5808,
+        "production_holdout_mean": 113.57,
+        "relative": 0.6031,
         "passes": true,
         "holdout_assignments_selected": 0,
         "holdout_assignments_production": 0,
@@ -547,181 +553,181 @@
         "no_gate": {
           "train": {
             "n_entries": 168,
-            "mean_pnl_per_entry": 66.48,
-            "median_pnl_per_entry": 48.5,
-            "total_pnl": 11169.31,
-            "loss_rate": 5.4,
-            "win_rate": 94.6,
-            "retention_pct": 66.1,
+            "mean_pnl_per_entry": 64.64,
+            "median_pnl_per_entry": 47.76,
+            "total_pnl": 10859.99,
+            "loss_rate": 3.6,
+            "win_rate": 96.4,
+            "retention_pct": 64.3,
             "gross_premium": 16885.19,
-            "net_pnl": 11169.31,
+            "net_pnl": 10859.99,
             "assignments": 0,
             "worst_trade": -291.0
           },
           "holdout": {
             "n_entries": 63,
-            "mean_pnl_per_entry": -21.88,
-            "median_pnl_per_entry": 40.0,
-            "total_pnl": -1378.14,
-            "loss_rate": 22.2,
-            "win_rate": 77.8,
-            "retention_pct": -22.8,
+            "mean_pnl_per_entry": -29.71,
+            "median_pnl_per_entry": 35.0,
+            "total_pnl": -1871.89,
+            "loss_rate": 23.8,
+            "win_rate": 76.2,
+            "retention_pct": -30.9,
             "gross_premium": 6050.43,
-            "net_pnl": -1378.14,
+            "net_pnl": -1871.89,
             "assignments": 0,
             "worst_trade": -919.0
           },
           "full": {
             "n_entries": 231,
-            "mean_pnl_per_entry": 42.39,
-            "median_pnl_per_entry": 48.0,
-            "total_pnl": 9791.17,
-            "loss_rate": 10.0,
-            "win_rate": 90.0,
-            "retention_pct": 42.7,
+            "mean_pnl_per_entry": 38.91,
+            "median_pnl_per_entry": 46.0,
+            "total_pnl": 8988.1,
+            "loss_rate": 9.1,
+            "win_rate": 90.9,
+            "retention_pct": 39.2,
             "gross_premium": 22935.62,
-            "net_pnl": 9791.17,
+            "net_pnl": 8988.1,
             "assignments": 0,
             "worst_trade": -919.0
           },
           "chains_annualised_full": {
             "n_chains": 25,
-            "median": 1039.14,
-            "min": 710.12,
-            "max": 1609.25
+            "median": 953.27,
+            "min": 377.37,
+            "max": 1526.81
           }
         },
         "iv25": {
           "train": {
-            "n_entries": 121,
-            "mean_pnl_per_entry": 79.03,
-            "median_pnl_per_entry": 50.0,
-            "total_pnl": 9562.14,
-            "loss_rate": 3.3,
-            "win_rate": 96.7,
-            "retention_pct": 70.7,
-            "gross_premium": 13519.18,
-            "net_pnl": 9562.14,
+            "n_entries": 112,
+            "mean_pnl_per_entry": 67.19,
+            "median_pnl_per_entry": 48.0,
+            "total_pnl": 7524.91,
+            "loss_rate": 2.7,
+            "win_rate": 97.3,
+            "retention_pct": 67.3,
+            "gross_premium": 11173.18,
+            "net_pnl": 7524.91,
             "assignments": 0,
             "worst_trade": -201.0
           },
           "holdout": {
             "n_entries": 43,
-            "mean_pnl_per_entry": -54.77,
-            "median_pnl_per_entry": 35.0,
-            "total_pnl": -2354.98,
-            "loss_rate": 30.2,
-            "win_rate": 69.8,
-            "retention_pct": -51.0,
+            "mean_pnl_per_entry": -66.24,
+            "median_pnl_per_entry": 29.33,
+            "total_pnl": -2848.23,
+            "loss_rate": 32.6,
+            "win_rate": 67.4,
+            "retention_pct": -61.6,
             "gross_premium": 4620.09,
-            "net_pnl": -2354.98,
+            "net_pnl": -2848.23,
             "assignments": 0,
             "worst_trade": -919.0
           },
           "full": {
-            "n_entries": 164,
-            "mean_pnl_per_entry": 43.95,
-            "median_pnl_per_entry": 48.66,
-            "total_pnl": 7207.16,
-            "loss_rate": 10.4,
-            "win_rate": 89.6,
-            "retention_pct": 39.7,
-            "gross_premium": 18139.27,
-            "net_pnl": 7207.16,
+            "n_entries": 155,
+            "mean_pnl_per_entry": 30.17,
+            "median_pnl_per_entry": 46.0,
+            "total_pnl": 4676.68,
+            "loss_rate": 11.0,
+            "win_rate": 89.0,
+            "retention_pct": 29.6,
+            "gross_premium": 15793.27,
+            "net_pnl": 4676.68,
             "assignments": 0,
             "worst_trade": -919.0
           },
           "chains_annualised_full": {
             "n_chains": 25,
-            "median": 231.52,
-            "min": -28.14,
-            "max": 1007.89
+            "median": 372.64,
+            "min": 61.28,
+            "max": 880.07
           }
         },
         "iv50": {
           "train": {
-            "n_entries": 88,
-            "mean_pnl_per_entry": 89.6,
-            "median_pnl_per_entry": 54.25,
-            "total_pnl": 7884.49,
-            "loss_rate": 4.5,
-            "win_rate": 95.5,
-            "retention_pct": 68.2,
-            "gross_premium": 11556.43,
-            "net_pnl": 7884.49,
+            "n_entries": 79,
+            "mean_pnl_per_entry": 72.1,
+            "median_pnl_per_entry": 54.0,
+            "total_pnl": 5695.56,
+            "loss_rate": 3.8,
+            "win_rate": 96.2,
+            "retention_pct": 61.8,
+            "gross_premium": 9210.43,
+            "net_pnl": 5695.56,
             "assignments": 0,
             "worst_trade": -201.0
           },
           "holdout": {
             "n_entries": 34,
-            "mean_pnl_per_entry": -98.96,
-            "median_pnl_per_entry": 30.92,
-            "total_pnl": -3364.65,
-            "loss_rate": 38.2,
-            "win_rate": 61.8,
-            "retention_pct": -95.6,
+            "mean_pnl_per_entry": -111.8,
+            "median_pnl_per_entry": 27.0,
+            "total_pnl": -3801.15,
+            "loss_rate": 41.2,
+            "win_rate": 58.8,
+            "retention_pct": -107.9,
             "gross_premium": 3521.26,
-            "net_pnl": -3364.65,
+            "net_pnl": -3801.15,
             "assignments": 0,
             "worst_trade": -919.0
           },
           "full": {
-            "n_entries": 122,
-            "mean_pnl_per_entry": 37.05,
-            "median_pnl_per_entry": 50.88,
-            "total_pnl": 4519.84,
-            "loss_rate": 13.9,
-            "win_rate": 86.1,
-            "retention_pct": 30.0,
-            "gross_premium": 15077.69,
-            "net_pnl": 4519.84,
+            "n_entries": 113,
+            "mean_pnl_per_entry": 16.76,
+            "median_pnl_per_entry": 48.0,
+            "total_pnl": 1894.41,
+            "loss_rate": 15.0,
+            "win_rate": 85.0,
+            "retention_pct": 14.9,
+            "gross_premium": 12731.69,
+            "net_pnl": 1894.41,
             "assignments": 0,
             "worst_trade": -919.0
           },
           "chains_annualised_full": {
             "n_chains": 25,
-            "median": 150.51,
-            "min": -98.59,
-            "max": 976.05
+            "median": 178.31,
+            "min": -43.1,
+            "max": 730.74
           }
         },
         "iv75": {
           "train": {
             "n_entries": 36,
-            "mean_pnl_per_entry": 87.14,
-            "median_pnl_per_entry": 69.32,
-            "total_pnl": 3136.92,
-            "loss_rate": 5.6,
-            "win_rate": 94.4,
-            "retention_pct": 62.5,
+            "mean_pnl_per_entry": 89.02,
+            "median_pnl_per_entry": 63.07,
+            "total_pnl": 3204.55,
+            "loss_rate": 2.8,
+            "win_rate": 97.2,
+            "retention_pct": 63.8,
             "gross_premium": 5021.65,
-            "net_pnl": 3136.92,
+            "net_pnl": 3204.55,
             "assignments": 0,
             "worst_trade": -100.0
           },
           "holdout": {
             "n_entries": 22,
-            "mean_pnl_per_entry": -194.0,
-            "median_pnl_per_entry": -45.44,
-            "total_pnl": -4267.92,
-            "loss_rate": 59.1,
-            "win_rate": 40.9,
-            "retention_pct": -166.7,
+            "mean_pnl_per_entry": -211.84,
+            "median_pnl_per_entry": -76.53,
+            "total_pnl": -4660.58,
+            "loss_rate": 63.6,
+            "win_rate": 36.4,
+            "retention_pct": -182.1,
             "gross_premium": 2559.8,
-            "net_pnl": -4267.92,
+            "net_pnl": -4660.58,
             "assignments": 0,
             "worst_trade": -919.0
           },
           "full": {
             "n_entries": 58,
-            "mean_pnl_per_entry": -19.5,
-            "median_pnl_per_entry": 53.38,
-            "total_pnl": -1131.0,
+            "mean_pnl_per_entry": -25.1,
+            "median_pnl_per_entry": 45.16,
+            "total_pnl": -1456.03,
             "loss_rate": 25.9,
             "win_rate": 74.1,
-            "retention_pct": -14.9,
+            "retention_pct": -19.2,
             "gross_premium": 7581.45,
-            "net_pnl": -1131.0,
+            "net_pnl": -1456.03,
             "assignments": 0,
             "worst_trade": -919.0
           },
@@ -729,66 +735,69 @@
             "n_chains": 25,
             "median": 539.35,
             "min": 108.82,
-            "max": 1047.55
+            "max": 1024.3
           }
         }
       },
       "coverage": {
         "no_gate": {
-          "repricing_coverage_pct": 51.1,
+          "repricing_coverage_pct": 50.6,
           "never_repriced_trades": 5,
           "skipped": {
             "expiry_beyond_data": 20
           }
         },
         "iv25": {
-          "repricing_coverage_pct": 52.9,
+          "repricing_coverage_pct": 53.2,
           "never_repriced_trades": 4,
           "skipped": {
+            "gate_no_data": 9,
             "gate": 68,
             "expiry_beyond_data": 19
           }
         },
         "iv50": {
-          "repricing_coverage_pct": 56.0,
+          "repricing_coverage_pct": 56.7,
           "never_repriced_trades": 2,
           "skipped": {
+            "gate_no_data": 9,
             "gate": 120,
             "expiry_beyond_data": 9
           }
         },
         "iv75": {
-          "repricing_coverage_pct": 60.0,
+          "repricing_coverage_pct": 59.7,
           "never_repriced_trades": 0,
           "skipped": {
-            "gate": 192,
+            "gate_no_data": 9,
+            "gate": 183,
             "expiry_beyond_data": 1
           }
         }
       },
       "clause_1": {
-        "production_holdout_mean": -98.96,
-        "no_gate_holdout_mean": -21.88,
+        "production_holdout_mean": -111.8,
+        "no_gate_holdout_mean": -29.71,
         "relative": null,
         "passes": false,
         "blocked_entries": {
-          "n_blocked": 109,
-          "blocked_mean_pnl": 48.36,
-          "blocked_median_pnl": 42.5,
-          "blocked_total_pnl": 5271.33,
-          "blocked_winners": 103,
-          "blocked_losers": 6
+          "n_blocked": 118,
+          "blocked_mean_pnl": 60.12,
+          "blocked_median_pnl": 44.0,
+          "blocked_total_pnl": 7093.69,
+          "blocked_winners": 114,
+          "blocked_losers": 4
         }
       },
       "clause_2": {
         "train_means": {
-          "iv25": 79.03,
-          "iv50": 89.6,
-          "iv75": 87.14
+          "iv25": 67.19,
+          "iv50": 72.1,
+          "iv75": 89.02
         },
-        "arm_selected_on_train": "iv50",
-        "selected_holdout_mean": -98.96,
-        "production_holdout_mean": -98.96,
+        "arm_selected_on_train": "iv75",
+        "selected_holdout_mean": -211.84,
+        "production_holdout_mean": -111.8,
         "relative": null,
         "passes": false,
         "holdout_assignments_selected": 0,
@@ -813,249 +822,252 @@
         "no_gate": {
           "train": {
             "n_entries": 504,
-            "mean_pnl_per_entry": -15.24,
-            "median_pnl_per_entry": 18.34,
-            "total_pnl": -7682.49,
-            "loss_rate": 34.5,
-            "win_rate": 57.3,
-            "retention_pct": -12.0,
+            "mean_pnl_per_entry": -14.27,
+            "median_pnl_per_entry": 18.0,
+            "total_pnl": -7191.91,
+            "loss_rate": 33.7,
+            "win_rate": 57.5,
+            "retention_pct": -11.3,
             "gross_premium": 63757.71,
-            "net_pnl": -7682.49,
+            "net_pnl": -7191.91,
             "assignments": 0,
             "worst_trade": -524.0
           },
           "holdout": {
             "n_entries": 229,
-            "mean_pnl_per_entry": 15.51,
-            "median_pnl_per_entry": 65.0,
-            "total_pnl": 3552.45,
+            "mean_pnl_per_entry": 26.07,
+            "median_pnl_per_entry": 60.0,
+            "total_pnl": 5969.42,
             "loss_rate": 24.9,
             "win_rate": 69.9,
-            "retention_pct": 8.8,
+            "retention_pct": 14.7,
             "gross_premium": 40477.0,
-            "net_pnl": 3552.45,
+            "net_pnl": 5969.42,
             "assignments": 0,
             "worst_trade": -584.0
           },
           "full": {
             "n_entries": 733,
-            "mean_pnl_per_entry": -5.63,
-            "median_pnl_per_entry": 28.0,
-            "total_pnl": -4130.04,
-            "loss_rate": 31.5,
-            "win_rate": 61.3,
-            "retention_pct": -4.0,
+            "mean_pnl_per_entry": -1.67,
+            "median_pnl_per_entry": 27.0,
+            "total_pnl": -1222.49,
+            "loss_rate": 31.0,
+            "win_rate": 61.4,
+            "retention_pct": -1.2,
             "gross_premium": 104234.71,
-            "net_pnl": -4130.04,
+            "net_pnl": -1222.49,
             "assignments": 0,
             "worst_trade": -584.0
           },
           "chains_annualised_full": {
             "n_chains": 25,
-            "median": -49.99,
-            "min": -83.96,
-            "max": -18.21
+            "median": 1.24,
+            "min": -63.3,
+            "max": 45.5
           }
         },
         "iv25": {
           "train": {
-            "n_entries": 381,
-            "mean_pnl_per_entry": -16.42,
-            "median_pnl_per_entry": 16.67,
-            "total_pnl": -6257.27,
-            "loss_rate": 34.4,
-            "win_rate": 57.5,
-            "retention_pct": -12.8,
-            "gross_premium": 49071.26,
-            "net_pnl": -6257.27,
+            "n_entries": 372,
+            "mean_pnl_per_entry": -17.0,
+            "median_pnl_per_entry": 16.34,
+            "total_pnl": -6325.56,
+            "loss_rate": 33.3,
+            "win_rate": 57.8,
+            "retention_pct": -13.1,
+            "gross_premium": 48434.76,
+            "net_pnl": -6325.56,
             "assignments": 0,
             "worst_trade": -524.0
           },
           "holdout": {
             "n_entries": 165,
-            "mean_pnl_per_entry": 46.01,
-            "median_pnl_per_entry": 72.67,
-            "total_pnl": 7591.5,
+            "mean_pnl_per_entry": 44.99,
+            "median_pnl_per_entry": 70.0,
+            "total_pnl": 7424.08,
             "loss_rate": 17.6,
             "win_rate": 77.0,
-            "retention_pct": 26.7,
+            "retention_pct": 26.1,
             "gross_premium": 28418.62,
-            "net_pnl": 7591.5,
+            "net_pnl": 7424.08,
             "assignments": 0,
             "worst_trade": -584.0
           },
           "full": {
-            "n_entries": 546,
-            "mean_pnl_per_entry": 2.44,
+            "n_entries": 537,
+            "mean_pnl_per_entry": 2.05,
             "median_pnl_per_entry": 30.0,
-            "total_pnl": 1334.23,
-            "loss_rate": 29.3,
-            "win_rate": 63.4,
-            "retention_pct": 1.7,
-            "gross_premium": 77489.88,
-            "net_pnl": 1334.23,
+            "total_pnl": 1098.52,
+            "loss_rate": 28.5,
+            "win_rate": 63.7,
+            "retention_pct": 1.4,
+            "gross_premium": 76853.38,
+            "net_pnl": 1098.52,
             "assignments": 0,
             "worst_trade": -584.0
           },
           "chains_annualised_full": {
             "n_chains": 25,
-            "median": -92.35,
-            "min": -127.85,
-            "max": -52.29
+            "median": 126.77,
+            "min": 66.68,
+            "max": 174.03
           }
         },
         "iv50": {
           "train": {
-            "n_entries": 265,
-            "mean_pnl_per_entry": -16.04,
+            "n_entries": 256,
+            "mean_pnl_per_entry": -19.7,
             "median_pnl_per_entry": 20.0,
-            "total_pnl": -4251.35,
-            "loss_rate": 32.8,
-            "win_rate": 58.1,
-            "retention_pct": -12.2,
-            "gross_premium": 34893.29,
-            "net_pnl": -4251.35,
+            "total_pnl": -5044.41,
+            "loss_rate": 32.4,
+            "win_rate": 57.4,
+            "retention_pct": -14.7,
+            "gross_premium": 34256.79,
+            "net_pnl": -5044.41,
             "assignments": 0,
             "worst_trade": -524.0
           },
           "holdout": {
             "n_entries": 123,
-            "mean_pnl_per_entry": 59.9,
-            "median_pnl_per_entry": 74.0,
-            "total_pnl": 7367.77,
-            "loss_rate": 13.8,
-            "win_rate": 79.7,
-            "retention_pct": 34.0,
+            "mean_pnl_per_entry": 59.99,
+            "median_pnl_per_entry": 72.21,
+            "total_pnl": 7379.02,
+            "loss_rate": 13.0,
+            "win_rate": 80.5,
+            "retention_pct": 34.1,
             "gross_premium": 21646.71,
-            "net_pnl": 7367.77,
+            "net_pnl": 7379.02,
             "assignments": 0,
             "worst_trade": -584.0
           },
           "full": {
-            "n_entries": 388,
-            "mean_pnl_per_entry": 8.03,
-            "median_pnl_per_entry": 39.7,
-            "total_pnl": 3116.42,
-            "loss_rate": 26.8,
+            "n_entries": 379,
+            "mean_pnl_per_entry": 6.16,
+            "median_pnl_per_entry": 39.0,
+            "total_pnl": 2334.61,
+            "loss_rate": 26.1,
             "win_rate": 64.9,
-            "retention_pct": 5.5,
-            "gross_premium": 56540.0,
-            "net_pnl": 3116.42,
+            "retention_pct": 4.2,
+            "gross_premium": 55903.5,
+            "net_pnl": 2334.61,
             "assignments": 0,
             "worst_trade": -584.0
           },
           "chains_annualised_full": {
             "n_chains": 25,
-            "median": 316.22,
-            "min": 279.36,
-            "max": 351.44
+            "median": 329.08,
+            "min": 288.54,
+            "max": 471.53
           }
         },
         "iv75": {
           "train": {
             "n_entries": 126,
-            "mean_pnl_per_entry": -29.93,
+            "mean_pnl_per_entry": -28.87,
             "median_pnl_per_entry": 15.5,
-            "total_pnl": -3771.7,
-            "loss_rate": 36.5,
-            "win_rate": 54.0,
-            "retention_pct": -21.8,
+            "total_pnl": -3638.04,
+            "loss_rate": 34.9,
+            "win_rate": 54.8,
+            "retention_pct": -21.0,
             "gross_premium": 17283.02,
-            "net_pnl": -3771.7,
+            "net_pnl": -3638.04,
             "assignments": 0,
             "worst_trade": -524.0
           },
           "holdout": {
             "n_entries": 61,
-            "mean_pnl_per_entry": 49.84,
-            "median_pnl_per_entry": 79.0,
-            "total_pnl": 3040.16,
+            "mean_pnl_per_entry": 55.32,
+            "median_pnl_per_entry": 75.0,
+            "total_pnl": 3374.28,
             "loss_rate": 16.4,
             "win_rate": 77.0,
-            "retention_pct": 27.0,
+            "retention_pct": 30.0,
             "gross_premium": 11265.08,
-            "net_pnl": 3040.16,
+            "net_pnl": 3374.28,
             "assignments": 0,
             "worst_trade": -584.0
           },
           "full": {
             "n_entries": 187,
-            "mean_pnl_per_entry": -3.91,
+            "mean_pnl_per_entry": -1.41,
             "median_pnl_per_entry": 35.0,
-            "total_pnl": -731.54,
-            "loss_rate": 29.9,
-            "win_rate": 61.5,
-            "retention_pct": -2.6,
+            "total_pnl": -263.76,
+            "loss_rate": 28.9,
+            "win_rate": 62.0,
+            "retention_pct": -0.9,
             "gross_premium": 28548.1,
-            "net_pnl": -731.54,
+            "net_pnl": -263.76,
             "assignments": 0,
             "worst_trade": -584.0
           },
           "chains_annualised_full": {
             "n_chains": 25,
-            "median": -24.56,
-            "min": -115.05,
-            "max": 8.12
+            "median": 133.24,
+            "min": 79.82,
+            "max": 226.25
           }
         }
       },
       "coverage": {
         "no_gate": {
-          "repricing_coverage_pct": 37.3,
-          "never_repriced_trades": 96,
+          "repricing_coverage_pct": 36.2,
+          "never_repriced_trades": 99,
           "skipped": {
             "expiry_beyond_data": 20
           }
         },
         "iv25": {
-          "repricing_coverage_pct": 37.4,
-          "never_repriced_trades": 74,
+          "repricing_coverage_pct": 36.7,
+          "never_repriced_trades": 75,
           "skipped": {
+            "gate_no_data": 9,
             "gate": 187,
             "expiry_beyond_data": 20
           }
         },
         "iv50": {
-          "repricing_coverage_pct": 36.3,
-          "never_repriced_trades": 61,
+          "repricing_coverage_pct": 35.7,
+          "never_repriced_trades": 62,
           "skipped": {
+            "gate_no_data": 9,
             "gate": 346,
             "expiry_beyond_data": 19
           }
         },
         "iv75": {
-          "repricing_coverage_pct": 37.3,
-          "never_repriced_trades": 34,
+          "repricing_coverage_pct": 36.7,
+          "never_repriced_trades": 35,
           "skipped": {
-            "gate": 548,
+            "gate_no_data": 9,
+            "gate": 539,
             "expiry_beyond_data": 18
           }
         }
       },
       "clause_1": {
-        "production_holdout_mean": 59.9,
-        "no_gate_holdout_mean": 15.51,
-        "relative": 2.862,
+        "production_holdout_mean": 59.99,
+        "no_gate_holdout_mean": 26.07,
+        "relative": 1.3011,
         "passes": true,
         "blocked_entries": {
-          "n_blocked": 345,
-          "blocked_mean_pnl": -21.0,
-          "blocked_median_pnl": 19.57,
-          "blocked_total_pnl": -7246.46,
-          "blocked_winners": 197,
-          "blocked_losers": 127
+          "n_blocked": 354,
+          "blocked_mean_pnl": -10.05,
+          "blocked_median_pnl": 19.0,
+          "blocked_total_pnl": -3557.1,
+          "blocked_winners": 204,
+          "blocked_losers": 128
         }
       },
       "clause_2": {
         "train_means": {
-          "iv25": -16.42,
-          "iv50": -16.04,
-          "iv75": -29.93
+          "iv25": -17.0,
+          "iv50": -19.7,
+          "iv75": -28.87
         },
-        "arm_selected_on_train": "iv50",
-        "selected_holdout_mean": 59.9,
-        "production_holdout_mean": 59.9,
-        "relative": 0.0,
+        "arm_selected_on_train": "iv25",
+        "selected_holdout_mean": 44.99,
+        "production_holdout_mean": 59.99,
+        "relative": -0.25,
         "passes": false,
         "holdout_assignments_selected": 0,
         "holdout_assignments_production": 0,
@@ -1081,248 +1093,251 @@
         "no_gate": {
           "train": {
             "n_entries": 168,
-            "mean_pnl_per_entry": -63.28,
-            "median_pnl_per_entry": 77.44,
-            "total_pnl": -10631.59,
-            "loss_rate": 37.5,
-            "win_rate": 62.5,
-            "retention_pct": -37.4,
+            "mean_pnl_per_entry": -56.72,
+            "median_pnl_per_entry": 77.89,
+            "total_pnl": -9529.51,
+            "loss_rate": 36.3,
+            "win_rate": 63.7,
+            "retention_pct": -33.5,
             "gross_premium": 28404.69,
-            "net_pnl": -10631.59,
+            "net_pnl": -9529.51,
             "assignments": 0,
             "worst_trade": -1320.8
           },
           "holdout": {
             "n_entries": 63,
-            "mean_pnl_per_entry": -151.95,
-            "median_pnl_per_entry": 27.67,
-            "total_pnl": -9572.75,
-            "loss_rate": 47.6,
-            "win_rate": 52.4,
-            "retention_pct": -82.0,
+            "mean_pnl_per_entry": -168.09,
+            "median_pnl_per_entry": -180.0,
+            "total_pnl": -10589.44,
+            "loss_rate": 55.6,
+            "win_rate": 44.4,
+            "retention_pct": -90.8,
             "gross_premium": 11667.98,
-            "net_pnl": -9572.75,
+            "net_pnl": -10589.44,
             "assignments": 0,
             "worst_trade": -1294.56
           },
           "full": {
             "n_entries": 231,
-            "mean_pnl_per_entry": -87.46,
-            "median_pnl_per_entry": 71.4,
-            "total_pnl": -20204.34,
-            "loss_rate": 40.3,
-            "win_rate": 59.7,
-            "retention_pct": -50.4,
+            "mean_pnl_per_entry": -87.1,
+            "median_pnl_per_entry": 69.5,
+            "total_pnl": -20118.95,
+            "loss_rate": 41.6,
+            "win_rate": 58.4,
+            "retention_pct": -50.2,
             "gross_premium": 40072.67,
-            "net_pnl": -20204.34,
+            "net_pnl": -20118.95,
             "assignments": 0,
             "worst_trade": -1320.8
           },
           "chains_annualised_full": {
             "n_chains": 25,
-            "median": -997.47,
-            "min": -1763.74,
-            "max": -263.9
+            "median": -1292.65,
+            "min": -2054.9,
+            "max": -437.38
           }
         },
         "iv25": {
           "train": {
-            "n_entries": 130,
-            "mean_pnl_per_entry": -44.96,
-            "median_pnl_per_entry": 94.47,
-            "total_pnl": -5844.82,
-            "loss_rate": 35.4,
-            "win_rate": 64.6,
-            "retention_pct": -24.8,
-            "gross_premium": 23588.58,
-            "net_pnl": -5844.82,
+            "n_entries": 121,
+            "mean_pnl_per_entry": -53.5,
+            "median_pnl_per_entry": 94.33,
+            "total_pnl": -6473.45,
+            "loss_rate": 37.2,
+            "win_rate": 62.8,
+            "retention_pct": -29.0,
+            "gross_premium": 22359.95,
+            "net_pnl": -6473.45,
             "assignments": 0,
             "worst_trade": -1320.8
           },
           "holdout": {
             "n_entries": 48,
-            "mean_pnl_per_entry": -231.16,
-            "median_pnl_per_entry": -407.4,
-            "total_pnl": -11095.62,
-            "loss_rate": 60.4,
-            "win_rate": 39.6,
-            "retention_pct": -121.7,
+            "mean_pnl_per_entry": -246.69,
+            "median_pnl_per_entry": -326.39,
+            "total_pnl": -11841.15,
+            "loss_rate": 66.7,
+            "win_rate": 33.3,
+            "retention_pct": -129.9,
             "gross_premium": 9114.4,
-            "net_pnl": -11095.62,
+            "net_pnl": -11841.15,
             "assignments": 0,
             "worst_trade": -1294.56
           },
           "full": {
-            "n_entries": 178,
-            "mean_pnl_per_entry": -95.17,
-            "median_pnl_per_entry": 79.56,
-            "total_pnl": -16940.44,
-            "loss_rate": 42.1,
-            "win_rate": 57.9,
-            "retention_pct": -51.8,
-            "gross_premium": 32702.98,
-            "net_pnl": -16940.44,
+            "n_entries": 169,
+            "mean_pnl_per_entry": -108.37,
+            "median_pnl_per_entry": 68.0,
+            "total_pnl": -18314.6,
+            "loss_rate": 45.6,
+            "win_rate": 54.4,
+            "retention_pct": -58.2,
+            "gross_premium": 31474.35,
+            "net_pnl": -18314.6,
             "assignments": 0,
             "worst_trade": -1320.8
           },
           "chains_annualised_full": {
             "n_chains": 25,
-            "median": -1342.59,
-            "min": -2108.49,
-            "max": -588.63
+            "median": -1089.3,
+            "min": -1981.42,
+            "max": 301.07
           }
         },
         "iv50": {
           "train": {
-            "n_entries": 90,
-            "mean_pnl_per_entry": 16.57,
-            "median_pnl_per_entry": 115.16,
-            "total_pnl": 1491.48,
-            "loss_rate": 30.0,
-            "win_rate": 70.0,
-            "retention_pct": 8.1,
-            "gross_premium": 18490.36,
-            "net_pnl": 1491.48,
+            "n_entries": 81,
+            "mean_pnl_per_entry": 9.37,
+            "median_pnl_per_entry": 117.73,
+            "total_pnl": 758.91,
+            "loss_rate": 32.1,
+            "win_rate": 67.9,
+            "retention_pct": 4.4,
+            "gross_premium": 17261.73,
+            "net_pnl": 758.91,
             "assignments": 0,
             "worst_trade": -1320.8
           },
           "holdout": {
             "n_entries": 30,
-            "mean_pnl_per_entry": -354.9,
-            "median_pnl_per_entry": -449.31,
-            "total_pnl": -10647.02,
-            "loss_rate": 80.0,
-            "win_rate": 20.0,
-            "retention_pct": -170.2,
+            "mean_pnl_per_entry": -363.08,
+            "median_pnl_per_entry": -435.33,
+            "total_pnl": -10892.49,
+            "loss_rate": 83.3,
+            "win_rate": 16.7,
+            "retention_pct": -174.1,
             "gross_premium": 6256.47,
-            "net_pnl": -10647.02,
+            "net_pnl": -10892.49,
             "assignments": 0,
             "worst_trade": -1294.56
           },
           "full": {
-            "n_entries": 120,
-            "mean_pnl_per_entry": -76.3,
-            "median_pnl_per_entry": 79.56,
-            "total_pnl": -9155.54,
-            "loss_rate": 42.5,
-            "win_rate": 57.5,
-            "retention_pct": -37.0,
-            "gross_premium": 24746.83,
-            "net_pnl": -9155.54,
+            "n_entries": 111,
+            "mean_pnl_per_entry": -91.29,
+            "median_pnl_per_entry": 69.5,
+            "total_pnl": -10133.58,
+            "loss_rate": 45.9,
+            "win_rate": 54.1,
+            "retention_pct": -43.1,
+            "gross_premium": 23518.2,
+            "net_pnl": -10133.58,
             "assignments": 0,
             "worst_trade": -1320.8
           },
           "chains_annualised_full": {
             "n_chains": 25,
-            "median": -2003.24,
-            "min": -2617.48,
-            "max": -1137.86
+            "median": -538.32,
+            "min": -1664.46,
+            "max": 621.91
           }
         },
         "iv75": {
           "train": {
             "n_entries": 31,
-            "mean_pnl_per_entry": 133.45,
+            "mean_pnl_per_entry": 133.35,
             "median_pnl_per_entry": 227.29,
-            "total_pnl": 4137.09,
+            "total_pnl": 4133.76,
             "loss_rate": 16.1,
             "win_rate": 83.9,
             "retention_pct": 48.2,
             "gross_premium": 8584.65,
-            "net_pnl": 4137.09,
+            "net_pnl": 4133.76,
             "assignments": 0,
             "worst_trade": -790.0
           },
           "holdout": {
             "n_entries": 11,
-            "mean_pnl_per_entry": -356.54,
-            "median_pnl_per_entry": -432.35,
-            "total_pnl": -3921.98,
+            "mean_pnl_per_entry": -335.23,
+            "median_pnl_per_entry": -395.64,
+            "total_pnl": -3687.48,
             "loss_rate": 81.8,
             "win_rate": 18.2,
-            "retention_pct": -142.2,
+            "retention_pct": -133.7,
             "gross_premium": 2757.27,
-            "net_pnl": -3921.98,
+            "net_pnl": -3687.48,
             "assignments": 0,
             "worst_trade": -683.78
           },
           "full": {
             "n_entries": 42,
-            "mean_pnl_per_entry": 5.12,
+            "mean_pnl_per_entry": 10.63,
             "median_pnl_per_entry": 191.05,
-            "total_pnl": 215.11,
+            "total_pnl": 446.28,
             "loss_rate": 33.3,
             "win_rate": 66.7,
-            "retention_pct": 1.9,
+            "retention_pct": 3.9,
             "gross_premium": 11341.92,
-            "net_pnl": 215.11,
+            "net_pnl": 446.28,
             "assignments": 0,
             "worst_trade": -790.0
           },
           "chains_annualised_full": {
             "n_chains": 25,
-            "median": -1213.75,
-            "min": -1737.43,
-            "max": 183.24
+            "median": -1132.14,
+            "min": -1660.1,
+            "max": 241.35
           }
         }
       },
       "coverage": {
         "no_gate": {
-          "repricing_coverage_pct": 84.3,
+          "repricing_coverage_pct": 83.7,
           "never_repriced_trades": 0,
           "skipped": {
             "expiry_beyond_data": 20
           }
         },
         "iv25": {
-          "repricing_coverage_pct": 83.5,
+          "repricing_coverage_pct": 84.2,
           "never_repriced_trades": 0,
           "skipped": {
+            "gate_no_data": 9,
             "gate": 57,
             "expiry_beyond_data": 16
           }
         },
         "iv50": {
-          "repricing_coverage_pct": 84.2,
+          "repricing_coverage_pct": 85.8,
           "never_repriced_trades": 0,
           "skipped": {
+            "gate_no_data": 9,
             "gate": 118,
             "expiry_beyond_data": 13
           }
         },
         "iv75": {
-          "repricing_coverage_pct": 88.8,
+          "repricing_coverage_pct": 88.9,
           "never_repriced_trades": 0,
           "skipped": {
-            "gate": 201,
+            "gate_no_data": 9,
+            "gate": 192,
             "expiry_beyond_data": 8
           }
         }
       },
       "clause_1": {
-        "production_holdout_mean": -354.9,
-        "no_gate_holdout_mean": -151.95,
+        "production_holdout_mean": -363.08,
+        "no_gate_holdout_mean": -168.09,
         "relative": null,
         "passes": false,
         "blocked_entries": {
-          "n_blocked": 111,
-          "blocked_mean_pnl": -99.54,
-          "blocked_median_pnl": 66.67,
-          "blocked_total_pnl": -11048.8,
-          "blocked_winners": 69,
-          "blocked_losers": 42
+          "n_blocked": 120,
+          "blocked_mean_pnl": -83.21,
+          "blocked_median_pnl": 69.82,
+          "blocked_total_pnl": -9985.37,
+          "blocked_winners": 75,
+          "blocked_losers": 45
         }
       },
       "clause_2": {
         "train_means": {
-          "iv25": -44.96,
-          "iv50": 16.57,
-          "iv75": 133.45
+          "iv25": -53.5,
+          "iv50": 9.37,
+          "iv75": 133.35
         },
         "arm_selected_on_train": "iv75",
-        "selected_holdout_mean": -356.54,
-        "production_holdout_mean": -354.9,
+        "selected_holdout_mean": -335.23,
+        "production_holdout_mean": -363.08,
         "relative": null,
         "passes": false,
         "holdout_assignments_selected": 0,

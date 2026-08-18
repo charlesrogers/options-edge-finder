@@ -153,3 +153,123 @@ python3 experiments/022_baseline_rederivation/run.py   # ~6 min, all data local
 ```
 
 Raw output: `experiments/022_baseline_rederivation/results.json`.
+
+---
+
+# Addendum, 2026-08-17 (later session) — re-run on the fully corrected engine
+
+**Why this addendum exists.** Everything above was produced on a branch
+(`session/s-0816-2159-part0`) that does not contain commit `bbbddaa`, *"Fix a live-monitor
+regression and six simulator defects found by review."* That commit is an ancestor of
+`session/s-0817-1634` only. Exp 022 was therefore measured on an engine with six known,
+already-reviewed defects still in it. This addendum re-runs the identical `run.py` on the
+merged tree, with the baseline window pinned to `WINDOW_LEGACY_PRE_STRESS` as the spec's
+caveat-1 ruling requires.
+
+## Two things this addendum is NOT
+
+1. **It is not a data-contamination finding.** The purchased 2020/2022 stress files landed
+   at 22:07; the branch above was tipped at 16:13. Its baseline was clean. Both runs report
+   identical windows (AAPL/DIS/TMUS `2025-03-21 → 2026-03-20`, KKR `2023-03-21 → 2026-03-20`)
+   and identical option-day counts (251 / 251 / 251 / 753). The window pin changes nothing
+   here; it makes the run *reproducible*, which it previously was not — re-running that
+   branch's `run.py` today, with the stress files on disk and a loader that globs
+   `{ticker}_ohlcv*`, would silently concatenate the 2020 crash into the baseline.
+2. **It does not overturn H25.** H25 still **FAILS**. Zero assignments still hold across
+   every ticker, every chain, every half-year. The two pre-registered coverage demotions
+   still fire, on almost identical coverage (TMUS 56.0→56.7%, KKR 36.3→35.7%).
+
+## The defect that moved the numbers
+
+Of the six fixes, one dominates:
+
+> **fabricated IV rank** — the engine returned a hardcoded `50.0` when it had fewer than 10
+> observations. `50.0` passes the production `iv_rank >= 50` gate. So the first ~9 days of
+> **every** ticker entered on an invented rank.
+
+The signature is unmistakable: every ticker loses **exactly nine** entries.
+
+| | AAPL | DIS | TMUS | KKR |
+|---|---:|---:|---:|---:|
+| Entries, PR #4 engine | 99 | 126 | 122 | 388 |
+| Entries, corrected engine | 90 | 117 | 113 | 379 |
+| Difference | **−9** | **−9** | **−9** | **−9** |
+
+The other five (look-ahead `spot()`, stale-fill marking, sticky CLOSE_SOON, NaN-dividend
+fail-safe, uncounted skips) move magnitudes without a clean signature.
+
+## Corrected baselines — median [min … max] across 25 staggered chains
+
+| Ticker | PR #4 engine | **Corrected engine** | Real-fill only, PR #4 | **Real-fill only, corrected** | Coverage |
+|---|---:|---:|---:|---:|---:|
+| AAPL | $299 | **$141** [−776 … 352] | $299 | **$141** (unchanged) | 97.1% |
+| DIS | $267 | **$442** [49 … 1,444] | $204 | **$442** | 87.6% |
+| TMUS | $151 | **$178** [−43 … 731] | −$81 | **$9** | 56.7% |
+| KKR | $316 | **$329** [289 … 472] | −$88 | **−$17** | 35.7% |
+| *TXN (control)* | *−$2,003* | *−$538* [−1,664 … 622] | *−$2,282* | *−$785* | *85.8%* |
+
+Win rates: AAPL 90.9%, DIS 88.9%, TMUS 91.7%, KKR 69.2%.
+
+**AAPL moves in the opposite direction from everything else** — down 53%, while DIS, TMUS
+and KKR all move up. AAPL had the most entries removed relative to its total (9 of 99) and
+the highest coverage, so the phantom entries were pure addition there.
+
+## H25 per-ticker tolerance: the verdicts reverse
+
+| | AAPL | DIS | TMUS | KKR | Overall |
+|---|---|---|---|---|---|
+| PR #4 engine | ✅ | ❌ | ❌ | ❌ | **FAIL** (1/4) |
+| Corrected engine | ❌ | ❌ | ✅ | ✅ | **FAIL** (2/4) |
+
+The headline verdict is stable; *which* tickers sit inside their ±25%/±10pp tolerance is
+not. This is the **third** time TMUS and KKR have changed character between measurements
+and the second time AAPL's published figure has been corrected downward. Per the standing
+rule in `CLAUDE.md` — *stop after the second analytical reversal* — the per-ticker tolerance
+result is recorded here as an **unstable intermediate, not a verdict**. Nothing was tiered
+or promoted off it.
+
+## What was and was not deployed
+
+**Deployed — one restricting change, one variable:**
+
+- `AAPL.expected_pnl` **$299 → $141**, `expected_win_rate` **92 → 91**, and the matching row
+  in `docs/dad-pitch.md`. Justification is *not* H25 (which AAPL now fails) but the standing
+  narrower rule PR #4 itself proposed: **no live claim may sit above the best available
+  measurement.** $299 sat above $141. The correction history is monotonically downward with
+  a named cause at each step: $351 (broken `as_of` clock) → $299 (fabricated IV rank) →
+  $141 (six fixes).
+
+**Deliberately withheld:**
+
+- DIS $267 → $442, TMUS $151 → $178, KKR $316 → $329 are all *raises*. Raising a published
+  income claim is a loosening change; it needs its own pre-registered validation, and DIS in
+  particular reversed direction between engines ($822 → $267 → $442). All three keep PR #4's
+  lower values, which are now conservative against the best measurement rather than accurate.
+- KKR's win rate 63% → 69% — same reason.
+- Tiers: unchanged. AAPL keeps `conservative` on coverage (97.1% clears the 70% floor), not
+  on an H25 pass. TMUS and KKR keep `probation`.
+
+## What survives both engines
+
+The structural findings — the ones worth acting on — are engine-independent:
+
+- **Zero assignments**, everywhere, in both runs.
+- **AAPL is the only ticker whose result does not move when synthetic fills are excluded**
+  ($141 all-trades = $141 real-fill). It has 97% coverage; the rest have 36–88%.
+- **TMUS and KKR's overlay profit is substantially a repricing artefact.** The effect is
+  smaller on the corrected engine (TMUS +$178 → +$9; KKR +$329 → −$17) but the direction is
+  identical, and both still collapse to approximately zero or negative.
+- **Regime luck dominates.** Half-year retention swings, corrected engine: AAPL 72pp
+  (2025H1 −22.9% … 2025H2 +49.0%), DIS 189pp, TMUS 222pp, KKR 107pp. Any single-number
+  income claim is a claim about which six months you looked at.
+- **Spec directive 3 stands**: the Exp 006 assignment table and Exp 014's walk-forward are
+  independent of the DTE bug, verified by static trace in both runs.
+
+## Reproducing
+
+```
+python3 experiments/022_baseline_rederivation/run.py   # pinned to WINDOW_LEGACY_PRE_STRESS
+```
+
+Requires commit `bbbddaa` in history. On a branch without it, the run silently reproduces
+the superseded numbers above.

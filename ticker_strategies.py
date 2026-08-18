@@ -101,21 +101,27 @@ TICKER_STRATEGIES = {
         'min_dte': 20,
         'max_dte': 45,
         'tier': 'conservative',
-        # AAPL is the one ticker that PASSED H25 (both fields inside their pre-registered
-        # tolerance), so Exp 022 did not license changing these. They are changed anyway,
-        # under a separate and narrower rule: no live claim may sit ABOVE the best
-        # available measurement. The old values said 100% win rate and $351/yr; the fixed
-        # engine measures 91.7% and $299/yr on 97.5% real data. This is a restricting
-        # change in the same class as the AMZN demotion, not a retrofit of H25's verdict —
-        # the verdict stands as PASS in results/022_baseline_rederivation.md.
-        'expected_pnl': 299,
-        'expected_win_rate': 92,
+        # Restricting correction under the standing rule that no live claim may sit
+        # ABOVE the best available measurement. This field has now been corrected twice,
+        # each time downward and each time because a named engine defect was removed:
+        #   $351  broken as_of clock (every observation evaluated at DTE=0)
+        #   $299  clock fixed, but IV rank was fabricated at 50.0 for the first ~9 days
+        #         of every ticker, which passes the >=50 gate — 9 phantom entries
+        #   $141  fabricated-rank fix + 5 further simulator fixes (commit bbbddaa)
+        # Exp 022's H25 verdict is NOT retrofitted here: on the fixed engine AAPL falls
+        # OUTSIDE its pre-registered tolerance. See the addendum in
+        # results/022_baseline_rederivation.md. DIS/TMUS/KKR all measure HIGHER on the
+        # fixed engine; raising them would be a loosening change and is withheld.
+        'expected_pnl': 141,
+        'expected_win_rate': 91,
         'expected_trades': 13,
-        'note': 'Widest buffer in the set at 15% OTM. Exp 022: $299/yr per contract, 92% '
-                'win rate, 97.5% repricing coverage — the most trustworthy numbers here. '
-                'It is not lossless: 8.3% of trades lose and the worst single trade in '
-                'the window was -$971. Start date matters more than that average '
-                'suggests (chain range -$739..$389).',
+        'note': 'Widest buffer in the set at 15% OTM. Exp 022 on the fully-corrected '
+                'engine: $141/yr per contract, 91% win rate, 97.1% repricing coverage — '
+                'still the most trustworthy numbers here, and the only ticker whose '
+                'result does not change when synthetic fills are excluded. It is not '
+                'lossless: 9% of trades lose and the worst single trade in the window '
+                'was -$971. Start date dominates the average (chain range -$776..$352, '
+                'i.e. the spread is wider than the median).',
     },
     'TXN': {
         'otm_pct': None,

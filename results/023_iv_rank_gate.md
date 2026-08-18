@@ -131,3 +131,35 @@ python3 experiments/023_iv_rank_gate/run.py   # ~12 min, all data local
 ```
 
 Raw output: `experiments/023_iv_rank_gate/results.json`.
+
+---
+
+# Addendum, 2026-08-17 (later session) — re-run on the fully corrected engine
+
+Exp 023 was measured on the same branch as Exp 022, which lacks commit `bbbddaa` and its
+six reviewed simulator fixes — including an engine that fabricated an IV rank of `50.0`
+when it had fewer than 10 observations, i.e. an invented value that **passes the very gate
+this experiment is testing**. That made re-running H26 mandatory, not optional.
+
+**H26 reproduces exactly.** The re-run, with the baseline window pinned to
+`WINDOW_LEGACY_PRE_STRESS`, returns a byte-identical verdict object:
+
+| | PR #4 engine | Corrected engine |
+|---|---|---|
+| Clause 1 (gate earns its place) | AAPL ✅ DIS ✅ TMUS ❌ KKR ✅ | **identical** |
+| Clause 2 (per-ticker beats 50) | DIS ✅ only | **identical** |
+| Deployment | DIS `iv_threshold = 75` | **identical** |
+| Assignments | 0 | **0** |
+
+Magnitudes moved — KKR's clause-1 margin went from +286.2% to +130.1%, and the entry counts
+fall by the expected nine per ticker — but no verdict, no threshold and no deployment
+changed. **DIS at IV ≥ 75 stands as shipped.**
+
+This matters more than a routine confirmation. Exp 022's per-ticker tolerance verdicts
+reversed under the same engine change while Exp 023's did not. A result that survives the
+removal of six defects in the instrument that produced it is a substantially stronger result
+than one that does not — and H26 clause 1 remains the first pre-registered clause in this
+programme to pass.
+
+The one caveat PR #4 raised is unchanged by the re-run: **the DIS holdout at threshold 75 is
+five trades.** Small-sample, pre-registered, restricting, and reversible in one commit.

@@ -25,16 +25,28 @@ RESULTS = [
             'n_trades': 855,
             'tickers_within_tolerance': '1/4 (AAPL only)',
             'corrected_annual_pnl_per_contract':
-                'AAPL 299 / DIS 267 / TMUS 151 / KKR 316 (medians of 25 chains)',
+                'AAPL 141 / DIS 442 / TMUS 178 / KKR 329 (medians of 25 chains, '
+                'FULLY CORRECTED engine incl. commit bbbddaa)',
+            'superseded_first_run':
+                'AAPL 299 / DIS 267 / TMUS 151 / KKR 316 — measured on an engine that '
+                'fabricated iv_rank=50.0 for the first ~9 days of every ticker, which '
+                'passes the >=50 gate; every ticker carried 9 phantom entries',
             'deployed_values_were': 'AAPL 351 / DIS 822 / TMUS 447 / KKR 386',
-            'corrected_win_rate': 'AAPL 91.7 / DIS 80.0 / TMUS 92.3 / KKR 63.3',
+            'corrected_win_rate': 'AAPL 90.9 / DIS 88.9 / TMUS 91.7 / KKR 69.2',
             'real_fill_only_annual_pnl':
-                'AAPL 299 / DIS 204 / TMUS -81 / KKR -88 (TMUS and KKR change sign)',
-            'repricing_coverage_pct': 'AAPL 97.5 / DIS 85.7 / TMUS 56.0 / KKR 36.3',
+                'AAPL 141 / DIS 442 / TMUS 9 / KKR -17 (TMUS and KKR collapse to ~zero; '
+                'AAPL unchanged by fill definition)',
+            'repricing_coverage_pct': 'AAPL 97.1 / DIS 87.6 / TMUS 56.7 / KKR 35.7',
             'assignments': 0,
             'result_file': 'results/022_baseline_rederivation.md',
         },
         failure_reason=(
+            'H25 FAILS on both engine lineages. Which tickers sit inside tolerance '
+            'REVERSED when six reviewed simulator defects were removed (first run: AAPL '
+            'only; corrected: TMUS and KKR only), so the per-ticker tolerance result is '
+            'recorded as an unstable intermediate, not a verdict. Stable across both: '
+            'zero assignments, both coverage demotions, AAPL alone unmoved by fill '
+            'definition. Originally: '
             'DIS (-68%), TMUS (-66%) and KKR (-36.7pp on win rate) all fall outside the '
             'pre-registered tolerances; only AAPL reproduces. The larger result is outside '
             'the hypothesis: restricted to exits priced by a real Databento print, TMUS '

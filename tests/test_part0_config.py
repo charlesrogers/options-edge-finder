@@ -113,8 +113,14 @@ def test_low_coverage_tickers_are_on_probation(ticker):
     assert get_strategy(ticker)['tier'] == 'probation'
 
 
-def test_aapl_keeps_its_tier_because_it_passed():
-    """97.5% coverage and inside its H25 tolerance — no demotion was licensed."""
+def test_aapl_keeps_its_tier_on_coverage():
+    """
+    97.1% repricing coverage clears the 70% floor, so no demotion is licensed.
+
+    The rationale changed: on PR #4's engine AAPL was also inside its H25 tolerance.
+    On the fully corrected engine it is NOT (measured $141 vs the $299 then deployed).
+    The tier survives on coverage alone; the P&L claim was corrected instead.
+    """
     assert get_strategy('AAPL')['tier'] == 'conservative'
 
 
@@ -142,3 +148,41 @@ def test_every_skip_explains_itself():
     for ticker, strat in TICKER_STRATEGIES.items():
         if strat.get('skip'):
             assert strat.get('note'), f'{ticker} is skipped with no reason to show'
+
+
+# ------------------------------------------------------------
+# no live claim above the best available measurement (Exp 022 addendum)
+# ------------------------------------------------------------
+
+# Median annualised net P&L per contract, measured by Exp 022's re-run on the
+# FULLY corrected engine (commit bbbddaa: fabricated IV rank, look-ahead spot,
+# stale fills, sticky CLOSE_SOON, NaN dividend guard, uncounted skips).
+# Exp 022 as run in PR #4 predates all six fixes, so its numbers sit above these
+# for AAPL and below them for the rest.
+FIXED_ENGINE_MEASURED_PNL = {'AAPL': 141, 'DIS': 442, 'TMUS': 178, 'KKR': 329}
+
+
+@pytest.mark.parametrize('ticker', sorted(FIXED_ENGINE_MEASURED_PNL))
+def test_no_deployed_pnl_claim_exceeds_the_fixed_engine_measurement(ticker):
+    """
+    Standing rule: a live income claim may sit BELOW the best available measurement
+    (conservative) but never ABOVE it (overstated to the user).
+
+    This is the guard for the specific regression that produced it — AAPL shipped at
+    $299 while the corrected engine measured $141, because the engine that produced
+    $299 fabricated an IV rank of 50.0 for the first ~9 days of every ticker, and
+    50.0 passes the >=50 production gate.
+    """
+    claimed = TICKER_STRATEGIES[ticker].get('expected_pnl')
+    if claimed is None:
+        return
+    assert claimed <= FIXED_ENGINE_MEASURED_PNL[ticker], (
+        f'{ticker} claims ${claimed}/yr per contract but the fixed engine measures '
+        f'${FIXED_ENGINE_MEASURED_PNL[ticker]}. Lower the claim or re-measure.'
+    )
+
+
+def test_aapl_carries_the_fixed_engine_number():
+    """AAPL has been corrected downward twice, each time for a named engine defect."""
+    assert TICKER_STRATEGIES['AAPL']['expected_pnl'] == 141
+    assert TICKER_STRATEGIES['AAPL']['expected_win_rate'] == 91
