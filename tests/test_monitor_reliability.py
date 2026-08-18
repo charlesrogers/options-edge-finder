@@ -181,6 +181,13 @@ def wired(monkeypatch):
     monkeypatch.setattr(monitor_positions, "send_pushover",
                         lambda **kw: (sent.append(kw), True)[1])
 
+    # Persistence goes to a real Supabase table; stub it here so these tests stay
+    # about failure policy. Tests that care about persistence override these.
+    monkeypatch.setattr(monitor_positions, "store_assessment",
+                        lambda *a, **k: {"id": "stub"})
+    monkeypatch.setattr(monitor_positions, "write_heartbeat",
+                        lambda **kw: {"id": "stub", **kw})
+
     import pandas as pd
     monkeypatch.setattr(monitor_positions.yf_proxy, "get_stock_history",
                         lambda *a, **k: pd.DataFrame({"Close": [255.0]}))

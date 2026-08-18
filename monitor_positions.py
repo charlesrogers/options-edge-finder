@@ -80,6 +80,17 @@ class MonitorError(RuntimeError):
     """A condition that makes the monitor's output untrustworthy."""
 
 
+class Unassessable(Exception):
+    """This one position cannot be evaluated.
+
+    Raised rather than `continue`d so that every such path funnels through the
+    single handler that records an UNASSESSED verdict. Three `continue`
+    statements used to skip that handler, which meant a position dropping out of
+    monitoring left its last good verdict on screen — a stale SAFE, displayed
+    with full confidence.
+    """
+
+
 def epoch_to_date(ts):
     """Yahoo returns UTC-midnight epochs. Naive fromtimestamp() renders them in the
     host's local timezone, which shifts the date back a day on any US-timezone box —
@@ -123,6 +134,143 @@ def get_open_trades():
     if resp.status_code != 200:
         raise MonitorError(f"trades read returned {resp.status_code}: {resp.text[:200]}")
     return resp.json()
+
+
+# ── Persistence: heartbeat + stored assessments ───────────────────────────────
+#
+# ENGINE_VERSION is stamped on every stored assessment. When the alert rules
+# change, bump it — otherwise a verdict recorded under old thresholds is
+# indistinguishable from one recorded under new thresholds, and the shadow-mode
+# comparison in Week 2 has nothing to key on.
+ENGINE = "position_monitor.py"
+ENGINE_VERSION = "2026-08-18"
+
+# Which copy of the monitor this is. The Hetzner cron is 'primary' and owns
+# notifications; GitHub Actions runs as 'fallback' and stays silent unless the
+# primary has gone quiet. Without this both would buzz Dad's phone for the same
+# EMERGENCY, and duplicate alerts are how an alert channel gets muted.
+SOURCE = os.environ.get("MONITOR_SOURCE", "unknown")
+ROLE = os.environ.get("MONITOR_ROLE", "primary").strip().lower()
+
+# How stale the primary's heartbeat must be before a fallback run takes over
+# notifications. Two missed 15-minute cycles.
+PRIMARY_STALE_MINUTES = int(os.environ.get("PRIMARY_STALE_MINUTES", "35"))
+
+
+def _sb_headers(extra=None):
+    h = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+    }
+    if extra:
+        h.update(extra)
+    return h
+
+
+def _sb_insert(table, row, verify=True):
+    """Insert one row and confirm the database actually returned it.
+
+    `Prefer: return=representation` makes PostgREST echo the stored row, so a
+    write that silently did nothing cannot be reported as a success. This is the
+    same shape of bug as record_chain_snapshot's `except: pass` — a job printing
+    a row count it never verified.
+    """
+    resp = requests.post(
+        f"{SUPABASE_URL}/rest/v1/{table}",
+        headers=_sb_headers({"Prefer": "return=representation"}),
+        json=row,
+        timeout=15,
+    )
+    if resp.status_code not in (200, 201):
+        raise MonitorError(f"{table} insert returned {resp.status_code}: {resp.text[:300]}")
+    if verify:
+        data = resp.json()
+        if not data:
+            raise MonitorError(f"{table} insert returned no row — the write did not persist")
+        return data[0]
+    return None
+
+
+def latest_heartbeat(role="primary"):
+    """Newest heartbeat for a role, or None. Raises on a read failure — 'I could
+    not check' must never be reported as 'the primary is fine'."""
+    resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/monitor_heartbeats"
+        f"?role=eq.{role}&order=ran_at.desc&limit=1&select=ran_at,ok",
+        headers=_sb_headers(),
+        timeout=15,
+    )
+    if resp.status_code != 200:
+        raise MonitorError(
+            f"heartbeat read returned {resp.status_code}: {resp.text[:200]}"
+        )
+    rows = resp.json()
+    return rows[0] if rows else None
+
+
+def primary_is_alive():
+    """True when a healthy primary heartbeat is recent enough that this fallback
+    run should not also notify. Any doubt resolves to False — a duplicate alert
+    is annoying, a missing one is the $400K event."""
+    try:
+        hb = latest_heartbeat("primary")
+    except MonitorError as e:
+        print(f"  [fallback] cannot read primary heartbeat ({e}) — assuming primary is DOWN")
+        return False
+    if not hb or not hb.get("ok"):
+        return False
+    try:
+        ran_at = datetime.fromisoformat(hb["ran_at"].replace("Z", "+00:00"))
+    except Exception:
+        return False
+    age_min = (datetime.now(tz=timezone.utc) - ran_at).total_seconds() / 60
+    print(f"  [fallback] primary heartbeat is {age_min:.0f} min old "
+          f"(stale at {PRIMARY_STALE_MINUTES})")
+    return age_min <= PRIMARY_STALE_MINUTES
+
+
+def write_heartbeat(*, ok, checked, unassessed_n, alerts_n, undelivered_n, detail):
+    """Record that this run happened. Written on EVERY exit path, including
+    failures — the health check alarms on the absence of a heartbeat, so a run
+    that dies without writing one is indistinguishable from a cron that never
+    fired. That is the correct default, but it means the heartbeat itself must
+    be the last thing to fail."""
+    return _sb_insert("monitor_heartbeats", {
+        "source": SOURCE,
+        "role": ROLE,
+        "engine": ENGINE,
+        "engine_version": ENGINE_VERSION,
+        "positions_checked": checked,
+        "positions_unassessed": unassessed_n,
+        "alerts_fired": alerts_n,
+        "alerts_undelivered": undelivered_n,
+        "ok": bool(ok),
+        "detail": detail,
+    })
+
+
+def store_assessment(pos, alert, inputs, level=None, reason=None, action=None):
+    """Persist one verdict so the web can display it instead of re-deriving it.
+
+    Failing to store is a real failure: a UI reading stored assessments shows a
+    stale verdict when this silently stops working, which is worse than showing
+    nothing. The caller counts these and fails the run.
+    """
+    return _sb_insert("position_assessments", {
+        "trade_id": pos.id,
+        "ticker": pos.ticker,
+        "strike": pos.strike,
+        "expiry": pos.expiry,
+        "contracts": pos.contracts,
+        "level": level or (alert.level if alert else "UNASSESSED"),
+        "reason": reason if reason is not None else (alert.reason if alert else None),
+        "action": action if action is not None else (alert.action if alert else None),
+        "inputs": inputs,
+        "engine": ENGINE,
+        "engine_version": ENGINE_VERSION,
+        "source": SOURCE,
+    })
 
 
 def send_pushover(title, message, priority=0, sound="pushover"):
@@ -231,11 +379,57 @@ def _shadow_verdict(now, ticker, strike, expiration, premium, contracts,
 
 
 def main():
+    """Run the monitor and guarantee a heartbeat row either way.
+
+    The heartbeat is the positive signal the dead-man's switch watches. Its
+    ABSENCE is the alarm, so it has to be written on the failure path too —
+    otherwise a monitor that crashes looks identical to a cron that never fired,
+    and the health check cannot tell you which. On the success path a failed
+    heartbeat write fails the run: silently skipping it would leave the health
+    check alarming with no explanation.
+    """
+    stats = {"checked": 0, "unassessed": 0, "alerts": 0, "undelivered": 0, "detail": {}}
+    try:
+        _run(stats)
+    except BaseException as e:
+        stats["detail"]["error"] = f"{type(e).__name__}: {e}"
+        try:
+            write_heartbeat(
+                ok=False, checked=stats["checked"], unassessed_n=stats["unassessed"],
+                alerts_n=stats["alerts"], undelivered_n=stats["undelivered"],
+                detail=stats["detail"],
+            )
+            print("  [heartbeat] recorded FAILED run")
+        except Exception as hb:
+            # Never let the heartbeat write hide the real failure.
+            print(f"  [heartbeat] could not record failed run: {hb}")
+        raise
+
+    write_heartbeat(
+        ok=True, checked=stats["checked"], unassessed_n=stats["unassessed"],
+        alerts_n=stats["alerts"], undelivered_n=stats["undelivered"],
+        detail=stats["detail"],
+    )
+    print(f"  [heartbeat] recorded OK run ({SOURCE}/{ROLE})")
+
+
+def _run(stats):
     now = datetime.now(tz=ET)
-    print(f"Position Monitor — {now.strftime('%Y-%m-%d %H:%M %Z')}")
+    print(f"Position Monitor — {now.strftime('%Y-%m-%d %H:%M %Z')} [{SOURCE}/{ROLE}]")
     print("=" * 60)
 
     preflight()
+
+    # A fallback run assesses and stores exactly like the primary, but stays
+    # silent while the primary is healthy. Two monitors both notifying would put
+    # every EMERGENCY on Dad's phone twice, and an alert channel that cries twice
+    # is an alert channel that gets muted.
+    notify_enabled = True
+    if ROLE == "fallback":
+        notify_enabled = not primary_is_alive()
+        stats["detail"]["notifications_suppressed"] = not notify_enabled
+        print("Notifications: " + ("TAKING OVER — primary is silent" if notify_enabled
+                                   else "suppressed (primary is alive)"))
 
     if _SHADOW_IMPORT_ERROR:
         print(f"[shadow disabled — {_SHADOW_IMPORT_ERROR}] "
@@ -244,14 +438,16 @@ def main():
     trades = get_open_trades()
     if not trades:
         print("No open trades. (Trades read succeeded and returned zero rows.)")
+        stats["detail"]["note"] = "no open positions"
         return
 
     print(f"Checking {len(trades)} open positions...")
 
     alerts_to_send = []
     summary = {"SAFE": 0, "WATCH": 0, "CLOSE_SOON": 0, "CLOSE_NOW": 0, "EMERGENCY": 0}
-    unassessed = []   # positions we could not evaluate — each one is a failure
-    degraded = []     # assessed, but with a non-critical input missing
+    unassessed = []      # positions we could not evaluate — each one is a failure
+    degraded = []        # assessed, but with a non-critical input missing
+    store_failures = []  # verdicts computed but not persisted — the UI would go stale
 
     for trade in trades:
         # Field names come from trade_schema, which is the single description of
@@ -280,8 +476,7 @@ def main():
             hist = yf_proxy.get_stock_history(ticker, period="5d")
             if hist.empty:
                 print("NO PRICE DATA — position unassessed")
-                unassessed.append(f"{label}: no price data")
-                continue
+                raise Unassessable("no price data")
             spot = float(hist["Close"].iloc[-1])
 
             # Get current option price. Only affects the cost-to-close figure shown
@@ -306,12 +501,10 @@ def main():
                 info = yf_proxy.get_stock_info(ticker)
             except Exception as e:
                 print(f"EX-DIV LOOKUP FAILED — position unassessed ({e})")
-                unassessed.append(f"{label}: ex-div lookup failed ({e})")
-                continue
+                raise Unassessable(f"ex-div lookup failed ({e})") from e
             if info is None:
                 print("EX-DIV LOOKUP RETURNED NOTHING — position unassessed")
-                unassessed.append(f"{label}: ex-div lookup returned no data")
-                continue
+                raise Unassessable("ex-div lookup returned no data")
 
             ex_div_str = None
             earn_str = None
@@ -342,6 +535,27 @@ def main():
             summary[level] = summary.get(level, 0) + 1
             print(f"{level} (stock ${spot:.2f}, {alert.pct_from_strike:+.1f}% from strike)")
 
+            # Persist the verdict with every input it was computed from. The web
+            # reads these rows rather than recomputing in TypeScript, so the
+            # screen and the phone cannot drift. Without the inputs a stored
+            # SAFE is unauditable — you cannot tell a correct one from one
+            # produced by a stale quote.
+            try:
+                store_assessment(pos, alert, {
+                    "spot": round(spot, 4),
+                    "option_ask": opt_ask,
+                    "ex_div_date": ex_div_str,
+                    "earnings_date": earn_str,
+                    "dte": alert.dte,
+                    "pct_from_strike": round(alert.pct_from_strike, 4),
+                    "assessed_at_et": now.isoformat(),
+                })
+            except Exception as e:
+                # A verdict that did not persist is a verdict the UI will not
+                # show — it would keep displaying the previous one. Loud.
+                print(f"  [assessment NOT STORED] {e}")
+                store_failures.append(f"{label}: {e}")
+
             # Determine notification
             if level == "EMERGENCY":
                 alerts_to_send.append({
@@ -366,8 +580,19 @@ def main():
                 })
 
         except Exception as e:
-            print(f"ERROR: {e}")
+            if not isinstance(e, Unassessable):
+                print(f"ERROR: {e}")
             unassessed.append(f"{label}: {e}")
+            # Record the UNASSESSED verdict too. If we store nothing, the web
+            # keeps rendering the last good assessment for this position with
+            # full confidence — the exact failure mode stored verdicts create.
+            try:
+                store_assessment(pos, None, {"error": str(e)},
+                                 level="UNASSESSED", reason=str(e),
+                                 action="Do not rely on this position's status — the monitor could not evaluate it.")
+            except Exception as se:
+                print(f"  [UNASSESSED marker NOT STORED] {se}")
+                store_failures.append(f"{label}: unassessed marker: {se}")
 
     # Send alerts
     print(f"\n{'=' * 60}")
@@ -376,14 +601,20 @@ def main():
     print(f"Alerts to send: {len(alerts_to_send)}")
 
     delivery_failures = []
-    for alert in alerts_to_send:
-        if not send_pushover(**alert):
-            delivery_failures.append(f"{alert['priority']}: {alert['title']}")
+    if not notify_enabled:
+        # Suppressed, not skipped: the verdicts are already stored, and the count
+        # is recorded so a fallback run that stayed quiet is still auditable.
+        print(f"  {len(alerts_to_send)} alert(s) NOT sent — primary owns notifications")
+        stats["detail"]["alerts_suppressed"] = [a["title"] for a in alerts_to_send]
+    else:
+        for alert in alerts_to_send:
+            if not send_pushover(**alert):
+                delivery_failures.append(f"{alert['priority']}: {alert['title']}")
 
     # Daily summary at 4 PM ET. `now` is timezone-aware ET — the previous naive
     # datetime.now() ran as UTC on the GitHub runner, firing this at 11 AM ET.
     hour = now.hour
-    if 15 <= hour <= 16:
+    if notify_enabled and 15 <= hour <= 16:
         total = sum(summary.values())
         urgent = summary.get("CLOSE_NOW", 0) + summary.get("EMERGENCY", 0)
         if urgent > 0:
@@ -407,23 +638,40 @@ def main():
         for d in degraded:
             print(f"  - {d}")
 
-    if unassessed or delivery_failures:
-        print(f"\nFAILURES ({len(unassessed)} unassessed, {len(delivery_failures)} undelivered):")
-        for f in unassessed + delivery_failures:
+    stats["checked"] = sum(summary.values())
+    stats["unassessed"] = len(unassessed)
+    stats["alerts"] = len(alerts_to_send)
+    stats["undelivered"] = len(delivery_failures)
+    stats["detail"]["summary"] = summary
+    stats["detail"]["open_positions"] = len(trades)
+    if degraded:
+        stats["detail"]["degraded"] = degraded[:10]
+    if unassessed:
+        stats["detail"]["unassessed"] = unassessed[:10]
+    if store_failures:
+        stats["detail"]["store_failures"] = store_failures[:10]
+
+    if unassessed or delivery_failures or store_failures:
+        print(f"\nFAILURES ({len(unassessed)} unassessed, "
+              f"{len(delivery_failures)} undelivered, {len(store_failures)} unstored):")
+        for f in unassessed + delivery_failures + store_failures:
             print(f"  - {f}")
 
-        detail = "\n".join(f"• {f}" for f in (unassessed + delivery_failures)[:6])
-        send_pushover(
-            title=f"⚠️ Monitor DEGRADED — {len(unassessed)} position(s) unchecked",
-            message=(
-                f"{len(unassessed)} of {len(trades)} positions could not be assessed. "
-                f"Their alert level is UNKNOWN, not safe.\n\n{detail}"
-            ),
-            priority=1,
-            sound="persistent",
-        )
+        detail = "\n".join(f"• {f}" for f in (unassessed + delivery_failures + store_failures)[:6])
+        if notify_enabled:
+            send_pushover(
+                title=f"⚠️ Monitor DEGRADED — {len(unassessed)} position(s) unchecked",
+                message=(
+                    f"{len(unassessed)} of {len(trades)} positions could not be assessed. "
+                    f"Their alert level is UNKNOWN, not safe.\n\n{detail}"
+                ),
+                priority=1,
+                sound="persistent",
+            )
         raise MonitorError(
-            f"{len(unassessed)} position(s) unassessed, {len(delivery_failures)} alert(s) undelivered"
+            f"{len(unassessed)} position(s) unassessed, "
+            f"{len(delivery_failures)} alert(s) undelivered, "
+            f"{len(store_failures)} verdict(s) not persisted"
         )
 
 
