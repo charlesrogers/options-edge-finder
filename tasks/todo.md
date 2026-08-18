@@ -194,3 +194,64 @@ change that needs its own experiment.
 **Purchase status:** unblocked for AAPL and DIS. TMUS should come off the shopping list —
 at 56% coverage a stress-year TMUS pull buys a verdict with the same defect as the numbers
 this session just retracted.
+
+---
+
+# Web overhaul (session s-0817-1634) — `tasks/web-overhaul-spec.md`
+
+The Python was corrected in March and again in August. The site was not. Everything below
+is about closing that gap and making it impossible to reopen.
+
+- [x] **§0** Verified current state before touching anything. Confirmed the fossil was live
+      by fetching the production JS bundle (`351`, `386`, `447`, `822`, `204`, "never loses").
+      Sibling check found no in-progress work on `strategies.ts` anywhere — no branch, no
+      worktree, no uncommitted edit.
+- [x] **§3 Part A** `scripts/gen_strategies_ts.py` generates `strategies.ts` from
+      `ticker_strategies.py`; `tests/test_strategies_ts_drift.py` fails CI on drift
+      (demonstrated red on a one-character edit, then green). Generator refuses to emit a
+      live non-zero `expected_pnl` with no spread in its note.
+- [x] **§3.3/§3.4 components** liquidity cap + reason on the card, probation badges that say
+      which weaker instrument was used, per-ticker IV gate, skip partition driven by the
+      `skip` flag, range and real-fill figure beside every point estimate.
+- [x] **§4 Part B** `docs/claims-inventory.md` — 40 rows, every route, zero left pending.
+- [x] **§5 Part C** `results/013_paper_trade_audit.md` (the deferred Block B item) +
+      `scripts/audit_paper_trades.py`. Scorecard relabelled and gated on provenance.
+- [x] **§5.3** `docs/dad-pitch.md` cross-checked, six further claims corrected or withdrawn.
+- [x] **§6 Part D** `/positions` reads stored verdicts from `position_assessments`; no
+      client-side re-derivation; age on every verdict; staleness banner.
+- [x] **§7** `scripts/verify_production_claims.py` — run against production pre-deploy it
+      failed all 25 checks, which is what makes a later pass mean anything.
+
+## Review
+
+**The finding that matters most was not in the spec.** §5.2 asked for the paper-trade
+outage to be quantified. The audit found something larger: all 444 scored trades are
+Black-Scholes backfill, and **zero real-price recommendations have ever been scored**. The
+"76.4% win rate" the site published as its track record is a property of `bsm_call()` in
+`backfill_paper_trades.py`. The first real outcome cannot exist before **2026-09-18**.
+
+**Second finding:** the 144-day logging gap (2026-03-24 → 2026-08-15) is the only gap longer
+than seven days in the entire history, and the card kept rendering a win rate throughout it
+under the caption "Every recommendation logged and scored automatically."
+
+**Structural, not cosmetic.** Three of the four fixes are guards rather than edits: codegen
++ drift test (the fossil cannot return), the spread rule enforced at codegen (a bare point
+estimate fails the build), and the provenance split computed in the API (no caller can
+publish the blend).
+
+## Open for Charles
+
+1. **Candidates that would RAISE a claim, listed not shipped** (spec §2.4): AAPL, DIS, TMUS
+   and KKR all measure *higher* on the fully-corrected engine than what is published.
+2. **The app has no authentication of any kind.** No login, no middleware — `/positions`,
+   `/api/holdings` and `/api/positions` serve the household's holdings and open option
+   positions to anyone with the URL. No page *claims* privacy, so it is not a false claim,
+   but it is the largest thing seen this session that was out of scope (§8: RLS is its own
+   gated session). Recommend gating it next.
+3. **A second alerting engine still exists.** `/api/cron/monitor` re-implements the alert
+   rules in TypeScript alongside `monitor_positions.py`. The display path no longer uses it.
+   Removing a live alerting endpoint is an infra-lane call, so it is flagged, not deleted.
+4. **The host `position-monitor` cron was a no-op and is disabled** (reported by the bettybot
+   session while decommissioning: it curled `supabase-kong`, a Docker-network name that does
+   not resolve from the host namespace, so the `&&` short-circuited — 36 firings, zero
+   effect). The monitor runs only in GitHub Actions, which is currently healthy.
