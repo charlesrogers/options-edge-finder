@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { isMarketOpen } from '@/lib/market-calendar'
+import { computeFreshness, STALE_MINUTES } from '@/lib/freshness'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,9 +28,6 @@ export const dynamic = 'force-dynamic'
  * from the stored option ask, P&L against the trade's sold price). None of it
  * can change a level, a reason, or an action.
  */
-
-/** A verdict older than this during market hours is not safe to act on. */
-const STALE_MINUTES = 20
 
 interface AssessmentRow {
   trade_id: string | null
@@ -180,24 +178,9 @@ export async function GET() {
   }
   alerts.sort((a, b) => (levelOrder[a.level] ?? 5) - (levelOrder[b.level] ?? 5))
 
-  const stamps = alerts.map((a) => a.assessedAt).filter((s): s is string => Boolean(s))
-  const latestAssessedAt = stamps.length > 0 ? stamps.sort().slice(-1)[0] : null
-  const ageMinutes =
-    latestAssessedAt !== null
-      ? Math.round((now - new Date(latestAssessedAt).getTime()) / 60000)
-      : null
-  const marketOpen = isMarketOpen()
+  // Staleness rule lives in lib/freshness.ts so it can be exercised against
+  // fixtures — see scripts/check_freshness_fixture.mjs.
+  const freshness = computeFreshness(alerts.map((a) => a.assessedAt), new Date(now), isMarketOpen())
 
-  return Response.json({
-    alerts,
-    freshness: {
-      latestAssessedAt,
-      ageMinutes,
-      // Outside market hours a verdict is expected to be old — the monitor is
-      // not running — so staleness is only an alarm while the market is open.
-      stale: marketOpen && (ageMinutes === null || ageMinutes > STALE_MINUTES),
-      marketOpen,
-      staleThresholdMinutes: STALE_MINUTES,
-    },
-  })
+  return Response.json({ alerts, freshness })
 }
