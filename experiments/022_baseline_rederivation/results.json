@@ -1,0 +1,1140 @@
+{
+  "gating": {
+    "AAPL": {
+      "ticker": "AAPL",
+      "cfg": {
+        "otm_pct": 0.15,
+        "min_dte": 20,
+        "max_dte": 45,
+        "slippage": 0.0,
+        "close_soon_days": 5
+      },
+      "gating": true,
+      "coverage": {
+        "option_days": 251,
+        "entries": 90,
+        "skipped": {
+          "gate_no_data": 9,
+          "gate": 138,
+          "expiry_beyond_data": 14
+        },
+        "repricing_coverage_pct": 97.1,
+        "missing_price_days": 39,
+        "priced_days": 1288,
+        "never_repriced_trades": 0,
+        "data_ended_trades": 0,
+        "real_fill_exits": 89,
+        "real_fill_pct": 98.9
+      },
+      "window": [
+        "2025-03-21",
+        "2026-03-20"
+      ],
+      "all_trades": {
+        "n_trades": 90,
+        "gross_premium": 4423.53,
+        "total_buyback": 3712.56,
+        "net_pnl": 710.95,
+        "retention_pct": 16.1,
+        "policy_exits": 84,
+        "stale_fill_exits": 1,
+        "stale_fill_pct": 1.2,
+        "pnl_from_stale_fills": 13.39,
+        "pnl_from_real_fills": 458.21,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "win_rate": 90.0,
+        "loss_rate": 10.0,
+        "worst_trade": -970.67,
+        "avg_pnl": 7.9,
+        "avg_days_held": 21.7,
+        "buyback_count": 84,
+        "held_to_expiry": 6
+      },
+      "real_fill_trades": {
+        "n_trades": 89,
+        "gross_premium": 4407.64,
+        "total_buyback": 3710.06,
+        "net_pnl": 697.56,
+        "retention_pct": 15.8,
+        "policy_exits": 83,
+        "stale_fill_exits": 0,
+        "stale_fill_pct": 0.0,
+        "pnl_from_stale_fills": 0,
+        "pnl_from_real_fills": 458.21,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "win_rate": 89.9,
+        "loss_rate": 10.1,
+        "worst_trade": -970.67,
+        "avg_pnl": 7.84,
+        "avg_days_held": 21.8,
+        "buyback_count": 83,
+        "held_to_expiry": 6
+      },
+      "chains_all": {
+        "n_chains": 25,
+        "annualised_pnl": {
+          "median": 140.68,
+          "min": -775.63,
+          "max": 352.03,
+          "n": 25
+        },
+        "win_rate": {
+          "median": 90.9,
+          "min": 84.6,
+          "max": 92.3,
+          "n": 25
+        },
+        "loss_rate": {
+          "median": 9.1,
+          "min": 7.7,
+          "max": 15.4,
+          "n": 25
+        },
+        "retention_pct": {
+          "median": 32.5,
+          "min": -91.6,
+          "max": 57.8,
+          "n": 25
+        },
+        "retention_undefined_chains": 0,
+        "trades_per_year": {
+          "median": 14.3,
+          "min": 13.4,
+          "max": 15.5,
+          "n": 25
+        },
+        "buybacks": {
+          "median": 12.0,
+          "min": 10.0,
+          "max": 14.0,
+          "n": 25
+        },
+        "assignments_total": 0,
+        "worst_trade": {
+          "median": -167.29,
+          "min": -970.67,
+          "max": -167.29,
+          "n": 25
+        }
+      },
+      "chains_real_fill_only": {
+        "n_chains": 25,
+        "annualised_pnl": {
+          "median": 140.68,
+          "min": -775.63,
+          "max": 352.03,
+          "n": 25
+        },
+        "win_rate": {
+          "median": 90.9,
+          "min": 84.6,
+          "max": 92.3,
+          "n": 25
+        },
+        "loss_rate": {
+          "median": 9.1,
+          "min": 7.7,
+          "max": 15.4,
+          "n": 25
+        },
+        "retention_pct": {
+          "median": 32.5,
+          "min": -91.6,
+          "max": 57.8,
+          "n": 25
+        },
+        "retention_undefined_chains": 0,
+        "trades_per_year": {
+          "median": 14.3,
+          "min": 13.4,
+          "max": 15.5,
+          "n": 25
+        },
+        "buybacks": {
+          "median": 12.0,
+          "min": 10.0,
+          "max": 14.0,
+          "n": 25
+        },
+        "assignments_total": 0,
+        "worst_trade": {
+          "median": -167.29,
+          "min": -970.67,
+          "max": -167.29,
+          "n": 25
+        }
+      },
+      "half_year_windows": [
+        {
+          "window": "2025H1",
+          "n_trades": 19,
+          "net_pnl": -462.56,
+          "net_per_trade": -24.35,
+          "retention_pct": -22.9,
+          "win_rate": 84.2,
+          "loss_rate": 15.8,
+          "assignments": 0
+        },
+        {
+          "window": "2025H2",
+          "n_trades": 43,
+          "net_pnl": 750.22,
+          "net_per_trade": 17.45,
+          "retention_pct": 49.0,
+          "win_rate": 95.3,
+          "loss_rate": 4.7,
+          "assignments": 0
+        },
+        {
+          "window": "2026H1",
+          "n_trades": 28,
+          "net_pnl": 423.29,
+          "net_per_trade": 15.12,
+          "retention_pct": 48.4,
+          "win_rate": 85.7,
+          "loss_rate": 14.3,
+          "assignments": 0
+        }
+      ],
+      "verdict": {
+        "gating": true,
+        "deployed_expected_pnl": 299,
+        "corrected_expected_pnl": 140.68,
+        "pnl_relative_error": -0.529,
+        "pnl_within_tolerance": false,
+        "deployed_expected_win_rate": 92,
+        "corrected_win_rate": 90.9,
+        "win_rate_abs_error_pp": -1.1,
+        "win_rate_within_tolerance": true,
+        "passes": false,
+        "demote_to_probation": false,
+        "demotion_reason": null
+      }
+    },
+    "DIS": {
+      "ticker": "DIS",
+      "cfg": {
+        "otm_pct": 0.07,
+        "min_dte": 30,
+        "max_dte": 60,
+        "slippage": 0.0,
+        "close_soon_days": 5
+      },
+      "gating": true,
+      "coverage": {
+        "option_days": 251,
+        "entries": 117,
+        "skipped": {
+          "gate_no_data": 9,
+          "gate": 110,
+          "expiry_beyond_data": 15
+        },
+        "repricing_coverage_pct": 87.6,
+        "missing_price_days": 188,
+        "priced_days": 1331,
+        "never_repriced_trades": 0,
+        "data_ended_trades": 0,
+        "real_fill_exits": 95,
+        "real_fill_pct": 81.2
+      },
+      "window": [
+        "2025-03-21",
+        "2026-03-20"
+      ],
+      "all_trades": {
+        "n_trades": 117,
+        "gross_premium": 18721.94,
+        "total_buyback": 12316.24,
+        "net_pnl": 6405.67,
+        "retention_pct": 34.2,
+        "policy_exits": 117,
+        "stale_fill_exits": 22,
+        "stale_fill_pct": 18.8,
+        "pnl_from_stale_fills": 2988.39,
+        "pnl_from_real_fills": 3417.28,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "win_rate": 76.9,
+        "loss_rate": 23.1,
+        "worst_trade": -664.82,
+        "avg_pnl": 54.75,
+        "avg_days_held": 18.9,
+        "buyback_count": 117,
+        "held_to_expiry": 0
+      },
+      "real_fill_trades": {
+        "n_trades": 95,
+        "gross_premium": 15340.78,
+        "total_buyback": 11923.47,
+        "net_pnl": 3417.28,
+        "retention_pct": 22.3,
+        "policy_exits": 95,
+        "stale_fill_exits": 0,
+        "stale_fill_pct": 0.0,
+        "pnl_from_stale_fills": 0,
+        "pnl_from_real_fills": 3417.28,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "win_rate": 71.6,
+        "loss_rate": 28.4,
+        "worst_trade": -664.82,
+        "avg_pnl": 35.97,
+        "avg_days_held": 19.7,
+        "buyback_count": 95,
+        "held_to_expiry": 0
+      },
+      "chains_all": {
+        "n_chains": 25,
+        "annualised_pnl": {
+          "median": 442.05,
+          "min": 48.98,
+          "max": 1443.56,
+          "n": 25
+        },
+        "win_rate": {
+          "median": 88.9,
+          "min": 72.7,
+          "max": 100.0,
+          "n": 25
+        },
+        "loss_rate": {
+          "median": 11.1,
+          "min": 0.0,
+          "max": 27.3,
+          "n": 25
+        },
+        "retention_pct": {
+          "median": 29.0,
+          "min": 2.6,
+          "max": 95.6,
+          "n": 25
+        },
+        "retention_undefined_chains": 0,
+        "trades_per_year": {
+          "median": 11.4,
+          "min": 10.4,
+          "max": 12.8,
+          "n": 25
+        },
+        "buybacks": {
+          "median": 9.0,
+          "min": 8.0,
+          "max": 11.0,
+          "n": 25
+        },
+        "assignments_total": 0,
+        "worst_trade": {
+          "median": -423.5,
+          "min": -664.82,
+          "max": 49.16,
+          "n": 25
+        }
+      },
+      "chains_real_fill_only": {
+        "n_chains": 25,
+        "annualised_pnl": {
+          "median": 442.05,
+          "min": 48.98,
+          "max": 1443.56,
+          "n": 25
+        },
+        "win_rate": {
+          "median": 88.9,
+          "min": 72.7,
+          "max": 100.0,
+          "n": 25
+        },
+        "loss_rate": {
+          "median": 11.1,
+          "min": 0.0,
+          "max": 27.3,
+          "n": 25
+        },
+        "retention_pct": {
+          "median": 29.0,
+          "min": 2.6,
+          "max": 95.6,
+          "n": 25
+        },
+        "retention_undefined_chains": 0,
+        "trades_per_year": {
+          "median": 11.4,
+          "min": 10.4,
+          "max": 12.8,
+          "n": 25
+        },
+        "buybacks": {
+          "median": 9.0,
+          "min": 7.0,
+          "max": 11.0,
+          "n": 25
+        },
+        "assignments_total": 0,
+        "worst_trade": {
+          "median": -423.5,
+          "min": -664.82,
+          "max": 49.16,
+          "n": 25
+        }
+      },
+      "half_year_windows": [
+        {
+          "window": "2025H1",
+          "n_trades": 19,
+          "net_pnl": -4493.25,
+          "net_per_trade": -236.49,
+          "retention_pct": -97.4,
+          "win_rate": 5.3,
+          "loss_rate": 94.7,
+          "assignments": 0
+        },
+        {
+          "window": "2025H2",
+          "n_trades": 74,
+          "net_pnl": 7783.09,
+          "net_per_trade": 105.18,
+          "retention_pct": 72.7,
+          "win_rate": 87.8,
+          "loss_rate": 12.2,
+          "assignments": 0
+        },
+        {
+          "window": "2026H1",
+          "n_trades": 24,
+          "net_pnl": 3115.83,
+          "net_per_trade": 129.83,
+          "retention_pct": 91.6,
+          "win_rate": 100.0,
+          "loss_rate": 0.0,
+          "assignments": 0
+        }
+      ],
+      "verdict": {
+        "gating": true,
+        "deployed_expected_pnl": 267,
+        "corrected_expected_pnl": 442.05,
+        "pnl_relative_error": 0.656,
+        "pnl_within_tolerance": false,
+        "deployed_expected_win_rate": 80,
+        "corrected_win_rate": 88.9,
+        "win_rate_abs_error_pp": 8.9,
+        "win_rate_within_tolerance": true,
+        "passes": false,
+        "demote_to_probation": false,
+        "demotion_reason": null
+      }
+    },
+    "TMUS": {
+      "ticker": "TMUS",
+      "cfg": {
+        "otm_pct": 0.15,
+        "min_dte": 20,
+        "max_dte": 45,
+        "slippage": 0.0,
+        "close_soon_days": 5
+      },
+      "gating": true,
+      "coverage": {
+        "option_days": 251,
+        "entries": 113,
+        "skipped": {
+          "gate_no_data": 9,
+          "gate": 120,
+          "expiry_beyond_data": 9
+        },
+        "repricing_coverage_pct": 56.7,
+        "missing_price_days": 750,
+        "priced_days": 983,
+        "never_repriced_trades": 2,
+        "data_ended_trades": 0,
+        "real_fill_exits": 89,
+        "real_fill_pct": 78.8
+      },
+      "window": [
+        "2025-03-21",
+        "2026-03-20"
+      ],
+      "all_trades": {
+        "n_trades": 113,
+        "gross_premium": 12731.69,
+        "total_buyback": 10837.25,
+        "net_pnl": 1894.41,
+        "retention_pct": 14.9,
+        "policy_exits": 94,
+        "stale_fill_exits": 24,
+        "stale_fill_pct": 25.5,
+        "pnl_from_stale_fills": 1761.04,
+        "pnl_from_real_fills": -1003.13,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "win_rate": 85.0,
+        "loss_rate": 15.0,
+        "worst_trade": -919.0,
+        "avg_pnl": 16.76,
+        "avg_days_held": 22.4,
+        "buyback_count": 94,
+        "held_to_expiry": 19
+      },
+      "real_fill_trades": {
+        "n_trades": 89,
+        "gross_premium": 10691.65,
+        "total_buyback": 10558.25,
+        "net_pnl": 133.37,
+        "retention_pct": 1.2,
+        "policy_exits": 70,
+        "stale_fill_exits": 0,
+        "stale_fill_pct": 0.0,
+        "pnl_from_stale_fills": 0,
+        "pnl_from_real_fills": -1003.13,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "win_rate": 80.9,
+        "loss_rate": 19.1,
+        "worst_trade": -919.0,
+        "avg_pnl": 1.5,
+        "avg_days_held": 23.4,
+        "buyback_count": 70,
+        "held_to_expiry": 19
+      },
+      "chains_all": {
+        "n_chains": 25,
+        "annualised_pnl": {
+          "median": 178.31,
+          "min": -43.1,
+          "max": 730.74,
+          "n": 25
+        },
+        "win_rate": {
+          "median": 91.7,
+          "min": 85.7,
+          "max": 92.3,
+          "n": 25
+        },
+        "loss_rate": {
+          "median": 8.3,
+          "min": 7.7,
+          "max": 14.3,
+          "n": 25
+        },
+        "retention_pct": {
+          "median": 8.9,
+          "min": -3.2,
+          "max": 37.9,
+          "n": 25
+        },
+        "retention_undefined_chains": 0,
+        "trades_per_year": {
+          "median": 14.6,
+          "min": 14.0,
+          "max": 15.8,
+          "n": 25
+        },
+        "buybacks": {
+          "median": 10.0,
+          "min": 8.0,
+          "max": 11.0,
+          "n": 25
+        },
+        "assignments_total": 0,
+        "worst_trade": {
+          "median": -765.3,
+          "min": -765.3,
+          "max": -765.3,
+          "n": 25
+        }
+      },
+      "chains_real_fill_only": {
+        "n_chains": 25,
+        "annualised_pnl": {
+          "median": 8.6,
+          "min": -361.63,
+          "max": 562.05,
+          "n": 25
+        },
+        "win_rate": {
+          "median": 88.9,
+          "min": 80.0,
+          "max": 90.0,
+          "n": 25
+        },
+        "loss_rate": {
+          "median": 11.1,
+          "min": 10.0,
+          "max": 20.0,
+          "n": 25
+        },
+        "retention_pct": {
+          "median": 0.3,
+          "min": -30.3,
+          "max": 32.5,
+          "n": 25
+        },
+        "retention_undefined_chains": 0,
+        "trades_per_year": {
+          "median": 10.9,
+          "min": 9.4,
+          "max": 12.1,
+          "n": 25
+        },
+        "buybacks": {
+          "median": 7.0,
+          "min": 5.0,
+          "max": 8.0,
+          "n": 25
+        },
+        "assignments_total": 0,
+        "worst_trade": {
+          "median": -765.3,
+          "min": -765.3,
+          "max": -765.3,
+          "n": 25
+        }
+      },
+      "half_year_windows": [
+        {
+          "window": "2025H1",
+          "n_trades": 23,
+          "net_pnl": 1521.98,
+          "net_per_trade": 66.17,
+          "retention_pct": 38.8,
+          "win_rate": 91.3,
+          "loss_rate": 8.7,
+          "assignments": 0
+        },
+        {
+          "window": "2025H2",
+          "n_trades": 65,
+          "net_pnl": 4638.71,
+          "net_per_trade": 71.36,
+          "retention_pct": 80.2,
+          "win_rate": 98.5,
+          "loss_rate": 1.5,
+          "assignments": 0
+        },
+        {
+          "window": "2026H1",
+          "n_trades": 25,
+          "net_pnl": -4266.28,
+          "net_per_trade": -170.65,
+          "retention_pct": -141.3,
+          "win_rate": 44.0,
+          "loss_rate": 56.0,
+          "assignments": 0
+        }
+      ],
+      "verdict": {
+        "gating": true,
+        "deployed_expected_pnl": 151,
+        "corrected_expected_pnl": 178.31,
+        "pnl_relative_error": 0.181,
+        "pnl_within_tolerance": true,
+        "deployed_expected_win_rate": 92,
+        "corrected_win_rate": 91.7,
+        "win_rate_abs_error_pp": -0.3,
+        "win_rate_within_tolerance": true,
+        "passes": true,
+        "demote_to_probation": true,
+        "demotion_reason": "repricing coverage 56.7% < 70%"
+      }
+    },
+    "KKR": {
+      "ticker": "KKR",
+      "cfg": {
+        "otm_pct": 0.15,
+        "min_dte": 20,
+        "max_dte": 45,
+        "slippage": 0.0,
+        "close_soon_days": 5
+      },
+      "gating": true,
+      "coverage": {
+        "option_days": 753,
+        "entries": 379,
+        "skipped": {
+          "gate_no_data": 9,
+          "gate": 346,
+          "expiry_beyond_data": 19
+        },
+        "repricing_coverage_pct": 35.7,
+        "missing_price_days": 3193,
+        "priced_days": 1775,
+        "never_repriced_trades": 62,
+        "data_ended_trades": 0,
+        "real_fill_exits": 256,
+        "real_fill_pct": 67.5
+      },
+      "window": [
+        "2023-03-21",
+        "2026-03-20"
+      ],
+      "all_trades": {
+        "n_trades": 379,
+        "gross_premium": 55903.5,
+        "total_buyback": 53568.88,
+        "net_pnl": 2334.61,
+        "retention_pct": 4.2,
+        "policy_exits": 284,
+        "stale_fill_exits": 123,
+        "stale_fill_pct": 43.3,
+        "pnl_from_stale_fills": 6378.55,
+        "pnl_from_real_fills": -11251.79,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "win_rate": 64.9,
+        "loss_rate": 26.1,
+        "worst_trade": -584.0,
+        "avg_pnl": 6.16,
+        "avg_days_held": 18.8,
+        "buyback_count": 284,
+        "held_to_expiry": 95
+      },
+      "real_fill_trades": {
+        "n_trades": 256,
+        "gross_premium": 32295.37,
+        "total_buyback": 36339.29,
+        "net_pnl": -4043.94,
+        "retention_pct": -12.5,
+        "policy_exits": 161,
+        "stale_fill_exits": 0,
+        "stale_fill_pct": 0.0,
+        "pnl_from_stale_fills": 0,
+        "pnl_from_real_fills": -11251.79,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "win_rate": 66.8,
+        "loss_rate": 33.2,
+        "worst_trade": -584.0,
+        "avg_pnl": -15.8,
+        "avg_days_held": 21.1,
+        "buyback_count": 161,
+        "held_to_expiry": 95
+      },
+      "chains_all": {
+        "n_chains": 25,
+        "annualised_pnl": {
+          "median": 329.08,
+          "min": 288.54,
+          "max": 471.53,
+          "n": 25
+        },
+        "win_rate": {
+          "median": 69.2,
+          "min": 66.0,
+          "max": 74.5,
+          "n": 25
+        },
+        "loss_rate": {
+          "median": 19.2,
+          "min": 17.0,
+          "max": 22.0,
+          "n": 25
+        },
+        "retention_pct": {
+          "median": 13.8,
+          "min": 11.4,
+          "max": 19.7,
+          "n": 25
+        },
+        "retention_undefined_chains": 0,
+        "trades_per_year": {
+          "median": 17.8,
+          "min": 17.1,
+          "max": 18.5,
+          "n": 25
+        },
+        "buybacks": {
+          "median": 40.0,
+          "min": 37.0,
+          "max": 43.0,
+          "n": 25
+        },
+        "assignments_total": 0,
+        "worst_trade": {
+          "median": -328.75,
+          "min": -328.75,
+          "max": -312.83,
+          "n": 25
+        }
+      },
+      "chains_real_fill_only": {
+        "n_chains": 25,
+        "annualised_pnl": {
+          "median": -17.19,
+          "min": -57.26,
+          "max": 151.91,
+          "n": 25
+        },
+        "win_rate": {
+          "median": 71.0,
+          "min": 68.8,
+          "max": 80.0,
+          "n": 25
+        },
+        "loss_rate": {
+          "median": 29.0,
+          "min": 20.0,
+          "max": 31.2,
+          "n": 25
+        },
+        "retention_pct": {
+          "median": -1.3,
+          "min": -4.1,
+          "max": 10.5,
+          "n": 25
+        },
+        "retention_undefined_chains": 0,
+        "trades_per_year": {
+          "median": 11.2,
+          "min": 10.9,
+          "max": 11.6,
+          "n": 25
+        },
+        "buybacks": {
+          "median": 21.0,
+          "min": 20.0,
+          "max": 23.0,
+          "n": 25
+        },
+        "assignments_total": 0,
+        "worst_trade": {
+          "median": -328.75,
+          "min": -328.75,
+          "max": -312.83,
+          "n": 25
+        }
+      },
+      "half_year_windows": [
+        {
+          "window": "2023H1",
+          "n_trades": 22,
+          "net_pnl": -164.66,
+          "net_per_trade": -7.48,
+          "retention_pct": -9.9,
+          "win_rate": 50.0,
+          "loss_rate": 27.3,
+          "assignments": 0
+        },
+        {
+          "window": "2023H2",
+          "n_trades": 61,
+          "net_pnl": -1310.79,
+          "net_per_trade": -21.49,
+          "retention_pct": -27.0,
+          "win_rate": 55.7,
+          "loss_rate": 31.1,
+          "assignments": 0
+        },
+        {
+          "window": "2024H1",
+          "n_trades": 70,
+          "net_pnl": -400.02,
+          "net_per_trade": -5.71,
+          "retention_pct": -4.5,
+          "win_rate": 67.1,
+          "loss_rate": 27.1,
+          "assignments": 0
+        },
+        {
+          "window": "2024H2",
+          "n_trades": 62,
+          "net_pnl": -3572.67,
+          "net_per_trade": -57.62,
+          "retention_pct": -28.6,
+          "win_rate": 40.3,
+          "loss_rate": 45.2,
+          "assignments": 0
+        },
+        {
+          "window": "2025H1",
+          "n_trades": 75,
+          "net_pnl": -1072.92,
+          "net_per_trade": -14.31,
+          "retention_pct": -8.3,
+          "win_rate": 64.0,
+          "loss_rate": 29.3,
+          "assignments": 0
+        },
+        {
+          "window": "2025H2",
+          "n_trades": 66,
+          "net_pnl": 5907.5,
+          "net_per_trade": 89.51,
+          "retention_pct": 52.4,
+          "win_rate": 89.4,
+          "loss_rate": 7.6,
+          "assignments": 0
+        },
+        {
+          "window": "2026H1",
+          "n_trades": 23,
+          "net_pnl": 2948.17,
+          "net_per_trade": 128.18,
+          "retention_pct": 78.4,
+          "win_rate": 95.7,
+          "loss_rate": 0.0,
+          "assignments": 0
+        }
+      ],
+      "verdict": {
+        "gating": true,
+        "deployed_expected_pnl": 316,
+        "corrected_expected_pnl": 329.08,
+        "pnl_relative_error": 0.041,
+        "pnl_within_tolerance": true,
+        "deployed_expected_win_rate": 63,
+        "corrected_win_rate": 69.2,
+        "win_rate_abs_error_pp": 6.2,
+        "win_rate_within_tolerance": true,
+        "passes": true,
+        "demote_to_probation": true,
+        "demotion_reason": "repricing coverage 35.7% < 70%"
+      }
+    }
+  },
+  "control": {
+    "TXN": {
+      "ticker": "TXN",
+      "cfg": {
+        "otm_pct": 0.1,
+        "min_dte": 20,
+        "max_dte": 45,
+        "slippage": 0.0,
+        "close_soon_days": 5
+      },
+      "gating": false,
+      "coverage": {
+        "option_days": 251,
+        "entries": 111,
+        "skipped": {
+          "gate_no_data": 9,
+          "gate": 118,
+          "expiry_beyond_data": 13
+        },
+        "repricing_coverage_pct": 85.8,
+        "missing_price_days": 172,
+        "priced_days": 1042,
+        "never_repriced_trades": 0,
+        "data_ended_trades": 0,
+        "real_fill_exits": 96,
+        "real_fill_pct": 86.5
+      },
+      "window": [
+        "2025-03-21",
+        "2026-03-20"
+      ],
+      "all_trades": {
+        "n_trades": 111,
+        "gross_premium": 23518.2,
+        "total_buyback": 33651.82,
+        "net_pnl": -10133.58,
+        "retention_pct": -43.1,
+        "policy_exits": 108,
+        "stale_fill_exits": 15,
+        "stale_fill_pct": 13.9,
+        "pnl_from_stale_fills": 1921.39,
+        "pnl_from_real_fills": -12703.85,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "win_rate": 54.1,
+        "loss_rate": 45.9,
+        "worst_trade": -1320.8,
+        "avg_pnl": -91.29,
+        "avg_days_held": 16.3,
+        "buyback_count": 108,
+        "held_to_expiry": 3
+      },
+      "real_fill_trades": {
+        "n_trades": 96,
+        "gross_premium": 20603.9,
+        "total_buyback": 32658.91,
+        "net_pnl": -12054.97,
+        "retention_pct": -58.5,
+        "policy_exits": 93,
+        "stale_fill_exits": 0,
+        "stale_fill_pct": 0.0,
+        "pnl_from_stale_fills": 0,
+        "pnl_from_real_fills": -12703.85,
+        "assignments": 0,
+        "early_assignments": 0,
+        "expiry_assignments": 0,
+        "win_rate": 49.0,
+        "loss_rate": 51.0,
+        "worst_trade": -1320.8,
+        "avg_pnl": -125.57,
+        "avg_days_held": 16.5,
+        "buyback_count": 93,
+        "held_to_expiry": 3
+      },
+      "chains_all": {
+        "n_chains": 25,
+        "annualised_pnl": {
+          "median": -538.32,
+          "min": -1664.46,
+          "max": 621.91,
+          "n": 25
+        },
+        "win_rate": {
+          "median": 56.2,
+          "min": 52.9,
+          "max": 66.7,
+          "n": 25
+        },
+        "loss_rate": {
+          "median": 43.8,
+          "min": 33.3,
+          "max": 47.1,
+          "n": 25
+        },
+        "retention_pct": {
+          "median": -13.4,
+          "min": -36.4,
+          "max": 17.5,
+          "n": 25
+        },
+        "retention_undefined_chains": 0,
+        "trades_per_year": {
+          "median": 17.3,
+          "min": 15.6,
+          "max": 19.2,
+          "n": 25
+        },
+        "buybacks": {
+          "median": 15.0,
+          "min": 12.0,
+          "max": 17.0,
+          "n": 25
+        },
+        "assignments_total": 0,
+        "worst_trade": {
+          "median": -828.92,
+          "min": -1320.8,
+          "max": -395.64,
+          "n": 25
+        }
+      },
+      "chains_real_fill_only": {
+        "n_chains": 25,
+        "annualised_pnl": {
+          "median": -784.68,
+          "min": -1961.28,
+          "max": 500.67,
+          "n": 25
+        },
+        "win_rate": {
+          "median": 53.3,
+          "min": 45.5,
+          "max": 63.6,
+          "n": 25
+        },
+        "loss_rate": {
+          "median": 46.7,
+          "min": 36.4,
+          "max": 54.5,
+          "n": 25
+        },
+        "retention_pct": {
+          "median": -23.1,
+          "min": -46.7,
+          "max": 14.7,
+          "n": 25
+        },
+        "retention_undefined_chains": 0,
+        "trades_per_year": {
+          "median": 16.1,
+          "min": 14.0,
+          "max": 17.0,
+          "n": 25
+        },
+        "buybacks": {
+          "median": 13.0,
+          "min": 10.0,
+          "max": 15.0,
+          "n": 25
+        },
+        "assignments_total": 0,
+        "worst_trade": {
+          "median": -828.92,
+          "min": -1320.8,
+          "max": -395.64,
+          "n": 25
+        }
+      },
+      "half_year_windows": [
+        {
+          "window": "2025H1",
+          "n_trades": 25,
+          "net_pnl": -4885.76,
+          "net_per_trade": -195.43,
+          "retention_pct": -77.3,
+          "win_rate": 36.0,
+          "loss_rate": 64.0,
+          "assignments": 0
+        },
+        {
+          "window": "2025H2",
+          "n_trades": 69,
+          "net_pnl": 972.09,
+          "net_per_trade": 14.09,
+          "retention_pct": 7.4,
+          "win_rate": 69.6,
+          "loss_rate": 30.4,
+          "assignments": 0
+        },
+        {
+          "window": "2026H1",
+          "n_trades": 17,
+          "net_pnl": -6219.91,
+          "net_per_trade": -365.88,
+          "retention_pct": -155.7,
+          "win_rate": 17.6,
+          "loss_rate": 82.4,
+          "assignments": 0
+        }
+      ],
+      "verdict": {
+        "gating": false
+      }
+    }
+  },
+  "dte_bug_blast_radius": {
+    "exp006_probability_table": {
+      "file": "position_monitor.py",
+      "table_is_literal": true,
+      "table_built_by_computation": false,
+      "lookup_takes_dte_as_argument": true,
+      "lookup_calls_assess_position": false,
+      "wall_clock_in_lookup": false,
+      "caveat": "The table is clean; the BACKTESTS that consumed it through assess_position() were not \u2014 those always asked it for dte=0."
+    },
+    "exp014_stock_close_walkforward": {
+      "file": "experiments/014_validated_param_update/run.py",
+      "imports_position_monitor": false,
+      "calls_assess_position": false,
+      "uses_wall_clock": false
+    }
+  },
+  "h25_verdict": {
+    "per_ticker": {
+      "AAPL": false,
+      "DIS": false,
+      "TMUS": true,
+      "KKR": true
+    },
+    "passed": false,
+    "demotions": {
+      "TMUS": "repricing coverage 56.7% < 70%",
+      "KKR": "repricing coverage 35.7% < 70%"
+    }
+  }
+}

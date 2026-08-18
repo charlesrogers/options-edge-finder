@@ -3,8 +3,11 @@ name: Tests
 on:
   push:
     branches: [main]
+  # Every PR, not only PRs targeting main. Research branches stack (a Phase 3 PR based on
+  # a Phase 1 PR), and with a `branches: [main]` filter those PRs got no test signal at
+  # all — the tests that guard financial logic simply did not run on the change that
+  # introduced it.
   pull_request:
-    branches: [main]
 
 jobs:
   test:

@@ -25,7 +25,12 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-import databento as db
+
+# databento is imported lazily inside load_option_data, matching cc_sim. It is a
+# heavy optional dependency that CI does not install, and a module-scope import
+# makes every test that merely imports this module uncollectable — the same shape
+# as the monitor_positions/scipy regression fixed in bbbddaa. The window-guard
+# tests raise before any parsing happens and must stay runnable without it.
 
 
 # ============================================================
@@ -72,8 +77,32 @@ class ClosedTrade:
 # OPTION DATA HELPERS
 # ============================================================
 
-def load_option_data(ticker):
-    """Load Databento option OHLCV for a ticker."""
+# Date windows — see cc_sim for the canonical definitions and the reason these
+# are mandatory. Duplicated here so this module stays importable on its own.
+WINDOW_LEGACY_PRE_STRESS = ('2023-01-01', '2026-12-31')
+WINDOW_STRESS_2020 = ('2020-02-01', '2020-09-30')
+WINDOW_STRESS_2022 = ('2022-01-01', '2022-12-31')
+
+
+def load_option_data(ticker, start=None, end=None):
+    """Load Databento option OHLCV for a ticker over [start, end] inclusive.
+
+    The window is REQUIRED. Since the Exp 019 purchase (2026-08-17) RAW_DIR has
+    held several disjoint eras per ticker (2020 stress, 2022, 2023-26), and this
+    function globs '{ticker}_ohlcv*' and concatenates every match. An implicit
+    window therefore mixes stress years into a recent baseline silently, which
+    would make any later stress comparison measure those years against
+    themselves. Pass WINDOW_LEGACY_PRE_STRESS to reproduce pre-purchase results.
+    """
+    if start is None or end is None:
+        raise ValueError(
+            f'load_option_data({ticker!r}) requires an explicit start and end. '
+            f'Use WINDOW_LEGACY_PRE_STRESS to reproduce pre-2026-08-17 results, '
+            f'or a WINDOW_STRESS_* constant. See results/019_data_purchase_ledger.md.'
+        )
+    start_ts = pd.Timestamp(start).normalize()
+    end_ts = pd.Timestamp(end).normalize()
+
     raw_dir = os.path.join(os.path.dirname(__file__), '..', 'data', 'databento', 'raw')
     if not os.path.exists(raw_dir):
         raw_dir = os.path.join(os.path.dirname(__file__), 'data', 'databento', 'raw')
@@ -85,12 +114,20 @@ def load_option_data(ticker):
 
     dfs = []
     for f in files:
+        import databento as db
         data = db.DBNStore.from_file(os.path.join(raw_dir, f))
         dfs.append(data.to_df())
 
     combined = pd.concat(dfs).sort_index()
     # Drop exact duplicates only (keep all contracts per date)
     combined = combined.reset_index().drop_duplicates().set_index('ts_event')
+
+    # Apply the window. Index is tz-aware; compare on normalized dates.
+    idx = combined.index.normalize()
+    if idx.tz is not None:
+        start_ts = start_ts.tz_localize(idx.tz)
+        end_ts = end_ts.tz_localize(idx.tz)
+    combined = combined[(idx >= start_ts) & (idx <= end_ts)]
     return combined
 
 

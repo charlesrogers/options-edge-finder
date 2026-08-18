@@ -1,0 +1,31 @@
+# Databento OPRA raw archive manifest
+# Generated: 2026-08-18T04:05:21Z
+# Source: ~/Documents/options-tool/data/databento/raw/ (gitignored payload)
+# Copies: laptop | root@95.216.205.160:/data/backups/databento/raw/ | ~/Library/CloudStorage/Dropbox/Backups/databento/raw/
+# Verify: cd <raw dir> && shasum -a 256 -c <this file>   (Linux: sha256sum -c)
+# Files: 23  Total: 188M
+# Dataset OPRA.PILLAR, schema ohlcv-1d / definition, stype_in=parent
+#
+359c0bb0e0773869faebab918859680c9188093767c065b5944048ea51acdc62  AAPL_definitions.dbn.zst
+c0ef9b47015344d4045c26a5efd60d844d2482caa27679d190f97ab49199bc46  AAPL_ohlcv_1d_2020feb_jun.dbn.zst
+f2162bbeafdae4995161d82e3d5419a124948623847e1b9e682887c075ae34f5  AAPL_ohlcv_1d_2020jul_sep.dbn.zst
+09baaff2e113369ed7bce76405a158c48070d037d50b0f5d9f8ef1ae9d72d84c  AAPL_ohlcv_1d_2020probe.dbn.zst
+c49a196ca797575c47f1f83e64f796f1b4b08e9ec1df1df908c5035fb8d71d9f  AAPL_ohlcv_1d.dbn.zst
+de470b51fae295c2cd4280d1165103373f4f0b4c789d50745e0421c815b95f83  AMZN_definitions.dbn.zst
+4010360b34c11513f6fb304db7e41a4a2e88d228d0baf2c1e78595c2c1663f5a  DIS_definitions.dbn.zst
+f0e9a8895290b9a54153750c8d085dcc2071e68968b256da39a8cc78caac2be3  DIS_ohlcv_1d_2020feb_jun.dbn.zst
+fcafb9533d728550796b86d4102d7743f98ce628de1907f8a20e41ee07b5aa63  DIS_ohlcv_1d.dbn.zst
+faddbf5cef70934f589971b4b6bcc2cde1d4d9bc415269f342bf11c197e17fc7  GOOGL_definitions.dbn.zst
+7b4f843bd5ca0e1915a13b7243e53cd162cc652c79e84bc94e67c7af75b25b37  GOOGL_ohlcv_1d_1wk.dbn.zst
+b3ee6f6cb183f89d133aee91d5ff54e2d2dfdeb34e34fc300e27b1fccc88b04e  GOOGL_ohlcv_1d_2020feb_jun.dbn.zst
+2d151bd42d0ee39d3e90e3060bd976ecb5415e4495bf960e387f340889da7c92  KKR_definitions.dbn.zst
+ae9a5dd456011520a80b9a321ce582fe45d74136f50c1bc096e9b1ef57f91dc5  KKR_ohlcv_1d_2020feb_jun.dbn.zst
+2f9ce2a1790f2a2ed9734a9a845ff69dce2dc7a2404100f33867873059e06122  KKR_ohlcv_1d_yr2.dbn.zst
+6d09b854818e7e9178d18c902a661975786e18e8f95887c74ec0e5fb74798e78  KKR_ohlcv_1d_yr3.dbn.zst
+67b329a378aa171b14a610e38467e96fa577ebedf5ee3f1091add38089aa95ee  KKR_ohlcv_1d.dbn.zst
+25597ffe8f18be55e765db5d5091d930a367533bf25062394c5fc4665350eb50  TMUS_definitions.dbn.zst
+ef809d675abeb16b3fcf5cc58bc08e91b75f7da5fe2616f602119d525283647b  TMUS_ohlcv_1d_2020feb_jun.dbn.zst
+ce7314fbfa07c7f307f48a86547e13f92b8f13fae428c969af2fa6f3d79e95f2  TMUS_ohlcv_1d_2022.dbn.zst
+146c3bc064bb89f0577d9a100393c00a2b6989b54eb83ae804dd94736f11cf67  TMUS_ohlcv_1d.dbn.zst
+dbc7d557adf80a4f8f841ba701a3479a20035f643bd336738dff845aae53e95a  TXN_definitions.dbn.zst
+4b37a63f923a2ff4349b243119dddedefcb5232e57708bd6485d89cb4be23574  TXN_ohlcv_1d.dbn.zst

@@ -19,7 +19,8 @@ import numpy as np
 import pandas as pd
 from backtest_engine import (
     load_option_data, load_stock_data, compute_daily_signals,
-    reprice_option, parse_option_symbol, get_puts_on_date
+    reprice_option, parse_option_symbol, get_puts_on_date,
+    WINDOW_LEGACY_PRE_STRESS
 )
 
 
@@ -395,7 +396,8 @@ def main():
     option_data = {}
     stock_data = {}
     for t in tickers:
-        od = load_option_data(t)
+        # Exp 019 added 2020/2022 files; pin the original pre-purchase era.
+        od = load_option_data(t, *WINDOW_LEGACY_PRE_STRESS)
         sd = load_stock_data(t)
         if not od.empty and not sd.empty:
             option_data[t] = od

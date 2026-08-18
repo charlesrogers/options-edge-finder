@@ -74,7 +74,7 @@ def loss_stats(trades):
 
 def run_ticker(ticker):
     cfg = ticker_config(ticker)
-    chain = cc_sim.load_ticker(ticker)
+    chain = cc_sim.load_ticker(ticker, *cc_sim.WINDOW_LEGACY_PRE_STRESS)
     gate = cc_sim.iv_rank_gate(IV_THRESHOLD)
 
     print(f'\n  --- {ticker} @ {cfg["otm_pct"]*100:.0f}% OTM, '
