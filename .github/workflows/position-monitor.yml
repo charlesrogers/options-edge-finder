@@ -39,6 +39,7 @@ jobs:
           REQUIRE_SUPABASE: "1"
           PUSHOVER_TOKEN: ${{ secrets.PUSHOVER_TOKEN }}
           PUSHOVER_USER: ${{ secrets.PUSHOVER_USER }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           # Every run writes a heartbeat row. The health endpoint alarms on the
           # ABSENCE of one, which is the only way to detect the fault that
           # actually happened: nothing errored, jobs just stopped running.

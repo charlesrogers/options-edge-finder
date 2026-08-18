@@ -82,19 +82,59 @@ def test_naive_conversion_would_have_shifted_the_date():
 # Preflight — refuse to run blind
 # ============================================================
 
-def test_preflight_fails_without_pushover_credentials(monkeypatch):
-    """A rotated Pushover token must not silently mute every EMERGENCY.
+def test_preflight_fails_with_no_delivery_channel(monkeypatch):
+    """The invariant: never run a monitor that cannot deliver alerts.
 
-    The old code printed '[NO PUSHOVER]' and exited 0.
+    A rotated Pushover token once meant '[NO PUSHOVER]' printed with exit 0.
+    The gate now requires AT LEAST ONE channel (Pushover pair or Discord),
+    not Pushover specifically.
     """
     monkeypatch.setattr(monitor_positions, "SUPABASE_URL", "https://db.example.com")
     monkeypatch.setattr(monitor_positions, "SUPABASE_KEY", "key")
     monkeypatch.setattr(monitor_positions, "PUSHOVER_TOKEN", "")
     monkeypatch.setattr(monitor_positions, "PUSHOVER_USER", "")
+    monkeypatch.setattr(monitor_positions, "DISCORD_WEBHOOK", "")
     monkeypatch.setattr(monitor_positions, "DRY_RUN", False)
 
-    with pytest.raises(MonitorError, match="PUSHOVER_TOKEN"):
+    with pytest.raises(MonitorError, match="no alert delivery channel"):
         preflight()
+
+
+def test_preflight_passes_with_discord_only(monkeypatch, capsys):
+    """Discord alone satisfies the delivery gate, but Pushover absence is LOUD."""
+    monkeypatch.setattr(monitor_positions, "SUPABASE_URL", "https://db.example.com")
+    monkeypatch.setattr(monitor_positions, "SUPABASE_KEY", "key")
+    monkeypatch.setattr(monitor_positions, "PUSHOVER_TOKEN", "")
+    monkeypatch.setattr(monitor_positions, "PUSHOVER_USER", "")
+    monkeypatch.setattr(monitor_positions, "DISCORD_WEBHOOK", "https://discord.example/wh")
+    monkeypatch.setattr(monitor_positions, "DRY_RUN", False)
+
+    preflight()  # must not raise
+    assert "Pushover NOT configured" in capsys.readouterr().out
+
+
+def test_send_alert_falls_back_to_discord(monkeypatch):
+    """With no Pushover, an alert must reach Discord and count as delivered."""
+    monkeypatch.setattr(monitor_positions, "PUSHOVER_TOKEN", "")
+    monkeypatch.setattr(monitor_positions, "PUSHOVER_USER", "")
+    monkeypatch.setattr(monitor_positions, "DISCORD_WEBHOOK", "https://discord.example/wh")
+    calls = []
+
+    class _Resp:
+        status_code = 204
+        text = ""
+
+    monkeypatch.setattr(monitor_positions.requests, "post",
+                        lambda url, **kw: calls.append(url) or _Resp())
+    assert monitor_positions.send_alert(title="t", message="m", priority=1) is True
+    assert calls == ["https://discord.example/wh"]
+
+
+def test_send_alert_undelivered_when_no_channel_works(monkeypatch):
+    monkeypatch.setattr(monitor_positions, "PUSHOVER_TOKEN", "")
+    monkeypatch.setattr(monitor_positions, "PUSHOVER_USER", "")
+    monkeypatch.setattr(monitor_positions, "DISCORD_WEBHOOK", "")
+    assert monitor_positions.send_alert(title="t", message="m") is False
 
 
 def test_preflight_fails_without_supabase_credentials(monkeypatch):

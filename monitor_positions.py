@@ -64,9 +64,11 @@ SHADOW_LOG = os.environ.get(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "emergency_shadow.jsonl"),
 )
 
-# Pushover config
+# Alert delivery config. Pushover is the preferred channel (phone, priority-2
+# repeats); Discord is an acceptable fallback. At least ONE must be configured.
 PUSHOVER_TOKEN = os.environ.get("PUSHOVER_TOKEN", "")
 PUSHOVER_USER = os.environ.get("PUSHOVER_USER", "")
+DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK", "")
 
 # Supabase config
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
@@ -103,17 +105,27 @@ def preflight():
     missing = [name for name, val in (
         ("SUPABASE_URL", SUPABASE_URL),
         ("SUPABASE_KEY", SUPABASE_KEY),
-        ("PUSHOVER_TOKEN", PUSHOVER_TOKEN),
-        ("PUSHOVER_USER", PUSHOVER_USER),
     ) if not val]
     if missing and not DRY_RUN:
-        # Missing Pushover creds are as fatal as missing DB creds: the previous
-        # version printed "[NO PUSHOVER]" and exited 0, so a rotated token would
-        # have silenced every EMERGENCY alert with a green run.
         raise MonitorError(
             f"missing required credentials: {', '.join(missing)} — "
-            "refusing to run a monitor that cannot read positions or deliver alerts"
+            "refusing to run a monitor that cannot read positions"
         )
+    # Delivery gate: the invariant is "never run a monitor that cannot deliver
+    # alerts" (a rotated token once silenced every EMERGENCY with a green run).
+    # Pushover-specific was a proxy for that; the real requirement is at least
+    # one working channel. Discord qualifies. Pushover absence stays LOUD in
+    # every run's output and heartbeat until it is configured.
+    has_pushover = bool(PUSHOVER_TOKEN and PUSHOVER_USER)
+    has_discord = bool(DISCORD_WEBHOOK)
+    if not (has_pushover or has_discord) and not DRY_RUN:
+        raise MonitorError(
+            "no alert delivery channel configured (need PUSHOVER_TOKEN+PUSHOVER_USER "
+            "or DISCORD_WEBHOOK) — refusing to run a monitor that cannot deliver alerts"
+        )
+    if not has_pushover and not DRY_RUN:
+        print("  [WARN] Pushover NOT configured — phone alerts (incl. EMERGENCY "
+              "priority-2 repeats) cannot fire; delivering via Discord only")
 
 
 def get_open_trades():
@@ -304,6 +316,43 @@ def send_pushover(title, message, priority=0, sound="pushover"):
     except Exception as e:
         print(f"  [ERROR] {e}")
         return False
+
+
+def send_discord(title, message, priority=0):
+    """Deliver an alert via the Discord webhook. Returns True on confirmed delivery.
+    The fallback channel when Pushover is unconfigured — same loud-failure contract."""
+    if not DISCORD_WEBHOOK:
+        print(f"  [NO DISCORD] {title}: {message}")
+        return False
+    prefix = "🚨🚨 " if priority == 2 else ("🚨 " if priority >= 1 else "")
+    try:
+        resp = requests.post(DISCORD_WEBHOOK, json={
+            "content": f"{prefix}**{title}**\n{message}"
+            + ("\n(Pushover not configured — phone alert did NOT fire)" if not (PUSHOVER_TOKEN and PUSHOVER_USER) else ""),
+        }, timeout=10)
+        if resp.status_code in (200, 204):
+            print(f"  [SENT discord] {title}")
+            return True
+        print(f"  [FAILED discord] {resp.status_code}: {resp.text[:100]}")
+        return False
+    except Exception as e:
+        print(f"  [ERROR discord] {e}")
+        return False
+
+
+def send_alert(title=None, message=None, priority=0, sound="pushover", **kw):
+    """Deliver via every configured channel. True if AT LEAST ONE confirmed delivery.
+    Pushover (phone) is primary; Discord is fallback/secondary. An alert that reaches
+    no channel is an outage and callers must treat False accordingly."""
+    delivered = False
+    if PUSHOVER_TOKEN and PUSHOVER_USER:
+        delivered = send_pushover(title=title, message=message, priority=priority, sound=sound) or delivered
+    if DISCORD_WEBHOOK and (not delivered or priority >= 2):
+        # Discord always mirrors EMERGENCY even when Pushover delivered.
+        delivered = send_discord(title, message, priority) or delivered
+    if not delivered:
+        print(f"  [UNDELIVERED] {title}: no channel confirmed delivery")
+    return delivered
 
 
 def log_shadow(record):
@@ -608,7 +657,7 @@ def _run(stats):
         stats["detail"]["alerts_suppressed"] = [a["title"] for a in alerts_to_send]
     else:
         for alert in alerts_to_send:
-            if not send_pushover(**alert):
+            if not send_alert(**alert):
                 delivery_failures.append(f"{alert['priority']}: {alert['title']}")
 
     # Daily summary at 4 PM ET. `now` is timezone-aware ET — the previous naive
@@ -618,13 +667,13 @@ def _run(stats):
         total = sum(summary.values())
         urgent = summary.get("CLOSE_NOW", 0) + summary.get("EMERGENCY", 0)
         if urgent > 0:
-            send_pushover(
+            send_alert(
                 title="Daily Summary — Action Needed",
                 message=f"{total} positions: {urgent} need immediate action, {summary.get('SAFE', 0)} safe.",
                 priority=0,
             )
         elif total > 0:
-            send_pushover(
+            send_alert(
                 title="Daily Summary — All Clear",
                 message=f"{total} positions, all safe. No action needed.",
                 priority=-1,  # lowest priority, no sound
@@ -659,7 +708,7 @@ def _run(stats):
 
         detail = "\n".join(f"• {f}" for f in (unassessed + delivery_failures + store_failures)[:6])
         if notify_enabled:
-            send_pushover(
+            send_alert(
                 title=f"⚠️ Monitor DEGRADED — {len(unassessed)} position(s) unchecked",
                 message=(
                     f"{len(unassessed)} of {len(trades)} positions could not be assessed. "
