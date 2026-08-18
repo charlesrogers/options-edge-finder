@@ -65,6 +65,23 @@ async function pushover(env, title, message, priority) {
   return true;
 }
 
+async function discord(env, title, message) {
+  if (!env.DISCORD_WEBHOOK) {
+    console.error(`[watchdog] Discord unconfigured — "${title}" NOT DELIVERED`);
+    return false;
+  }
+  const resp = await fetch(env.DISCORD_WEBHOOK, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: `🚨 **${title}**\n${message}` }),
+  });
+  if (!resp.ok) {
+    console.error(`[watchdog] Discord ${resp.status} — "${title}" NOT DELIVERED`);
+    return false;
+  }
+  return true;
+}
+
 async function checkHealth(env) {
   if (!env.HEALTH_CRON_SECRET) {
     // Refuse to be a watchdog that cannot authenticate: every poll would 401,
@@ -432,14 +449,19 @@ export async function scheduledHandler(event, env, ctx) {
     return;
   }
   console.error(`[watchdog] UNHEALTHY: ${result.detail}`);
-  await pushover(
-    env,
-    "🚨 Options Copilot is not responding",
+  const title = "🚨 Options Copilot is not responding";
+  const message =
     `The Cloudflare watchdog could not confirm the copilot is healthy.\n\n${result.detail}\n\n` +
-      "This check runs outside Hetzner and outside GitHub, so it is still speaking " +
-      "even if both are down. Positions may be unmonitored.",
-    1,
-  );
+    "This check runs outside Hetzner and outside GitHub, so it is still speaking " +
+    "even if both are down. Positions may be unmonitored.";
+  // Deliver on every configured channel; the invariant is at least one confirms.
+  const delivered = [
+    await pushover(env, title, message, 1),
+    await discord(env, title, message),
+  ].some(Boolean);
+  if (!delivered) {
+    console.error("[watchdog] ALERT UNDELIVERED on every channel — watchdog is mute");
+  }
 }
 
 // --- Helpers ---
