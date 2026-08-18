@@ -25,7 +25,12 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-import databento as db
+
+# databento is imported lazily inside load_option_data, matching cc_sim. It is a
+# heavy optional dependency that CI does not install, and a module-scope import
+# makes every test that merely imports this module uncollectable — the same shape
+# as the monitor_positions/scipy regression fixed in bbbddaa. The window-guard
+# tests raise before any parsing happens and must stay runnable without it.
 
 
 # ============================================================
@@ -109,6 +114,7 @@ def load_option_data(ticker, start=None, end=None):
 
     dfs = []
     for f in files:
+        import databento as db
         data = db.DBNStore.from_file(os.path.join(raw_dir, f))
         dfs.append(data.to_df())
 
