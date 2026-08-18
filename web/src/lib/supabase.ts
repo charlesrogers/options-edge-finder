@@ -23,7 +23,7 @@ export const supabase = new Proxy({} as SupabaseClient, {
 /* ── Row types matching the Supabase tables ── */
 
 export interface TradeRow {
-  id: number
+  id: string                // uuid — gen_random_uuid(), not an integer
   ticker: string
   strike: number
   expiry: string            // YYYY-MM-DD
@@ -36,7 +36,7 @@ export interface TradeRow {
 }
 
 export interface HoldingRow {
-  id: number
+  id: string                // uuid
   ticker: string
   shares: number
   cost_basis: number | null

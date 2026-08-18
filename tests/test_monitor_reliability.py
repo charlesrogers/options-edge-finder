@@ -166,9 +166,15 @@ def wired(monkeypatch):
     monkeypatch.setattr(monitor_positions, "PUSHOVER_USER", "u")
     monkeypatch.setattr(monitor_positions, "DRY_RUN", False)
 
+    # The exact column names public.trades returns. This fixture used to carry
+    # `expiration`/`premium_received` — the local-SQLite spelling — which meant
+    # the failure tests below passed for the wrong reason once row validation
+    # landed: every position was rejected as unreadable before the behaviour
+    # under test was ever reached.
     monkeypatch.setattr(monitor_positions, "get_open_trades", lambda: [{
-        "ticker": "AAPL", "strike": 250, "expiration": "2026-09-18",
-        "premium_received": 3.50, "contracts": 10,
+        "id": "8f14e45f-0000-4000-8000-000000000001",
+        "ticker": "AAPL", "strike": 250, "expiry": "2026-09-18",
+        "sold_price": 3.50, "contracts": 10, "status": "open",
     }])
 
     sent = []
@@ -270,3 +276,60 @@ def test_sqlite_fallback_still_works_for_local_dev(monkeypatch):
     conn = db._get_sqlite()
     assert conn is not None
     conn.close()
+
+
+# ============================================================
+# Schema drift between the alert path and the table (FACT-11)
+# ============================================================
+
+def test_legacy_column_names_do_not_produce_a_verdict(wired, monkeypatch):
+    """A row in the old SQLite spelling must be UNREADABLE, not assessable.
+
+    Before 2026-08-18 this file read `trade.get("expiration", "")` and
+    `trade.get("premium_received", 0)` against a table whose columns are `expiry`
+    and `sold_price`. The defaults on those .get() calls are the whole bug: they
+    turned a missing column into a plausible value instead of an error.
+    """
+    monkeypatch.setattr(monitor_positions, "get_open_trades", lambda: [{
+        "id": "legacy-row",
+        "ticker": "AAPL", "strike": 250, "expiration": "2026-09-18",
+        "premium_received": 3.50, "contracts": 10, "status": "open",
+    }])
+    monkeypatch.setattr(monitor_positions.yf_proxy, "get_stock_info", lambda *a, **k: {})
+
+    with pytest.raises(MonitorError) as e:
+        monitor_positions.main()
+    assert "unassessed" in str(e.value)
+
+
+def test_operator_is_told_which_columns_are_missing(wired, monkeypatch, capsys):
+    """The failure has to name the columns, or the next person debugs it blind."""
+    monkeypatch.setattr(monitor_positions, "get_open_trades", lambda: [{
+        "id": "legacy-row", "ticker": "AAPL", "strike": 250,
+        "expiration": "2026-09-18", "premium_received": 3.50, "contracts": 10,
+    }])
+    monkeypatch.setattr(monitor_positions.yf_proxy, "get_stock_info", lambda *a, **k: {})
+
+    with pytest.raises(MonitorError):
+        monitor_positions.main()
+    out = capsys.readouterr().out
+    assert "expiry" in out and "sold_price" in out
+
+
+def test_a_real_supabase_row_is_assessed_normally(wired, monkeypatch):
+    """The positive half: the shape public.trades actually returns produces a
+    verdict, with no unassessed positions and no failure."""
+    monkeypatch.setattr(monitor_positions.yf_proxy, "get_stock_info", lambda *a, **k: {})
+    monitor_positions.main()   # must not raise
+
+
+def test_partial_row_is_rejected_rather_than_half_assessed(wired, monkeypatch):
+    """sold_price NULL means we cannot compute premium captured. Assessing it as
+    0 would understate every profit-taking rule; the row is unreadable instead."""
+    monkeypatch.setattr(monitor_positions, "get_open_trades", lambda: [{
+        "id": "partial", "ticker": "AAPL", "strike": 250,
+        "expiry": "2026-09-18", "sold_price": None, "contracts": 10,
+    }])
+    monkeypatch.setattr(monitor_positions.yf_proxy, "get_stock_info", lambda *a, **k: {})
+    with pytest.raises(MonitorError):
+        monitor_positions.main()

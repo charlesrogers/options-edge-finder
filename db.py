@@ -639,19 +639,53 @@ def get_graveyard_count():
 # TRADES
 # ============================================================
 
+# Supabase is the system of record and uses the web app's column names. This
+# module and streamlit_app.py were written against the older local-SQLite names.
+# Rather than edit ~3,000 lines of Streamlit, the translation lives here, in one
+# place, explicitly. Both spellings are present on the returned dict so callers
+# can migrate to the real names at their own pace.
+_TRADE_ALIASES = (
+    ("expiry", "expiration"),
+    ("sold_price", "premium_received"),
+    ("opened_at", "opened"),
+)
+
+
+def _to_legacy_trade(row):
+    """Add the historical Python aliases to a Supabase trades row."""
+    if not isinstance(row, dict):
+        return row
+    out = dict(row)
+    for real, legacy in _TRADE_ALIASES:
+        if real in out and legacy not in out:
+            out[legacy] = out[real]
+    return out
+
+
 def add_trade(ticker, option_type, strike, expiration, premium, contracts,
               strategy="covered_call", notes=""):
     now = datetime.now().isoformat()
     sb = _get_supabase()
     if sb:
+        # Supabase column names differ from this module's historical (SQLite)
+        # argument names: expiry/sold_price/opened_at, not expiration/
+        # premium_received/opened. Writing the old names inserted columns that do
+        # not exist, so every Streamlit "add trade" against Supabase 400'd. The
+        # mapping is explicit here, and _to_legacy_trade() reverses it on read so
+        # callers keep the argument names they have always used.
         resp = sb.table("trades").insert({
             "ticker": ticker.upper(), "option_type": option_type,
-            "strike": strike, "expiration": expiration,
-            "premium_received": premium, "contracts": contracts,
+            "strike": strike, "expiry": expiration,
+            "sold_price": premium, "contracts": contracts,
             "strategy": strategy, "notes": notes,
-            "opened": now, "status": "open",
+            "opened_at": now, "status": "open",
         }).execute()
-        return resp.data[0] if resp.data else None
+        if not resp.data:
+            raise RuntimeError(
+                f"trades insert for {ticker.upper()} returned no row — "
+                "the position was NOT recorded and will not be monitored"
+            )
+        return _to_legacy_trade(resp.data[0])
     else:
         conn = _get_sqlite()
         cur = conn.execute(
@@ -673,10 +707,15 @@ def close_trade(trade_id, close_price, reason="manual"):
     now = datetime.now().isoformat()
     sb = _get_supabase()
     if sb:
-        sb.table("trades").update({
+        resp = sb.table("trades").update({
             "status": "closed", "closed_at": now,
             "close_price": close_price, "close_reason": reason,
         }).eq("id", trade_id).execute()
+        if not resp.data:
+            raise RuntimeError(
+                f"close_trade({trade_id}) matched no row — the position is still "
+                "open in the database and the monitor will keep alerting on it"
+            )
     else:
         conn = _get_sqlite()
         conn.execute(
@@ -691,7 +730,7 @@ def get_open_trades():
     sb = _get_supabase()
     if sb:
         resp = sb.table("trades").select("*").eq("status", "open").execute()
-        return resp.data or []
+        return [_to_legacy_trade(r) for r in (resp.data or [])]
     else:
         conn = _get_sqlite()
         rows = conn.execute("SELECT * FROM trades WHERE status = 'open'").fetchall()
@@ -702,8 +741,10 @@ def get_open_trades():
 def get_all_trades():
     sb = _get_supabase()
     if sb:
-        resp = sb.table("trades").select("*").order("opened", desc=True).execute()
-        return resp.data or []
+        # "opened" is not a column on public.trades; ordering by it made this
+        # query fail outright against Supabase.
+        resp = sb.table("trades").select("*").order("opened_at", desc=True).execute()
+        return [_to_legacy_trade(r) for r in (resp.data or [])]
     else:
         conn = _get_sqlite()
         rows = conn.execute("SELECT * FROM trades ORDER BY opened DESC").fetchall()

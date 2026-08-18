@@ -1,6 +1,7 @@
 import { supabase, type TradeRow } from '@/lib/supabase'
 import { getStockPrice, getStockInfo, getOptionChain } from '@/lib/yf-proxy'
 import { assessPosition, type PositionAlert } from '@/lib/copilot'
+import { parseTradeRow } from '@/lib/trade-row'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,7 +44,17 @@ export async function GET() {
   // 4. For each trade, try to get current option ask price
   const alerts: PositionAlert[] = []
 
-  for (const trade of trades as TradeRow[]) {
+  for (const raw of trades) {
+    // Same validator the alerting path uses. `trades as TradeRow[]` is a
+    // compile-time cast over `any` and validates nothing at runtime — it is why
+    // the cron route could read `expiration` for months without a type error.
+    let trade: TradeRow
+    try {
+      trade = parseTradeRow(raw)
+    } catch (e) {
+      console.error(`[copilot] unreadable trades row, excluded from the view: ${e}`)
+      continue
+    }
     const currentStock = priceMap.get(trade.ticker)
     if (currentStock === undefined) {
       console.log(`[copilot] No price for ${trade.ticker}, skipping`)
@@ -87,7 +98,7 @@ export async function GET() {
     })
 
     alerts.push({ ...alert, tradeId: trade.id } as PositionAlert & {
-      tradeId: number
+      tradeId: string
     })
   }
 

@@ -36,6 +36,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 import yf_proxy
 from position_monitor import assess_position
+from trade_schema import parse_trade_row, TradeRowError
 
 ET = ZoneInfo("America/New_York")
 
@@ -253,15 +254,26 @@ def main():
     degraded = []     # assessed, but with a non-critical input missing
 
     for trade in trades:
-        ticker = trade.get("ticker", "")
-        strike = trade.get("strike", 0)
-        expiration = trade.get("expiration", "")
-        premium = trade.get("premium_received", 0)
-        contracts = trade.get("contracts", 1)
+        # Field names come from trade_schema, which is the single description of
+        # what `public.trades` actually contains. Reading them inline with
+        # .get(col, default) is what let this file spend months pointed at
+        # `expiration`/`premium_received` — columns this table has never had —
+        # while the default values made every row look assessable.
+        try:
+            pos = parse_trade_row(trade)
+        except TradeRowError as e:
+            print(f"\n  UNREADABLE ROW — {e}")
+            unassessed.append(f"trades row {trade.get('id', '?')}: {e}")
+            continue
+
+        ticker = pos.ticker
+        strike = pos.strike
+        expiration = pos.expiry
+        premium = pos.sold_price
+        contracts = pos.contracts
+        label = pos.label
 
         print(f"\n  {ticker} ${strike} Call (exp {expiration})...", end=" ")
-
-        label = f"{ticker} ${strike} exp {expiration}"
 
         try:
             # Get current stock price — no price, no assessment. Never skip silently.
