@@ -7,12 +7,27 @@ import type { HoldingRow } from '@/lib/supabase'
 
 /* ── Tier visual system (ring-inset badges like Jebbix grade badges) ── */
 
+/*
+ * Every class string below is a full literal. Do NOT build them by
+ * interpolation (`bg-${color}-50`) — Tailwind's JIT scans source text, so a
+ * constructed class is purged and the badge silently renders unstyled.
+ *
+ * Unknown tiers fall back rather than crash: ticker_strategies.py may add a
+ * tier before the web knows about it, and a missing badge must never take the
+ * page down.
+ */
+const TIER_FALLBACK_BADGE =
+  'bg-gray-50 dark:bg-gray-500/10 text-gray-700 dark:text-gray-400 ring-gray-600/20'
+
 const TIER_BADGE: Record<string, string> = {
   best: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 ring-emerald-600/20',
   strong: 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 ring-blue-600/20',
   good: 'bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-400 ring-violet-600/20',
   conservative: 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 ring-amber-600/20',
   skip: 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 ring-red-600/20',
+  // Probation is deliberately not Untested: untested means nobody looked,
+  // probation means we looked with a weaker instrument.
+  probation: 'bg-orange-50 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400 ring-orange-600/20',
   untested: 'bg-gray-50 dark:bg-gray-500/10 text-gray-700 dark:text-gray-400 ring-gray-600/20',
 }
 
@@ -22,6 +37,7 @@ const TIER_ACCENT: Record<string, string> = {
   good: 'bg-violet-500',
   conservative: 'bg-amber-500',
   skip: 'bg-red-500',
+  probation: 'bg-orange-500',
   untested: 'bg-gray-400',
 }
 
@@ -31,7 +47,13 @@ const TIER_VALUE_COLOR: Record<string, string> = {
   good: 'text-violet-600 dark:text-violet-400',
   conservative: 'text-amber-600 dark:text-amber-400',
   skip: 'text-red-600 dark:text-red-400',
+  probation: 'text-orange-600 dark:text-orange-400',
   untested: 'text-gray-500',
+}
+
+/** '$141', '-$88' — negative money reads as -$88, not $-88. */
+function money(n: number): string {
+  return `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString()}`
 }
 
 export function SellRecommendations() {
@@ -92,8 +114,19 @@ export function SellRecommendations() {
       return bPnl - aPnl
     })
 
-  const skipped = paired.filter((p) => p.strategy?.tier === 'skip')
-  const active = paired.filter((p) => p.strategy?.tier !== 'skip')
+  /*
+   * Partition on the `skip` flag from the source of truth, not on tier.
+   * AMZN and MSFT are skips that were reaching the recommendation list: AMZN
+   * was live at 5% OTM after failing Exp 021 at the more conservative 15%, and
+   * MSFT was absent from the table entirely, so it inherited the unknown-ticker
+   * default — also 5% OTM, also more aggressive than the setting it failed.
+   *
+   * A ticker with no entry at all is likewise not recommendable: an unknown
+   * ticker has no validated setting, and rendering it in the active list is how
+   * MSFT came to be presented with no warning.
+   */
+  const skipped = paired.filter((p) => !p.strategy || p.strategy.skip)
+  const active = paired.filter((p) => p.strategy && !p.strategy.skip)
 
   return (
     <div className="space-y-6">
@@ -117,10 +150,13 @@ export function SellRecommendations() {
         <span className="h-2 w-2 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
         <div>
           <p className="text-[13px] font-semibold text-amber-800 dark:text-amber-300">
-            IV-aware entry (Experiment 009: +204% P&L improvement)
+            IV-rank entry gate
           </p>
           <p className="text-[12px] text-amber-700/80 dark:text-amber-400/70 mt-0.5">
-            Only sell when IV Rank &ge; {DEFAULT_IV_THRESHOLD}. Low IV months are automatically skipped by the paper trading tracker.
+            Per-ticker trial (Exp 023): DIS &ge; 75 validated on holdout; other tickers keep the
+            default &ge; {DEFAULT_IV_THRESHOLD}. The gate failed its trial on TMUS and is retained
+            pending a loosening experiment. Each ticker&rsquo;s own threshold is shown on its card;
+            the gate is enforced by the paper-trade logger.
           </p>
         </div>
       </div>
@@ -165,18 +201,30 @@ export function SellRecommendations() {
                     key={holding.ticker}
                     className="rounded-xl border bg-card/50 shadow-sm shadow-black/[0.04] overflow-hidden"
                   >
-                    <div className="px-5 py-3 flex items-center justify-between gap-3">
+                    <div className="px-5 py-3 space-y-1.5">
                       <div className="flex items-center gap-2.5">
                         <span className="text-[13px] font-semibold text-muted-foreground">
                           {holding.ticker}
                         </span>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold ring-1 ring-inset bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 ring-red-600/20">
-                          Skip
+                        <span
+                          className={cn(
+                            'inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold ring-1 ring-inset',
+                            strategy ? TIER_BADGE.skip : TIER_FALLBACK_BADGE
+                          )}
+                        >
+                          {strategy ? 'Skip' : 'Not in research set'}
                         </span>
                       </div>
-                      <span className="text-[11px] text-muted-foreground/70 truncate">
-                        {strategy?.note ?? 'Not recommended for covered calls.'}
-                      </span>
+                      {/*
+                        The note carries the reason and it is the whole point of
+                        the row — never truncate it. AMZN's reads "Exp 021
+                        failed AMZN at 15% OTM (22.9% test loss rate vs a 10%
+                        gate) and it was live at a more aggressive 5%".
+                      */}
+                      <p className="text-[11px] text-muted-foreground/70 leading-relaxed">
+                        {strategy?.note ??
+                          'No validated setting for this ticker. Not recommended for covered calls until it has been tested on real option prices.'}
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -202,10 +250,25 @@ function TickerCard({
 }) {
   const tier = strategy?.tier ?? 'untested'
   const tierConfig = TIER_CONFIG[tier]
-  const maxContracts = Math.floor(shares / 100)
+
+  /*
+   * Owning 10,000 shares does not mean 100 contracts can be sold. KKR's
+   * 15%-OTM / 20-45 DTE strike trades a MEDIAN of 3 contracts a day (Exp 021):
+   * an uncapped position would be 33x the median daily volume of that strike —
+   * the position IS the market. 100 was the number a human would have traded
+   * on, so the cap and its reason have to be on the card, not in a footnote.
+   */
+  const uncappedContracts = Math.floor(shares / 100)
+  const cap = strategy?.maxContracts ?? null
+  const contracts = cap !== null ? Math.min(uncappedContracts, cap) : uncappedContracts
+  const isCapped = cap !== null && uncappedContracts > cap
+
   const otmPctDisplay = strategy?.otmPct ? `${(strategy.otmPct * 100).toFixed(0)}%` : '--'
   const dteDisplay = strategy?.minDte && strategy?.maxDte ? `${strategy.minDte}-${strategy.maxDte}` : '--'
   const winRateNum = strategy?.expectedWinRate ?? 0
+  const ivThreshold = strategy?.ivThreshold ?? DEFAULT_IV_THRESHOLD
+  const hasRange = strategy?.pnlRangeLow !== null && strategy?.pnlRangeLow !== undefined
+    && strategy?.pnlRangeHigh !== null && strategy?.pnlRangeHigh !== undefined
 
   return (
     <div className="rounded-xl border bg-card shadow-sm shadow-black/[0.04] overflow-hidden hover:shadow-md hover:shadow-black/[0.06] transition-shadow">
@@ -222,18 +285,46 @@ function TickerCard({
             </span>
           </div>
           <span className="text-[12px] text-muted-foreground tabular-nums">
-            {shares} shares &middot; {maxContracts} contract{maxContracts !== 1 ? 's' : ''}
+            {shares.toLocaleString()} shares &middot;{' '}
+            <span className={cn('font-semibold', isCapped && 'text-orange-600 dark:text-orange-400')}>
+              {contracts} contract{contracts !== 1 ? 's' : ''}
+            </span>
           </span>
         </div>
+
+        {/* Liquidity cap — stated where the size decision is made, not below the fold */}
+        {isCapped && (
+          <div className="mx-5 mb-3 rounded-lg border border-orange-200 dark:border-orange-500/20 bg-orange-50/60 dark:bg-orange-500/5 px-4 py-3">
+            <p className="text-[12px] font-semibold text-orange-800 dark:text-orange-300">
+              Capped at {cap} contract{cap !== 1 ? 's' : ''} &mdash; {uncappedContracts} would fit your{' '}
+              {shares.toLocaleString()} shares
+            </p>
+            <p className="text-[11px] text-orange-700/80 dark:text-orange-400/70 mt-0.5 leading-relaxed">
+              {strategy?.maxContractsReason}
+            </p>
+          </div>
+        )}
 
         {/* Metrics grid */}
         <div className="px-5 pb-3">
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+            {/*
+              The point estimate never renders alone. Exp 022 measured half-year
+              retention swinging -77.9% -> +92.8% on identical rules, so the
+              annual figure describes the start date as much as the strategy.
+            */}
             {strategy?.expectedPnl !== undefined && strategy.expectedPnl !== null && (
               <MetricCell
-                label="Expected P&L"
-                value={`$${strategy.expectedPnl.toLocaleString()}`}
+                label="Expected P&L / yr"
+                value={money(strategy.expectedPnl)}
                 accent={TIER_VALUE_COLOR[tier]}
+                sub={
+                  hasRange
+                    ? `range ${money(strategy.pnlRangeLow!)}..${money(strategy.pnlRangeHigh!)}`
+                    : strategy.realFillPnl !== null
+                      ? `${money(strategy.realFillPnl)} on real fills only`
+                      : undefined
+                }
               />
             )}
             {strategy?.expectedWinRate !== undefined && strategy.expectedWinRate !== null && (
@@ -244,8 +335,34 @@ function TickerCard({
               />
             )}
             <MetricCell label="OTM Target" value={otmPctDisplay} />
+            <MetricCell
+              label="IV Rank Gate"
+              value={`≥ ${ivThreshold}`}
+              sub={ivThreshold !== DEFAULT_IV_THRESHOLD ? 'per-ticker (Exp 023)' : undefined}
+            />
             <MetricCell label="DTE Range" value={dteDisplay} />
           </div>
+
+          {/*
+            Where the headline number and the real-fill number disagree, both go
+            on the card. TMUS returns $151/yr on the simulator and -$81/yr
+            counting only exits that were actual Databento prints; KKR is
+            $316 vs -$88. Showing the first without the second is the difference
+            between a strategy that makes money and one that does not.
+          */}
+          {strategy?.realFillPnl !== undefined && strategy?.realFillPnl !== null && hasRange && (
+            <div className="mt-3 rounded-lg border border-red-200 dark:border-red-500/20 bg-red-50/50 dark:bg-red-500/5 px-4 py-2.5">
+              <p className="text-[11px] text-red-800 dark:text-red-300 leading-relaxed">
+                <span className="font-semibold">
+                  {money(strategy.realFillPnl)}/yr on real-fill exits only
+                </span>
+                {strategy.repricingCoverage !== null && (
+                  <> &mdash; only {strategy.repricingCoverage}% of exits repriced against a real
+                  quote; the headline figure is substantially carried-forward prices.</>
+                )}
+              </p>
+            </div>
+          )}
 
           {/* Win rate progress bar */}
           {winRateNum > 0 && (
@@ -257,7 +374,27 @@ function TickerCard({
                 />
               </div>
               <p className="text-[10px] text-muted-foreground/60 mt-1 tabular-nums">
-                {winRateNum}% of trades expire worthless (you keep shares + premium)
+                {winRateNum}% of simulated trades expired worthless (you keep shares + premium)
+              </p>
+            </div>
+          )}
+
+          {/*
+            Probation is not Untested. Untested means nobody looked; probation
+            means we looked with a weaker instrument, and the card has to say
+            which instrument, because "Good" is what these three used to show.
+          */}
+          {tier === 'probation' && (
+            <div className="mt-3 rounded-lg border border-orange-200 dark:border-orange-500/20 bg-orange-50/60 dark:bg-orange-500/5 px-4 py-2.5">
+              <p className="text-[11px] text-orange-800 dark:text-orange-300 leading-relaxed">
+                <span className="font-semibold">On probation:</span>{' '}
+                {strategy?.repricingCoverage !== null && strategy?.repricingCoverage !== undefined
+                  ? `only ${strategy.repricingCoverage}% of simulated exits repriced against a real
+                     quote, below the 70% floor fixed before the run (Exp 022). The parameters are
+                     unchanged — the evidence behind them is weaker than the badge used to imply.`
+                  : `validated on stock closes only (Exp 014). This ticker has never been tested on
+                     real option prices, so the numbers above describe the stock, not the options
+                     you would actually sell.`}
               </p>
             </div>
           )}
@@ -288,7 +425,18 @@ function TickerCard({
 
 /* ── Metric Cell ── */
 
-function MetricCell({ label, value, accent }: { label: string; value: string; accent?: string }) {
+function MetricCell({
+  label,
+  value,
+  accent,
+  sub,
+}: {
+  label: string
+  value: string
+  accent?: string
+  /** Spread or qualifier shown under the label — a point estimate never stands alone. */
+  sub?: string
+}) {
   return (
     <div>
       <div className={cn('text-2xl font-semibold tracking-tight tabular-nums', accent ?? 'text-foreground')}>
@@ -297,6 +445,9 @@ function MetricCell({ label, value, accent }: { label: string; value: string; ac
       <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground mt-0.5">
         {label}
       </div>
+      {sub && (
+        <div className="text-[10px] text-muted-foreground/70 tabular-nums mt-0.5">{sub}</div>
+      )}
     </div>
   )
 }

@@ -8,10 +8,17 @@ Each ticker has a researched OTM% and DTE range that maximizes the tri-fold goal
   3. Maximum premium retained
 
 IV-aware entry from Experiment 009: only sell when iv_rank >= iv_threshold.
-This triples average P&L (+204% improvement).
+
+Exp 009's headline "+204% average P&L" was produced by the simulator that
+pinned DTE to 0, and it is not a live claim anywhere — do not reintroduce it.
+What survives is the gate itself, re-examined per ticker by Exp 023: only DIS
+earned a threshold other than the global 50, and on TMUS the gate FAILED its
+trial. The gate stays because removing a restriction needs its own experiment,
+not because +204% was ever measured on a working engine.
 """
 
-# Minimum IV rank to recommend selling (from Experiment 009)
+# Global minimum IV rank to recommend selling. Per-ticker overrides live on the
+# ticker and are read through get_iv_threshold(), never off this constant.
 DEFAULT_IV_THRESHOLD = 50
 
 TICKER_STRATEGIES = {

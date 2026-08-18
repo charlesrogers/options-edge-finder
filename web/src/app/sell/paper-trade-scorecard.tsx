@@ -3,6 +3,15 @@
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 
+interface ProvenanceSummary {
+  total: number
+  scored: number
+  winners: number
+  losers: number
+  win_rate: number | null
+  avg_pnl: number | null
+}
+
 interface PaperTradeStats {
   total: number
   scored: number
@@ -11,6 +20,11 @@ interface PaperTradeStats {
   win_rate: number
   avg_pnl: number
   total_pnl: number
+  provenance?: {
+    synthetic: ProvenanceSummary
+    live: ProvenanceSummary
+    first_live_outcome_due: string | null
+  }
   recent?: Array<{
     ticker: string
     strike: number
@@ -37,6 +51,35 @@ export function PaperTradeScorecard() {
 
   if (!stats || stats.total === 0) return null
 
+  /*
+   * If the API predates the provenance split there is no way to tell synthetic
+   * rows from real ones, and the blended figure is exactly the number the audit
+   * disqualified. Render "audit pending" rather than falling back to it —
+   * unaudited stats may not display bare (spec 5.2).
+   */
+  const live = stats.provenance?.live
+  const synthetic = stats.provenance?.synthetic
+  const provenanceKnown = Boolean(stats.provenance)
+
+  if (!provenanceKnown) {
+    return (
+      <div className="rounded-xl border bg-card shadow-sm shadow-black/[0.04] overflow-hidden">
+        <div className="px-5 pt-4 pb-4">
+          <a href="/paper-trades" className="text-[14px] font-semibold text-foreground hover:text-primary transition-colors">
+            Paper Trade Tracker
+          </a>
+          <div className="mt-2 rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-50/60 dark:bg-amber-500/5 px-4 py-3">
+            <p className="text-[12px] font-semibold text-amber-800 dark:text-amber-300">Audit pending</p>
+            <p className="text-[11px] text-amber-700/80 dark:text-amber-400/70 mt-1 leading-relaxed">
+              {stats.total} recommendations tracked. Statistics are withheld until synthetic
+              backfill rows can be separated from real-price ones.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="rounded-xl border bg-card shadow-sm shadow-black/[0.04] overflow-hidden">
       <div className="px-5 pt-4 pb-3">
@@ -46,48 +89,81 @@ export function PaperTradeScorecard() {
             {stats.total} tracked
           </span>
         </div>
-        <p className="text-[12px] text-muted-foreground mt-0.5">
-          Every recommendation logged and scored automatically. {stats.scored > 0 ? `${stats.scored} scored so far.` : 'Scoring begins after 30 days.'}
+        {/*
+          Methodology on the face of the card, not in a tooltip (spec 5.1). The
+          scorer measures hold-to-expiry outcomes; the copilot buys back early,
+          which is the entire point of the copilot. This card can therefore never
+          be the strategy's record, even once real trades are scored.
+        */}
+        <p className="text-[12px] text-muted-foreground mt-0.5 leading-relaxed">
+          Hold-to-expiry outcomes of logged recommendations &mdash; <span className="font-medium">not</span> the
+          copilot strategy, which buys back early.
         </p>
       </div>
 
-      {/* Stats row */}
-      {stats.scored > 0 ? (
+      {/*
+        Provenance gate. Until a real-price recommendation has been scored, no
+        win rate on this card is the strategy's. As of the 2026-08-18 audit all
+        444 scored rows are Black-Scholes backfill and zero live-chain rows have
+        reached expiry (results/013_paper_trade_audit.md).
+      */}
+      {live && live.scored > 0 ? (
         <div className="px-5 pb-4">
           <div className="grid grid-cols-3 gap-4">
             <div>
               <div className={cn(
                 'text-2xl font-semibold tracking-tight',
-                stats.win_rate >= 60 ? 'text-emerald-600' : stats.win_rate >= 40 ? 'text-amber-600' : 'text-red-600'
+                (live.win_rate ?? 0) >= 60 ? 'text-emerald-600' : (live.win_rate ?? 0) >= 40 ? 'text-amber-600' : 'text-red-600'
               )}>
-                {stats.win_rate}%
+                {live.win_rate}%
               </div>
               <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground mt-0.5">Win Rate</div>
+              <div className="text-[10px] text-muted-foreground/70 mt-0.5">real prices, hold-to-expiry</div>
             </div>
             <div>
               <div className={cn(
                 'text-2xl font-semibold tracking-tight',
-                stats.avg_pnl >= 0 ? 'text-emerald-600' : 'text-red-600'
+                (live.avg_pnl ?? 0) >= 0 ? 'text-emerald-600' : 'text-red-600'
               )}>
-                {stats.avg_pnl >= 0 ? '+' : ''}{stats.avg_pnl.toFixed(1)}%
+                {(live.avg_pnl ?? 0) >= 0 ? '+' : ''}{(live.avg_pnl ?? 0).toFixed(1)}%
               </div>
               <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground mt-0.5">Avg P&L / Trade</div>
             </div>
             <div>
               <div className="text-2xl font-semibold tracking-tight text-foreground">
-                {stats.winners}W / {stats.losers}L
+                {live.winners}W / {live.losers}L
               </div>
               <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground mt-0.5">Record</div>
             </div>
           </div>
         </div>
       ) : (
-        <div className="px-5 pb-4">
-          <div className="rounded-lg border border-blue-200 dark:border-blue-500/20 bg-blue-50/50 dark:bg-blue-500/5 px-4 py-3">
-            <p className="text-[12px] text-blue-700 dark:text-blue-400">
-              {stats.total} recommendation{stats.total !== 1 ? 's' : ''} tracked. Scoring begins 30 days after each recommendation.
+        <div className="px-5 pb-4 space-y-2">
+          <div className="rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-50/60 dark:bg-amber-500/5 px-4 py-3">
+            <p className="text-[12px] font-semibold text-amber-800 dark:text-amber-300">
+              No real-price recommendation has been scored yet
+            </p>
+            <p className="text-[11px] text-amber-700/80 dark:text-amber-400/70 mt-1 leading-relaxed">
+              {live ? `${live.total} recommendation${live.total !== 1 ? 's' : ''} logged off live option chains, none yet at expiry` : 'No live-chain recommendations logged'}
+              {stats.provenance?.first_live_outcome_due
+                ? `. First outcomes due ${stats.provenance.first_live_outcome_due}.`
+                : '.'}
             </p>
           </div>
+          {synthetic && synthetic.scored > 0 && (
+            <div className="rounded-lg border bg-muted/30 px-4 py-3">
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                <span className="font-medium text-foreground">
+                  {synthetic.scored} scored trades ({synthetic.win_rate}% expired worthless,{' '}
+                  {(synthetic.avg_pnl ?? 0) >= 0 ? '+' : ''}{synthetic.avg_pnl}% avg)
+                </span>{' '}
+                are synthetic: priced with Black-Scholes off stock history by the backfill
+                script, not quotes anyone could have traded. They describe the pricing model,
+                not the strategy, and are shown here only so the count is not mistaken for a
+                track record.
+              </p>
+            </div>
+          )}
         </div>
       )}
 

@@ -2,7 +2,9 @@
 
 ## The One-Sentence Pitch
 
-**You already sell covered calls profitably. This tool makes sure you never get called away again — and tells you exactly when to act.**
+**You already sell covered calls profitably. This tool watches every position for the setup that got you last time, and tells you exactly when to act.**
+
+*(It alerts; it can't act for you, and it can't stop a gap through your strike overnight. What it removes is the failure mode where nobody was watching.)*
 
 ---
 
@@ -13,7 +15,8 @@ You know the MSFT disaster. $400K in taxes because you didn't buy back the calls
 **It does three things:**
 
 ### 1. Tells You What to Sell
-For each stock you own, it recommends the optimal covered call: which strike, which expiration, how much premium you'll collect. The recommendations are researched — 23 experiments, 145,000 real option observations, walk-forward validated out-of-sample.
+For each stock you own, it recommends the optimal covered call: which strike, which expiration, how much premium you'll collect. The recommendations are researched — 23 experiments, 145,000 real option observations,
+strike distances walk-forward validated out-of-sample.
 
 **Per your holdings** (win rate and income re-measured 2026-08-17, Exp 022, after we found and fixed a clock bug that had corrupted every backtest between Exp 007 and Exp 014, then re-measured again on a simulator with six further defects removed):
 
@@ -32,7 +35,9 @@ For each stock you own, it recommends the optimal covered call: which strike, wh
 The AAPL figure has now been corrected downward twice, from $351 to $299 to $141, each time because we found a specific defect in the simulator rather than because the market changed. The other three holdings measure *higher* on the corrected simulator; we have deliberately left their numbers at the lower, older values rather than raise a claim we have only measured once. Every number in this column is a floor we have evidence for, not a target.
 
 ### 2. Monitors Your Positions (The Copilot)
-Once you sell a call, the copilot watches it every 15 minutes during market hours. Five alert levels:
+Once you sell a call, the copilot checks it on a 15-minute schedule during market hours (in
+practice GitHub's scheduler runs late fairly often, so gaps of half an hour happen — the
+positions page now shows you exactly how old its last check is). Five alert levels:
 
 | Alert | What It Means | What You Do |
 |---|---|---|
@@ -45,7 +50,18 @@ Once you sell a call, the copilot watches it every 15 minutes during market hour
 You get **push notifications on your phone** for CLOSE SOON, CLOSE NOW, and EMERGENCY. The EMERGENCY alert repeats every 30 seconds until you acknowledge it.
 
 ### 3. Tracks Results
-Every recommendation is logged and scored automatically. Right now we have 386 scored paper trades: **81% win rate, +62% average P&L per trade.** You can see every trade, every outcome, every pattern — just like you'd review a portfolio's performance.
+Every recommendation is written to a log with the price it was quoted at, and scored once it
+reaches expiry. You can see every trade at /paper-trades.
+
+**There is no track record yet, and I want to be precise about that.** The 444 scored trades
+in that log are *synthetic*: I seeded the history by pricing hypothetical trades with
+Black-Scholes off stock history, not off quotes anyone could have traded. Their 76% win rate
+is a property of that pricing model. Eight real recommendations have been logged off live
+option chains — all in the last few days — and none reaches expiry before **2026-09-18**.
+Until then the honest answer to "does this work in practice" is that we do not know yet.
+
+The log also stopped writing for 144 days (2026-03-24 to 2026-08-15) without anyone noticing,
+which is fixed and is why the page now shows how old its numbers are.
 
 ---
 
@@ -69,11 +85,18 @@ Every recommendation is logged and scored automatically. Right now we have 386 s
 You know covered calls. You know the risk. Here's the research backing:
 
 ### The Data
-- **145,099 real option observations** (Databento OHLCV, not BSM estimates)
-- **480,000 Monte Carlo paths** for optimal exit timing
-- **14 experiments**, each pre-registered with immutable pass/fail thresholds
-- **Walk-forward validated** — train on first 67% of data, test on last 33%
-- **Paper trading** since March 2025 — 386 scored trades, all logged automatically
+- **145,099 real option observations** (Databento OHLCV, not BSM estimates) behind the
+  assignment-probability table. This table was independently checked and is one of the two
+  artefacts the clock bug did *not* touch.
+- **23 experiments.** Pre-registration with immutable pass/fail thresholds started at Exp 021;
+  the earlier ones were not pre-registered, and several did not survive re-examination.
+- **Strike distances walk-forward validated** (Exp 014, train on the first 67% / test on the
+  last 33%) — also verified outside the clock bug's blast radius.
+- **Income and win rates re-measured on real option chains** (Exp 022) after the bug was
+  fixed. Three of the four tickers failed their pre-registered tolerance and were corrected
+  downward.
+- **Paper trading:** see the caveat above — the scored history is synthetic, and real scoring
+  begins 2026-09-18.
 
 ### The Key Finding: When to Buy Back
 "Wait and hope" always costs more than closing. At every moneyness level and every DTE, buying back NOW saves money vs waiting. This is from 145K real observations — the instinct to wait for the stock to come back is empirically wrong.
@@ -86,10 +109,15 @@ Each threshold comes from the empirical ITM probability table:
 - ITM + ex-div within 3 days: ~100% → EMERGENCY
 
 ### Bear Market Performance
-Monte Carlo stress test (10,000 paths per scenario):
-- **Sharp crash (-30%):** Covered calls + copilot lose 22% vs 28.5% stock-only. The premium cushion saves ~$21K per 1,000 shares.
-- **Sideways market:** Stock -0.3%, covered calls +1.3%. This is the sweet spot.
-- **The strategy never amplifies losses.** In every scenario, it matches or beats holding stock alone.
+**I've withdrawn the numbers that used to be here.** They came from a Monte Carlo stress test
+(Exp 010) that ran through the same broken clock as the other invalidated backtests, and they
+were being presented as though they described 2020 and 2022. They described neither.
+
+What holds without that experiment: a covered call collects premium, the premium offsets part
+of a drawdown, and it cannot offset much of a large one. Selling calls does not increase your
+downside — you keep the premium whatever the stock does — but it does not protect you either.
+How much cushion this specific strategy provides is an open question until the stress test is
+re-run on the corrected simulator.
 
 ---
 
@@ -99,16 +127,38 @@ Monte Carlo stress test (10,000 paths per scenario):
 Stop-losses on short calls don't work the way you'd expect. The option price spikes when the stock moves toward your strike, and by the time a stop triggers, you're buying back at the worst price. The copilot monitors the POSITION (stock vs strike distance, DTE, ex-div proximity) not just the option price. It catches dangerous situations before they become expensive.
 
 ### "What about the premium I'm giving up by closing early?"
-On average, you keep 62% of premium on winning trades. The 38% you "give up" is the insurance cost — it prevents the rare catastrophic losses. The copilot saved $27,000 in simulated tax events on AAPL alone. The math: $5K/year in early buyback costs vs $27K+ in avoided tax catastrophes. 5x ROI on the insurance.
+Buying back early costs you the remaining time value — that is the insurance premium, and it
+is real money. The specific figures that used to be here ("keep 62% of premium", "$27,000 in
+simulated tax events", "5x ROI") came from Exp 007, one of the backtests the clock bug
+invalidated, so I've pulled them rather than quote numbers I can't stand behind.
+
+The argument does not depend on them. A single assignment on 10,000 low-basis shares realises
+a capital gain you chose the timing of — that is the MSFT event, and it cost $400K. Early
+buyback costs are small and frequent; assignment is large and rare. You are buying out of the
+tail. What I can't currently tell you is the exact price of that insurance.
 
 ### "I've been doing this for 30 years without a tool."
 You have. And you've made money. The tool doesn't change your strategy — it prevents the 1% of the time when things go wrong fast. The MSFT event happened once in your career and cost $400K. The copilot's job is to make that impossible.
 
 ### "How do I know the recommendations are right?"
-Every recommendation is paper-traded and scored. You can see the full history at /paper-trades — 386 trades, 81% win rate. The strategies are walk-forward validated (tested on data the model never saw during training). When we found that 3% OTM was too aggressive for TMUS, the walk-forward test caught it and we adjusted to 15%. The system corrects itself.
+The strike distances are walk-forward validated — tested on data the model never saw during
+training. When 3% OTM turned out to be too aggressive for TMUS, that test caught it and we
+moved to 15%.
+
+The honest limit: the paper-trade history is synthetic, so it is not yet evidence that the
+recommendations work in practice — first real outcomes land 2026-09-18. And the system's
+self-correction has mostly run in one direction. Every published income figure has been
+revised *down* as defects were found: AAPL went $351 → $299 → $141, and three of four tickers
+failed their re-measurement. That is the process working, but it should also tell you how much
+weight to put on any single number here.
 
 ### "What if the market crashes?"
-Covered calls help in a crash — the calls expire worthless (you keep the premium) and the premium cushions your stock loss. In our Monte Carlo stress test, a -30% crash costs $21K less with covered calls than without them. The copilot doesn't panic on stock drops — it only alerts when the stock RISES toward your strike.
+Covered calls help somewhat in a crash: the calls expire worthless, you keep the premium, and
+that premium offsets part of the stock loss. The copilot doesn't panic on drops — it only
+alerts when the stock RISES toward your strike, because that's the assignment risk.
+
+I've withdrawn the "$21K less in a -30% crash" figure that used to be here; it came from the
+invalidated stress test. Premium is a cushion, not a hedge, and I can't currently size it.
 
 ### "What about ex-dividend risk?"
 This is the #1 feature. The copilot tracks ex-dividend dates for every position. When you're ITM within 3 days of ex-div, it fires the EMERGENCY alert — the $400K alert. Your phone will alarm every 30 seconds until you acknowledge it.

@@ -16,7 +16,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: 'Covered Call Copilot',
-  description: 'Never get called away. Never lose money. Make money.',
+  // "Never lose money" was not a slogan, it was a claim, and it is false: on the
+  // corrected engine 9% of AAPL trades lose and the worst single trade in the
+  // window was -$971 (Exp 022). Assignment-avoidance is what the copilot is
+  // actually for, and that is what this now says.
+  description: 'Covered call sizing and exit alerts for a concentrated, low-basis portfolio. Avoid assignment; keep the shares.',
 }
 
 export default function RootLayout({

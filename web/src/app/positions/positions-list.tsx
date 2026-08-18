@@ -2,10 +2,56 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { cn } from '@/lib/utils'
-import type { PositionAlert, AlertLevel } from '@/lib/copilot'
 import { LogTradeDialog } from './log-trade-dialog'
 
-type AlertWithId = PositionAlert & { tradeId?: string }
+/*
+ * These rows are verdicts the position monitor STORED, not verdicts this page
+ * computed. The page used to call a TypeScript reimplementation of the alert
+ * rules, which meant the screen and the phone could disagree with nothing to
+ * force agreement. UNASSESSED is a real level here: a position the monitor has
+ * not reached is shown as unknown rather than assumed safe.
+ */
+type AlertLevel = 'SAFE' | 'WATCH' | 'CLOSE_SOON' | 'CLOSE_NOW' | 'EMERGENCY' | 'UNASSESSED'
+
+interface AlertWithId {
+  tradeId?: string
+  ticker: string
+  strike: number
+  contracts: number
+  expiry: string
+  level: AlertLevel
+  reason: string
+  action: string
+  assessedAt: string | null
+  ageMinutes: number | null
+  dte: number | null
+  pctFromStrike: number | null
+  buybackCost: number | null
+  netPnl: number | null
+  premiumCapturedPct: number | null
+  daysToExDiv: number | null
+  daysToEarnings: number | null
+  engine: string | null
+  engineVersion: string | null
+  source: string | null
+}
+
+interface Freshness {
+  latestAssessedAt: string | null
+  ageMinutes: number | null
+  stale: boolean
+  marketOpen: boolean
+  staleThresholdMinutes: number
+}
+
+/** "12:47 ET" — the wall clock Charles's father reads off his phone. */
+function etTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-US', {
+    timeZone: 'America/New_York',
+    hour: 'numeric',
+    minute: '2-digit',
+  }) + ' ET'
+}
 
 /* ── Colors by alert level (matches Jebbix priority system) ── */
 
@@ -15,6 +61,7 @@ const ACCENT: Record<AlertLevel, string> = {
   CLOSE_SOON: 'bg-orange-500',
   CLOSE_NOW: 'bg-red-500',
   EMERGENCY: 'bg-red-500 animate-pulse',
+  UNASSESSED: 'bg-gray-400',
 }
 
 const BADGE: Record<AlertLevel, string> = {
@@ -23,11 +70,12 @@ const BADGE: Record<AlertLevel, string> = {
   CLOSE_SOON: 'bg-orange-50 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400 ring-orange-600/20',
   CLOSE_NOW: 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 ring-red-600/20',
   EMERGENCY: 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 ring-red-600/20',
+  UNASSESSED: 'bg-gray-50 dark:bg-gray-500/10 text-gray-700 dark:text-gray-400 ring-gray-600/20',
 }
 
 const LABEL: Record<AlertLevel, string> = {
   SAFE: 'Safe', WATCH: 'Watch', CLOSE_SOON: 'Close Soon',
-  CLOSE_NOW: 'Close Now', EMERGENCY: 'Emergency',
+  CLOSE_NOW: 'Close Now', EMERGENCY: 'Emergency', UNASSESSED: 'Not assessed',
 }
 
 const ALERT_BG: Record<AlertLevel, { border: string; bg: string; dot: string; title: string; body: string }> = {
@@ -36,6 +84,7 @@ const ALERT_BG: Record<AlertLevel, { border: string; bg: string; dot: string; ti
   CLOSE_SOON: { border: 'border-orange-200',  bg: 'bg-orange-50',  dot: 'bg-orange-500',  title: 'text-orange-900',  body: 'text-orange-800' },
   CLOSE_NOW:  { border: 'border-red-200',     bg: 'bg-red-50',     dot: 'bg-red-500',     title: 'text-red-900',     body: 'text-red-800' },
   EMERGENCY:  { border: 'border-red-300',     bg: 'bg-red-50',     dot: 'bg-red-500',     title: 'text-red-900',     body: 'text-red-800' },
+  UNASSESSED: { border: 'border-gray-300',    bg: 'bg-gray-50',    dot: 'bg-gray-400',    title: 'text-gray-900',    body: 'text-gray-800' },
 }
 
 
@@ -50,6 +99,14 @@ function buildHeadline(alerts: AlertWithId[]): { title: string; subtitle: string
   const closeNow = alerts.filter(a => a.level === 'CLOSE_NOW')
   const closeSoon = alerts.filter(a => a.level === 'CLOSE_SOON')
   const safe = alerts.filter(a => a.level === 'SAFE')
+  const unassessed = alerts.filter(a => a.level === 'UNASSESSED')
+
+  const strikeDistance = (a: AlertWithId) =>
+    a.pctFromStrike === null
+      ? 'distance from strike unknown'
+      : a.pctFromStrike < 0
+        ? 'in the money'
+        : `${a.pctFromStrike.toFixed(1)}% from strike`
 
   if (emergency.length > 0) {
     return {
@@ -62,7 +119,7 @@ function buildHeadline(alerts: AlertWithId[]): { title: string; subtitle: string
   if (closeNow.length > 0) {
     return {
       title: `${closeNow.length} position${closeNow.length > 1 ? 's' : ''} at risk — close today`,
-      subtitle: `${closeNow[0].ticker} $${closeNow[0].strike} Call is ${closeNow[0].pctFromStrike < 0 ? 'in the money' : `${closeNow[0].pctFromStrike.toFixed(1)}% from strike`}. Assignment probability: ${(closeNow[0].pAssignment * 100).toFixed(0)}%.`,
+      subtitle: `${closeNow[0].ticker} $${closeNow[0].strike} Call is ${strikeDistance(closeNow[0])}. ${closeNow[0].reason}`,
       accent: 'red',
     }
   }
@@ -72,6 +129,19 @@ function buildHeadline(alerts: AlertWithId[]): { title: string; subtitle: string
       title: `${closeSoon.length} position${closeSoon.length > 1 ? 's' : ''} to close this week`,
       subtitle: `${closeSoon[0].ticker} $${closeSoon[0].strike} Call — ${closeSoon[0].reason}`,
       accent: 'default',
+    }
+  }
+
+  /*
+   * "All positions are safe" may only be said when every position was actually
+   * assessed. A position the monitor never reached is not a safe one, and
+   * folding it into a green headline is how a monitoring gap reads as good news.
+   */
+  if (unassessed.length > 0) {
+    return {
+      title: `${unassessed.length} position${unassessed.length > 1 ? 's have' : ' has'} no current verdict`,
+      subtitle: `The monitor has not stored an assessment for ${unassessed.map(a => a.ticker).join(', ')}. Do not read the rest of this page as complete.`,
+      accent: 'red',
     }
   }
 
@@ -113,6 +183,7 @@ function StatCard({ label, value, insight, accent }: {
 
 export function PositionsList() {
   const [alerts, setAlerts] = useState<AlertWithId[]>([])
+  const [freshness, setFreshness] = useState<Freshness | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -120,9 +191,15 @@ export function PositionsList() {
     try {
       setLoading(true)
       const res = await fetch('/api/copilot')
-      if (!res.ok) throw new Error('Failed to fetch alerts')
+      if (!res.ok) {
+        // A failed read must not render as "no positions". Surface it.
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.error ?? 'Failed to fetch stored assessments')
+      }
       const data = await res.json()
-      setAlerts(data)
+      setAlerts(data.alerts ?? [])
+      setFreshness(data.freshness ?? null)
+      setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error')
     } finally {
@@ -136,7 +213,8 @@ export function PositionsList() {
   const urgent = alerts.filter(a => a.level === 'CLOSE_NOW' || a.level === 'EMERGENCY')
   const safe = alerts.filter(a => a.level === 'SAFE')
   const totalPnl = alerts.reduce((s, a) => s + (a.netPnl ?? 0), 0)
-  const avgCapture = alerts.length > 0 ? alerts.reduce((s, a) => s + a.premiumCapturedPct, 0) / alerts.length : 0
+  const captured = alerts.map(a => a.premiumCapturedPct).filter((v): v is number => v !== null)
+  const avgCapture = captured.length > 0 ? captured.reduce((s, v) => s + v, 0) / captured.length : null
 
   return (
     <div className="space-y-6">
@@ -152,6 +230,36 @@ export function PositionsList() {
         </div>
         <LogTradeDialog onSuccess={fetchAlerts} />
       </div>
+
+      {/*
+        Freshness banner. These verdicts come from the monitor's last run, so
+        their age is part of the reading: a SAFE from 40 minutes ago is not a
+        statement about now. Loud while the market is open, quiet when it is
+        shut and the monitor is expected to be idle.
+      */}
+      {!loading && !error && freshness && (
+        freshness.stale ? (
+          <div className="rounded-xl border-2 border-red-300 dark:border-red-500/40 bg-red-50 dark:bg-red-500/10 px-5 py-4">
+            <p className="text-[14px] font-semibold text-red-800 dark:text-red-300">
+              These verdicts are stale — do not act on them
+            </p>
+            <p className="text-[12px] text-red-700 dark:text-red-400/90 mt-1 leading-relaxed">
+              {freshness.latestAssessedAt
+                ? `The most recent assessment is from ${etTime(freshness.latestAssessedAt)}, ${freshness.ageMinutes} minutes ago, and the market is open. The monitor should be storing a verdict at least every ${freshness.staleThresholdMinutes} minutes.`
+                : `No stored assessment exists for any open position while the market is open. The monitor is not writing verdicts.`}
+              {' '}Check the position monitor before trading.
+            </p>
+          </div>
+        ) : freshness.latestAssessedAt && (
+          <p className="text-[12px] text-muted-foreground">
+            Verdicts stored by the position monitor, as of{' '}
+            <span className="font-medium text-foreground">{etTime(freshness.latestAssessedAt)}</span>
+            {freshness.marketOpen
+              ? ` (${freshness.ageMinutes} min ago).`
+              : ' — market closed, so this will not update until the next session.'}
+          </p>
+        )
+      )}
 
       {/* ── Loading skeleton ── */}
       {loading && (
@@ -194,13 +302,13 @@ export function PositionsList() {
           <StatCard
             label="Urgent"
             value={`${urgent.length}`}
-            insight={urgent.length === 0 ? 'No positions need immediate action' : `${urgent[0].ticker} is ${urgent[0].pctFromStrike < 0 ? 'ITM' : 'near strike'}`}
+            insight={urgent.length === 0 ? 'No positions need immediate action' : `${urgent[0].ticker} is ${(urgent[0].pctFromStrike ?? 0) < 0 ? 'ITM' : 'near strike'}`}
             accent={urgent.length > 0 ? 'red' : 'green'}
           />
           <StatCard
             label="Avg Captured"
-            value={`${avgCapture.toFixed(0)}%`}
-            insight={avgCapture >= 75 ? 'Consider taking profit on mature positions' : 'Positions still have time value to decay'}
+            value={avgCapture === null ? '--' : `${avgCapture.toFixed(0)}%`}
+            insight={avgCapture === null ? 'No stored buyback prices to compare against' : avgCapture >= 75 ? 'Consider taking profit on mature positions' : 'Positions still have time value to decay'}
           />
           <StatCard
             label="Net P&L"
@@ -266,7 +374,8 @@ function AlertCard({ alert, onClose }: { alert: AlertWithId; onClose: () => void
         </p>
         <div className="flex items-center gap-4 mt-1.5">
           <span className="text-[11px] text-muted-foreground">
-            {alert.dte} DTE · {alert.pctFromStrike >= 0 ? '+' : ''}{alert.pctFromStrike.toFixed(1)}% from strike · P(assign): {(alert.pAssignment * 100).toFixed(0)}%
+            {alert.dte ?? '--'} DTE · {alert.pctFromStrike === null ? '--' : `${alert.pctFromStrike >= 0 ? '+' : ''}${alert.pctFromStrike.toFixed(1)}%`} from strike
+            {alert.assessedAt && <> · as of {etTime(alert.assessedAt)}</>}
           </span>
         </div>
       </div>
@@ -313,19 +422,19 @@ function PositionCard({ alert, onClose }: { alert: AlertWithId; onClose: () => v
           <div className="flex items-center gap-2 mt-2">
             <span className={cn(
               'text-2xl font-semibold tracking-tight',
-              alert.pctFromStrike < 0 ? 'text-red-600' : alert.pctFromStrike < 3 ? 'text-amber-600' : 'text-emerald-600'
+              alert.pctFromStrike === null ? 'text-muted-foreground' : alert.pctFromStrike < 0 ? 'text-red-600' : alert.pctFromStrike < 3 ? 'text-amber-600' : 'text-emerald-600'
             )}>
-              {alert.pctFromStrike >= 0 ? '+' : ''}{alert.pctFromStrike.toFixed(1)}%
+              {alert.pctFromStrike === null ? '--' : `${alert.pctFromStrike >= 0 ? '+' : ''}${alert.pctFromStrike.toFixed(1)}%`}
             </span>
             <span className="text-[12px] text-muted-foreground">from strike</span>
-            {alert.dte <= 7 && (
+            {alert.dte !== null && alert.dte <= 7 && (
               <span className="text-[12px] font-medium text-red-600">{alert.dte}d left</span>
             )}
           </div>
 
           {/* Forecast-like insight */}
           <p className="text-[12px] text-muted-foreground mt-1.5">
-            {alert.premiumCapturedPct.toFixed(0)}% premium captured · P(assignment): {(alert.pAssignment * 100).toFixed(0)}%
+            {alert.premiumCapturedPct === null ? 'Premium captured unavailable' : `${alert.premiumCapturedPct.toFixed(0)}% premium captured`}
             {alert.netPnl !== null && (
               <> · Net P&L: <span className={cn('font-medium', alert.netPnl >= 0 ? 'text-emerald-600' : 'text-red-600')}>
                 {alert.netPnl >= 0 ? '+' : ''}${alert.netPnl.toFixed(0)}
@@ -357,24 +466,24 @@ function PositionCard({ alert, onClose }: { alert: AlertWithId; onClose: () => v
           <div>
             <div className="flex justify-between items-center mb-1">
               <span className="text-[11px] text-muted-foreground">Premium captured</span>
-              <span className="text-[11px] font-medium tabular-nums">{alert.premiumCapturedPct.toFixed(0)}%</span>
+              <span className="text-[11px] font-medium tabular-nums">{alert.premiumCapturedPct === null ? '--' : `${alert.premiumCapturedPct.toFixed(0)}%`}</span>
             </div>
             <div className="h-1 rounded-full bg-muted overflow-hidden">
               <div
                 className="h-full rounded-full bg-emerald-500 transition-all"
-                style={{ width: `${Math.min(100, alert.premiumCapturedPct)}%`, opacity: 0.7 }}
+                style={{ width: `${Math.min(100, Math.max(0, alert.premiumCapturedPct ?? 0))}%`, opacity: 0.7 }}
               />
             </div>
           </div>
           <div>
             <div className="flex justify-between items-center mb-1">
               <span className="text-[11px] text-muted-foreground">Time elapsed</span>
-              <span className="text-[11px] font-medium tabular-nums">{alert.dte} DTE</span>
+              <span className="text-[11px] font-medium tabular-nums">{alert.dte ?? '--'} DTE</span>
             </div>
             <div className="h-1 rounded-full bg-muted overflow-hidden">
               <div
                 className="h-full rounded-full bg-blue-500 transition-all"
-                style={{ width: `${Math.max(0, Math.min(100, 100 - (alert.dte / 45 * 100)))}%`, opacity: 0.7 }}
+                style={{ width: `${Math.max(0, Math.min(100, 100 - ((alert.dte ?? 45) / 45 * 100)))}%`, opacity: 0.7 }}
               />
             </div>
           </div>
