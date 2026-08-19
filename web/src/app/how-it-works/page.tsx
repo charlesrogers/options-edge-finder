@@ -87,7 +87,7 @@ const METRICS = [
   {
     value: `${Math.min(...WIN_RATES)}-${Math.max(...WIN_RATES)}%`,
     label: 'Win Rates',
-    sublabel: 'simulated, hold-to-expiry (Exp 022)',
+    sublabel: 'simulated, production copilot exits (Exp 022)',
   },
   {
     value: `${ON_REAL_PRICES.length}`,
