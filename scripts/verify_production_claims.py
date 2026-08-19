@@ -50,10 +50,12 @@ REQUIRED = [
     (r'Expected P&L / yr per contract', "the P&L unit label — a bare dollar figure reads as the at-size total, a 100x misread"),
     (r'\(liquidity-capped\)', "the at-size line's cap marker (KKR: 7 x \$316, not 100 x)"),
     (r'real-fill basis', "the at-size real-fill figure where Exp 022 measured one"),
+    (r'ended profitable', "win definition: wins include early profitable buybacks, not just expiry"),
 ]
 
 # (regex, why it must be gone)
 FORBIDDEN = [
+    (r'expired worthless', "misdescribes wins — most exits are early buybacks, not expiry"),
     (r'expectedPnl:\s*351\b', "AAPL's fossil P&L ($351)"),
     (r'expectedPnl:\s*822\b', "DIS's fossil P&L ($822)"),
     (r'expectedPnl:\s*447\b', "TMUS's fossil P&L ($447)"),
