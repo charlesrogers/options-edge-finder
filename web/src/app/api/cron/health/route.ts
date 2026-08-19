@@ -6,7 +6,6 @@ export const dynamic = 'force-dynamic'
 
 const CRON_SECRET = process.env.CRON_SECRET ?? ''
 // Webhook URLs are secrets — this repo is public, so it must never be inlined here.
-const DISCORD_WEBHOOK = process.env.DISCORD_WEBHOOK ?? ''
 
 // One monitor cycle is 15 minutes. Two missed cycles is a real outage, not jitter.
 const HEARTBEAT_STALE_MINUTES = 35
@@ -17,45 +16,6 @@ interface Check {
   detail: string
 }
 
-async function sendDiscordAlert(checks: Check[]): Promise<boolean> {
-  const failures = checks.filter(c => c.status === 'fail')
-  const warnings = checks.filter(c => c.status === 'warn')
-
-  if (failures.length === 0 && warnings.length === 0) return true
-  if (!DISCORD_WEBHOOK) {
-    console.error('[health] DISCORD_WEBHOOK unset — alert dropped:', JSON.stringify(checks))
-    return false
-  }
-
-  const emoji = failures.length > 0 ? '🚨' : '⚠️'
-  const title = failures.length > 0
-    ? `${emoji} Options Copilot: ${failures.length} system failure(s)`
-    : `${emoji} Options Copilot: ${warnings.length} warning(s)`
-
-  const fields = checks
-    .filter(c => c.status !== 'ok')
-    .map(c => ({
-      name: `${c.status === 'fail' ? '❌' : '⚠️'} ${c.name}`,
-      value: c.detail,
-      inline: false,
-    }))
-
-  const resp = await fetch(DISCORD_WEBHOOK, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      embeds: [{
-        title,
-        color: failures.length > 0 ? 0xff0000 : 0xffaa00,
-        fields,
-        timestamp: new Date().toISOString(),
-        footer: { text: 'options.imprevista.com' },
-      }],
-    }),
-  })
-  if (!resp.ok) console.error(`[health] Discord returned ${resp.status} — alert dropped`)
-  return resp.ok
-}
 
 export async function GET(request: Request) {
   // Never open-fail: `CRON_SECRET && ...` meant an unset env var silently
@@ -251,13 +211,15 @@ export async function GET(request: Request) {
     checks.push({ name: 'Market Calendar', status: 'fail', detail: `${e}` })
   }
 
-  let alertDelivered = true
-  try {
-    alertDelivered = await sendDiscordAlert(checks)
-  } catch (e) {
-    console.error('[health] Discord alert threw:', e)
-    alertDelivered = false
-  }
+  // THIS ROUTE DOES NOT ALERT. It reports; its callers alert.
+  //
+  // It used to post to Discord on every failing evaluation. Uptime Kuma polls
+  // this endpoint every 60 seconds, so one stale heartbeat produced one Discord
+  // message PER MINUTE for hours (2026-08-19 incident) — alarm spam that trains
+  // humans to mute the channel, which is the failure mode this system exists to
+  // prevent. Alerting belongs to the three callers with sane semantics: the
+  // Hetzner watchdog (30-min cadence), the Cloudflare worker (30-min, off-box),
+  // and Kuma (state-change only). The 503 status below is the entire contract.
 
   const overallStatus = checks.some(c => c.status === 'fail') ? 'fail'
     : checks.some(c => c.status === 'warn') ? 'warn' : 'ok'
@@ -275,7 +237,6 @@ export async function GET(request: Request) {
     {
       status: overallStatus,
       marketOpen,
-      alertDelivered,
       checkedAt: now.toISOString(),
       checks,
     },
