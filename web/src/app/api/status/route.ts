@@ -3,6 +3,8 @@ import { getSupabase } from '@/lib/supabase'
 import { isMarketOpen, tradingDaysSince } from '@/lib/market-calendar'
 import {
   HEARTBEAT_STALE_MINUTES,
+  assertPublicSafe,
+  cached,
   summarizeHeartbeats,
   type ChainStatus,
   type HeartbeatRow,
@@ -45,6 +47,14 @@ const CHAIN_LABEL: Record<string, string> = {
 }
 
 export async function GET() {
+  const payload = await cached('status', build)
+  // Checked on the way out, on every request including cache hits — the guard
+  // must not be skippable by the path a change is most likely to take.
+  assertPublicSafe(payload)
+  return NextResponse.json(payload, { headers: { 'Cache-Control': 'no-store' } })
+}
+
+async function build() {
   const now = new Date()
   const marketOpen = isMarketOpen(now)
 
@@ -95,15 +105,12 @@ export async function GET() {
     errors.push(`option_chain_snapshots unreadable: ${e instanceof Error ? e.message : String(e)}`)
   }
 
-  return NextResponse.json(
-    {
-      generatedAt: now.toISOString(),
-      marketOpen,
-      staleAfterMinutes: HEARTBEAT_STALE_MINUTES,
-      chains: chains.map((c) => ({ ...c, label: CHAIN_LABEL[c.role] ?? c.role })),
-      capture,
-      errors,
-    },
-    { headers: { 'Cache-Control': 'no-store' } }
-  )
+  return {
+    generatedAt: now.toISOString(),
+    marketOpen,
+    staleAfterMinutes: HEARTBEAT_STALE_MINUTES,
+    chains: chains.map((c) => ({ ...c, label: CHAIN_LABEL[c.role] ?? c.role })),
+    capture,
+    errors,
+  }
 }

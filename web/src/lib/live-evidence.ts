@@ -185,3 +185,77 @@ export function summarizeGraveyard(rows: GraveyardRow[]): GraveyardSummary {
     signals,
   }
 }
+
+/* ── Guards for the two unauthenticated endpoints ───────────────────────── */
+
+/*
+ * /api/status and /api/graveyard are on the gate's public list (proxy.ts) by
+ * Charles's decision: an evidence page that requires a login is a contradiction,
+ * because its audience includes Dad before he has one. That decision is only
+ * safe while those responses stay narrow, and "stays narrow" is not something a
+ * comment can enforce against a later, entirely reasonable-looking change that
+ * adds one more helpful field.
+ *
+ * So it is enforced at runtime, on the way out, and tested in CI.
+ */
+
+/**
+ * Field NAMES that must never appear in an unauthenticated response.
+ *
+ * Names only, deliberately, not values: the graveyard publishes hypothesis
+ * names like "Capacity Expansion — GOOGL real-price, MSFT/AMZN probation", so a
+ * value scan would reject the very rows this endpoint exists to serve. Those
+ * tickers are the subject of a published experiment, not somebody's holdings.
+ * What must never appear is a FIELD carrying portfolio state.
+ */
+const PRIVATE_FIELD = /ticker|symbol|strike|holding|shares|position|pnl|p_and_l|premium|contract|cost_basis|expiry|expiration|quantity|trade/i
+
+/** Every field path in `value` whose name looks like portfolio state. */
+export function findPrivateFields(value: unknown, path = '$'): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((v, i) => findPrivateFields(v, `${path}[${i}]`))
+  }
+  if (value && typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>).flatMap(([k, v]) => [
+      ...(PRIVATE_FIELD.test(k) ? [`${path}.${k}`] : []),
+      ...findPrivateFields(v, `${path}.${k}`),
+    ])
+  }
+  return []
+}
+
+/**
+ * Throw rather than serve a public response carrying portfolio state.
+ *
+ * Fails CLOSED. A 500 on the liveness widget is a visible, fixable annoyance;
+ * a public endpoint quietly serving positions is the thing the whole auth gate
+ * was just built to prevent.
+ */
+export function assertPublicSafe(payload: unknown): void {
+  const leaked = findPrivateFields(payload)
+  if (leaked.length > 0) {
+    throw new Error(
+      `refusing to serve an unauthenticated response carrying portfolio fields: ${leaked.join(', ')}`
+    )
+  }
+}
+
+/* ── A 60-second server-side cache ──────────────────────────────────────── */
+
+/*
+ * These endpoints are unauthenticated and hit Supabase on every request, which
+ * makes them the cheapest way to hammer the database from outside. 60 seconds
+ * costs nothing in honesty — every response carries `generatedAt`, so a cached
+ * reading announces its own age rather than pretending to be current, and the
+ * widget prints that timestamp next to the time it fetched.
+ */
+const CACHE_TTL_MS = 60_000
+const cache = new Map<string, { at: number; value: unknown }>()
+
+export async function cached<T>(key: string, build: () => Promise<T>): Promise<T> {
+  const hit = cache.get(key)
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.value as T
+  const value = await build()
+  cache.set(key, { at: Date.now(), value })
+  return value
+}

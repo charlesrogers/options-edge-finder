@@ -13,6 +13,8 @@
 
 import {
   HEARTBEAT_STALE_MINUTES,
+  assertPublicSafe,
+  findPrivateFields,
   summarizeHeartbeats,
   summarizeGraveyard,
 } from '../web/src/lib/live-evidence.ts'
@@ -187,6 +189,93 @@ for (const c of GRAVEYARD_CASES) {
     g.tested + g.untested === g.registered
   console.log(`  [${ok ? 'OK  ' : 'FAIL'}] buckets partition the table — ${c.name}`)
   if (!ok) failures++
+}
+
+/*
+ * The two endpoints are on the auth gate's PUBLIC list (proxy.ts), by Charles's
+ * decision that an evidence page requiring a login is a contradiction. That is
+ * only safe while the responses stay narrow, and the realistic threat is not an
+ * attacker — it is a future change that helpfully adds one more field.
+ */
+console.log('\nPUBLIC-SAFETY GUARD')
+const GUARD_CASES = [
+  {
+    name: 'a real /api/status payload is public-safe',
+    payload: {
+      generatedAt: '2026-08-19T15:00:00Z',
+      marketOpen: true,
+      staleAfterMinutes: 35,
+      chains: [
+        {
+          role: 'chain1',
+          label: 'Chain 1 — server cron',
+          source: 'hetzner-cron',
+          engine: 'copilot.ts via /api/cron/monitor',
+          lastRunAt: '2026-08-19T14:59:00Z',
+          ageMinutes: 1,
+          state: 'live',
+        },
+      ],
+      capture: { date: '2026-08-18', tradingDaysAgo: 0 },
+      errors: [],
+    },
+    expectLeaks: 0,
+  },
+  {
+    name: 'a real /api/graveyard payload is public-safe, tickers in hypothesis NAMES and all',
+    payload: summarizeGraveyard([
+      {
+        signal_id: 'H24',
+        name: 'Capacity Expansion — GOOGL real-price, MSFT/AMZN probation',
+        tier: 2,
+        status: 'failed_layer_2',
+        layer_reached: 2,
+        tested_date: '2026-08-16',
+      },
+    ]),
+    expectLeaks: 0,
+  },
+  {
+    name: 'a helpfully-added position field is caught',
+    payload: { generatedAt: 'x', chains: [{ role: 'chain1', positions_checked: 3 }] },
+    expectLeaks: 1,
+  },
+  {
+    name: 'a nested holding is caught',
+    payload: { capture: { date: '2026-08-18', holdings: [{ shares: 10000 }] } },
+    expectLeaks: 2,
+  },
+  {
+    name: 'a P&L field is caught however deep it is buried',
+    payload: { a: { b: { c: [{ d: { pnl_pct: 12.5 } }] } } },
+    expectLeaks: 1,
+  },
+  {
+    name: 'strike and ticker are caught',
+    payload: { trades: [{ ticker: 'AAPL', strike: 260 }] },
+    expectLeaks: 3,
+  },
+]
+
+for (const c of GUARD_CASES) {
+  const leaks = findPrivateFields(c.payload)
+  const ok = leaks.length === c.expectLeaks
+  console.log(`  [${ok ? 'OK  ' : 'FAIL'}] ${c.name}`)
+  if (!ok) {
+    failures++
+    console.log(`         expected ${c.expectLeaks} leak(s), got ${leaks.length}: ${JSON.stringify(leaks)}`)
+  }
+  // The guard must THROW on a leak, not merely report one — a reporting-only
+  // guard is the shape that ships a leak with a warning nobody reads.
+  let threw = false
+  try {
+    assertPublicSafe(c.payload)
+  } catch {
+    threw = true
+  }
+  const throwOk = threw === c.expectLeaks > 0
+  console.log(`  [${throwOk ? 'OK  ' : 'FAIL'}] ...and assertPublicSafe ${c.expectLeaks > 0 ? 'throws' : 'permits'} it`)
+  if (!throwOk) failures++
 }
 
 console.log()

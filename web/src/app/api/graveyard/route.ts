@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { getSupabase } from '@/lib/supabase'
-import { summarizeGraveyard, type GraveyardRow } from '@/lib/live-evidence'
+import {
+  assertPublicSafe,
+  cached,
+  summarizeGraveyard,
+  type GraveyardRow,
+} from '@/lib/live-evidence'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,17 +26,17 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET() {
   try {
-    const sb = getSupabase()
-    const { data, error } = await sb
-      .from('signal_graveyard')
-      .select('signal_id, name, tier, status, layer_reached, tested_date')
-    if (error) throw new Error(error.message)
-
-    const summary = summarizeGraveyard((data ?? []) as GraveyardRow[])
-    return NextResponse.json(
-      { generatedAt: new Date().toISOString(), ...summary },
-      { headers: { 'Cache-Control': 'no-store' } }
-    )
+    const payload = await cached('graveyard', async () => {
+      const sb = getSupabase()
+      const { data, error } = await sb
+        .from('signal_graveyard')
+        .select('signal_id, name, tier, status, layer_reached, tested_date')
+      if (error) throw new Error(error.message)
+      return { generatedAt: new Date().toISOString(), ...summarizeGraveyard((data ?? []) as GraveyardRow[]) }
+    })
+    // Checked on the way out, on every request including cache hits.
+    assertPublicSafe(payload)
+    return NextResponse.json(payload, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     // 503, not an empty scorecard. "0 failures" and "could not read the table"
     // must never render as the same thing on a page about honest reporting.
