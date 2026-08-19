@@ -164,7 +164,30 @@ Two consequences, both acted on:
 2. **`CRON_SECRET` has six consumers, not four.** Coolify env, GitHub secrets,
    `/etc/options-copilot.env` (used by BOTH `options-monitor.sh` and
    `options-health-check.sh`), the Cloudflare worker's `HEALTH_CRON_SECRET`, and
-   the Uptime Kuma monitor's auth header. A rotation on 2026-08-19 that reached
-   the consumers before the container produced 401s on chain 1 within one
-   15-minute tick — the drift class CLAUDE.md already warns about, observed
-   again. Enumerate all six, every time.
+   the Uptime Kuma monitor's auth header. Enumerate all six, every time.
+
+### The 2026-08-19 rotation, as a worked example
+
+The secret was rotated because the old literal was committed in `tasks/todo.md`
+and this repo is public — a live hole, not hygiene. Chain 1 then returned 401
+within one 15-minute tick and stayed there for about half an hour.
+
+**The root cause is an ordering rule, not a missed consumer.** All the consumers
+were updated correctly. What had not happened yet was the container that
+*validates* the secret picking up the new value: a Coolify env var reaches a
+container only at start, so **"env var set" and "env var live" are different
+events**, and the gap between them is an outage. Rotate the validator first,
+then the consumers — never the reverse.
+
+Two details worth keeping:
+
+- The failure was visible from the product's own data path before anyone looked
+  at a log. `/how-it-works` read `Chain 1 — Last run failed` straight out of
+  `monitor_heartbeats`, and read `live` again once the container redeployed.
+  That is the entire argument for reading liveness rather than writing it down.
+- **The sixth consumer is still stale, and its alarms are FALSE.** The Cloudflare
+  worker holds the old `HEALTH_CRON_SECRET`, so its 30-minute poll gets a 401
+  from a perfectly healthy endpoint and posts to Discord saying otherwise. It
+  needs an interactive `wrangler secret put`. Until that happens, treat outer-loop
+  Discord alarms as noise — and fix it quickly, because a watchdog that cries
+  wolf is exactly how the previous one stopped being read.
