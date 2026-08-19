@@ -50,26 +50,35 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           if [ -z "$CRON_SECRET" ]; then echo "::error::CRON_SECRET unset"; exit 1; fi
-          for i in $(seq 1 20); do
+          # BOTH conditions must hold in the SAME poll iteration, and neither may
+          # exit the loop early. At t=10s Coolify is still pulling the image, so
+          # the OLD container answers: it already serves a "checks" body, and it
+          # has no auth gate, so a structure that asserts the gate the first time
+          # the health body appears fails every deploy against the previous
+          # container. Asking for both together means the loop simply waits until
+          # the new image is the one replying.
+          for i in $(seq 1 30); do
             sleep 10
             CODE=$(curl -s -o /tmp/body -w '%{http_code}' --max-time 30 \
               -H "Authorization: Bearer $CRON_SECRET" \
               https://options.imprevista.com/api/cron/health || true)
-            if grep -q '"checks"' /tmp/body 2>/dev/null; then
-              echo "DB path healthy after $((i*10))s: /api/cron/health -> $CODE"
+            GATE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
+              https://options.imprevista.com/api/positions || true)
+
+            HEALTHY=no; grep -q '"checks"' /tmp/body 2>/dev/null && HEALTHY=yes
+
+            if [ "$HEALTHY" = "yes" ] && [ "$GATE" = "401" ]; then
+              echo "Healthy after $((i*10))s"
+              echo "  /api/cron/health  -> $CODE with a checks body (service-role DB path works)"
+              echo "  /api/positions    -> 401 unauthenticated (auth gate is live in THIS image)"
               head -c 300 /tmp/body; echo
-              GATE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
-                https://options.imprevista.com/api/positions || true)
-              if [ "$GATE" != "401" ]; then
-                echo "::error::Auth gate NOT active — unauthenticated /api/positions returned $GATE, expected 401"
-                exit 1
-              fi
-              echo "Auth gate active: unauthenticated /api/positions -> 401"
               exit 0
             fi
-            echo "attempt $i: /api/cron/health -> $CODE $(head -c 160 /tmp/body 2>/dev/null)"
+            echo "attempt $i: health=$CODE(body:$HEALTHY) gate=$GATE"
           done
-          echo "::error::Deploy unhealthy — /api/cron/health never returned a checks body"
+          echo "::error::Deploy unhealthy after 300s."
+          echo "::error::health body present=$HEALTHY, unauthenticated /api/positions=$GATE (want 401)."
+          echo "::error::A 200 on /api/positions means the auth gate is NOT running — treat as a live data leak."
           exit 1
 
       - name: Alert Discord on failure

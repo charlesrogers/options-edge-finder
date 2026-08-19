@@ -11,28 +11,50 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 /*
- * Rate limiting lives in module scope. That is a single-container in-memory
- * counter, which is exactly right here: there is one container, and the thing
- * being defended is two passwords against online guessing, not a distributed
- * credential-stuffing campaign. A Redis dependency for two users would be cost
- * and moving parts bought with nothing.
+ * Rate limiting, keyed on the LAST X-Forwarded-For hop.
  *
- * It resets on redeploy. An attacker who can time their guessing to our deploys
- * gets ~10 extra attempts; the fixed delay below is what actually bounds the
- * guess rate.
+ * The obvious `xff.split(',')[0]` is wrong and dangerous. Traefik APPENDS the
+ * peer address to X-Forwarded-For rather than replacing the header, so the first
+ * element is whatever the caller typed. Demonstrated against a real build: 8
+ * failed logins with a rotating `X-Forwarded-For: 9.9.9.$i` never tripped the
+ * limiter at all, and 12 requests spoofing a victim's address then locked that
+ * victim out using their own correct password. Simultaneously bypassable by the
+ * attacker and a denial-of-service against the real user.
+ *
+ * The LAST element is the one the trusted proxy appended, so it cannot be
+ * spoofed. It is also correct if a proxy ever *replaces* the header instead of
+ * appending — then there is one element and the last is it — so this does not
+ * depend on knowing which of the two Traefik does.
+ *
+ * Keyed rather than global on purpose. A single global counter would be
+ * unspoofable too, but it hands any stranger a way to lock Charles and Dad out
+ * of the tool for fifteen minutes at a time — and the moment that matters most
+ * is exactly when a position needs managing. Per-address, an attacker can only
+ * lock out themselves.
  */
 const WINDOW_MS = 15 * 60 * 1000
 const MAX_ATTEMPTS = 10
+/** Hard ceiling on distinct keys, so a rotating source cannot grow this without bound. */
+const MAX_TRACKED = 1000
 const attempts = new Map<string, { count: number; resetAt: number }>()
 
 /** Every failure costs the caller this long, so guessing is rate-bound even under the cap. */
 const FAILURE_DELAY_MS = 400
 
 function clientKey(request: NextRequest): string {
-  // Traefik sets x-forwarded-for. First hop is the real client.
   const xff = request.headers.get('x-forwarded-for')
-  if (xff) return xff.split(',')[0].trim()
-  return request.headers.get('x-real-ip') ?? 'unknown'
+  if (xff) {
+    const hops = xff.split(',').map((h) => h.trim()).filter(Boolean)
+    if (hops.length > 0) return hops[hops.length - 1]
+  }
+  return request.headers.get('x-real-ip') ?? 'direct'
+}
+
+/** Drop expired entries. Without this the Map only ever grows. */
+function sweep(now: number): void {
+  for (const [k, v] of attempts) {
+    if (now > v.resetAt) attempts.delete(k)
+  }
 }
 
 function tooManyAttempts(key: string, now: number): boolean {
@@ -43,11 +65,15 @@ function tooManyAttempts(key: string, now: number): boolean {
 
 function recordFailure(key: string, now: number): void {
   const rec = attempts.get(key)
-  if (!rec || now > rec.resetAt) {
-    attempts.set(key, { count: 1, resetAt: now + WINDOW_MS })
+  if (rec && now <= rec.resetAt) {
+    rec.count += 1
     return
   }
-  rec.count += 1
+  sweep(now)
+  // If the sweep did not get us under the ceiling, stop tracking new keys rather
+  // than growing memory in a container that has a hard limit.
+  if (attempts.size >= MAX_TRACKED) return
+  attempts.set(key, { count: 1, resetAt: now + WINDOW_MS })
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -105,7 +131,12 @@ export async function POST(request: NextRequest) {
   response.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,   // no script can read it, so an XSS cannot steal the session
     secure: true,     // middleware redirects http -> https, so this always travels encrypted
-    sameSite: 'lax',  // survives a normal link-click into the app; blocks cross-site POSTs
+    // Lax, not Strict, on purpose: Strict would drop the cookie when Dad opens a
+    // link to this app from a text message, showing him a login page every time.
+    // Lax alone is NOT enough — it is scoped to the site (imprevista.com), so a
+    // sibling subdomain counts as same-site — so proxy.ts additionally requires a
+    // matching Origin on every authenticated state-changing request.
+    sameSite: 'lax',
     path: '/',
     maxAge: SESSION_MAX_AGE_SECONDS,
   })

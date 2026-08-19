@@ -10,7 +10,7 @@ Consolidation moves *where* logic lives, never *what* it decides.
 | FACT-1 server monitor never ran | **CONFIRMED** | `curl -sf http://supabase-kong:8000` on host exits **6**; `&&` short-circuits. 36 cron firings in 24h, zero effect. |
 | FACT-2 GH Actions is the only live monitor | **CONFIRMED** | `position-monitor.yml` succeeding every 15 min through 2026-08-17T22:00Z. |
 | FACT-3 health 200 on fail | **CONFIRMED** | `route.ts:138` returns `NextResponse.json(...)` unconditionally. Live call: HTTP 200, `status:"warn"`. |
-| FACT-4 CRON_SECRET plaintext | **CONFIRMED** | `/etc/cron.d/coolify-apps` mode 0644, holds `options-cron-2026` + PLY bearer + `dayscore-cron-2026`. |
+| FACT-4 CRON_SECRET plaintext | **CONFIRMED** | `/etc/cron.d/coolify-apps` mode 0644, held this app's cron secret in cleartext plus PLY's bearer and DayScore's cron secret. Values redacted 2026-08-19 — writing them here published them, since this repo is public. Options' value was rotated the same day; see `tasks/security-todo.md`. **DayScore's and PLY's were also exposed and are NOT rotated.** |
 | FACT-5 weekend false alarms | **CONFIRMED** | 48h wall-clock threshold, capture runs Mon–Fri. |
 | FACT-6 three engines | **PARTLY WRONG** | Two, not three: `cron/monitor/route.ts` *imports* `assessPosition` from `copilot.ts`. Python + TS. |
 | FACT-7 SQLite fallback | **FIXED** (f194edc) | `REQUIRE_SUPABASE=1` wired into 14 workflows. |

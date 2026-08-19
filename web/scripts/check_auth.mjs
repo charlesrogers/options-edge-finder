@@ -135,5 +135,58 @@ await check('an unset account cannot be logged into with an empty password', () 
   assert.equal(A.authenticate('dad-pw', partial), null)
 })
 
+
+console.log('open-redirect protection (safeNext algorithm)')
+
+/*
+ * safeNext lives in a client component and depends on window.location, so the
+ * algorithm is restated here against a fixed origin. These are the exact inputs
+ * that defeated the previous string-prefix implementation: a browser normalises
+ * a backslash to a slash in the authority position and strips raw TAB/LF/CR
+ * before parsing, so all three of these resolved to https://evil.com/.
+ */
+const ORIGIN = 'https://options.imprevista.com'
+function safeNext(raw) {
+  if (!raw) return '/positions'
+  try {
+    const u = new URL(raw, ORIGIN)
+    if (u.origin !== ORIGIN) return '/positions'
+    return u.pathname + u.search
+  } catch {
+    return '/positions'
+  }
+}
+
+await check('rejects protocol-relative //evil.com', () => {
+  assert.equal(safeNext('//evil.com'), '/positions')
+})
+await check('rejects backslash authority /\\evil.com', () => {
+  assert.equal(safeNext('/\\evil.com'), '/positions')
+})
+await check('rejects embedded TAB  /\t/evil.com', () => {
+  assert.equal(safeNext('/\t/evil.com'), '/positions')
+})
+await check('rejects embedded LF   /\n/evil.com', () => {
+  assert.equal(safeNext('/\n/evil.com'), '/positions')
+})
+await check('rejects embedded CR   /\r/evil.com', () => {
+  assert.equal(safeNext('/\r/evil.com'), '/positions')
+})
+await check('rejects absolute http(s) to another host', () => {
+  assert.equal(safeNext('https://evil.com/x'), '/positions')
+  assert.equal(safeNext('http://evil.com/x'), '/positions')
+})
+await check('rejects javascript: and data:', () => {
+  assert.equal(safeNext('javascript:alert(1)'), '/positions')
+  assert.equal(safeNext('data:text/html,<script>alert(1)</script>'), '/positions')
+})
+await check('allows genuine same-origin paths, preserving the query', () => {
+  assert.equal(safeNext('/positions'), '/positions')
+  assert.equal(safeNext('/sell?ticker=AAPL'), '/sell?ticker=AAPL')
+})
+await check('an absolute URL on OUR origin is reduced to its path', () => {
+  assert.equal(safeNext(ORIGIN + '/positions'), '/positions')
+})
+
 console.log(failures === 0 ? '\nall auth checks passed' : `\n${failures} auth check(s) FAILED`)
 process.exit(failures === 0 ? 0 : 1)

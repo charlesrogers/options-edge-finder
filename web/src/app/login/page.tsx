@@ -12,14 +12,30 @@ import { Lock } from 'lucide-react'
  */
 
 /**
- * Only ever navigate to a path on this origin. Taking `next` at face value
- * would let a crafted link bounce a freshly-logged-in user to someone else's
- * site with our app's look and feel — the classic open redirect.
+ * Only ever navigate to a path on this origin.
+ *
+ * Do NOT hand-roll this as a string test. A `startsWith('/')` + `startsWith('//')`
+ * check looks airtight and is not: browsers normalise a backslash to a slash in
+ * the authority position, and strip raw TAB/LF/CR before parsing. All three of
+ * `/\evil.com`, `/<TAB>/evil.com` and `/<LF>/evil.com` pass that test and resolve
+ * to https://evil.com/.
+ *
+ * That is the highest-value open redirect available against this app: send Dad a
+ * link on the real domain, he sees the real login page, types the real password,
+ * and lands on a clone that asks him to "confirm" it.
+ *
+ * Resolving against the real origin and comparing origins is the check the URL
+ * parser already implements correctly.
  */
 function safeNext(raw: string | null): string {
   if (!raw) return '/positions'
-  if (!raw.startsWith('/') || raw.startsWith('//')) return '/positions'
-  return raw
+  try {
+    const url = new URL(raw, window.location.origin)
+    if (url.origin !== window.location.origin) return '/positions'
+    return url.pathname + url.search
+  } catch {
+    return '/positions'
+  }
 }
 
 function LoginForm() {
