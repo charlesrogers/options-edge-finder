@@ -1,5 +1,17 @@
 # How-It-Works 10x Spec — the evidence page that earns a 30-year veteran's trust
 
+> ## STATUS 2026-08-19 — Checkpoint 1 BUILT and APPROVED by Charles. Structure is LOCKED.
+> Branch `session/s-0818-2143` (pushed, undeployed — deploy.yml is main-only). Screenshots reviewed: `/Users/charlesrogers/Desktop/how-it-works-checkpoint1/` (5 images). Per the global locked-formats rule: the 8-section structure, the hero framing ("a six-figure tax event you did not choose the year of"), the assignment-table presentation with the read-one-cell walkthrough, the failure-disclosure chain ($351→$299→$141), and the "ranges wearing a point estimate's clothes" income framing are now LOCKED — do not restructure without Charles's explicit ask. Also delivered in checkpoint 1 (keep): the 45-cell assignment table is GENERATED from position_monitor.py (`scripts/gen_assignment_table_ts.py`) with two drift tests, both red-demonstrated; income figures are derived in-component, cap-aware ($58,112 simulated / $32,084 real-quoted-exits).
+>
+> **Binding corrections for checkpoint 2 (Charles-approved 2026-08-19):**
+> 1. **Rebuild the reliability section on live facts** — its claims were stale on arrival: the Cloudflare worker IS deployed (554a37ca, Discord fallback, secrets set); the server chain-1 cron IS live and firing (`/etc/cron.d/coolify-apps:39`, log OK 200s); Layer 1's delivery is DISCORD, not Pushover (those creds have never existed — phone path pending Charles). Since checkpoint 2 adds the live status widget anyway, derive as much of this section as possible from the health endpoint instead of static prose — infra prose rots. Post-incident note (2026-08-19): chain 1 now writes its own heartbeats (`source: hetzner-cron`); the health route no longer self-alerts; GHA's scheduler drift makes chain 1 the de-facto primary — describe the layers accordingly.
+> 2. **Fix or justify "At 8,000 shares" ($240,000)** — position size everywhere else is 10,000 shares ($300,000).
+> 3. **Fix `docs/crons.md`** — it still says the server monitor line is commented out; it was enabled 2026-08-18 ~17:00 UTC and its staleness caused two wrong claims already.
+> 4. Checkpoint 2's deploy adds a red-baselined verifier check for the removed "simulated, hold-to-expiry (Exp 022)" phrasing.
+> 5. **MEDIUM fix authorized as a SEPARATE small PR** (isolated worktree, red-baselined): paper-trade "% expired worthless" labels mislabel win_rate (scorer's ITM branch yields positive-pnl wins with expired_worthless=False); correct the labels AND verify_production_claims.py's exemption whose premise was wrong. Correctness-review verdict on PRs #14/#15: PASS (recorded 2026-08-19).
+> 6. Process rules apply verbatim: isolated worktrees, red baselines, `git show HEAD --stat`, claims-inventory row in the same PR as any new claim, and checkpoint 2 returns to Charles for visual approval before checkpoint 3.
+
+
 **Executor:** Opus 5, fresh session, working dir `/Users/charlesrogers/Documents/options-tool`
 **Sequencing:** runs AFTER `tasks/web-overhaul-spec.md` closes green (this page must be built on corrected data, never alongside stale data). Verify that first, per §0 discipline.
 **Read first:** `tasks/lessons.md`, `ticker_strategies.py` (every note), `docs/dad-pitch.md`, `results/006_covered_call_copilot.md`, `results/022_*.md`, `results/023_*.md`, `docs/claims-inventory.md` (produced by the overhaul), house design language section of `~/.claude/CLAUDE.md`, `web/CLAUDE.md`
