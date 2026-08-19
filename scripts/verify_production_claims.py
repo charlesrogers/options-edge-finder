@@ -47,6 +47,9 @@ REQUIRED = [
     (r'Liquidity cap', "KKR's cap reason is renderable on the card"),
     (r'pnlRangeLow', "the range field that stops a point estimate rendering alone"),
     (r'realFillPnl', "the real-fill figure shown against the headline"),
+    (r'per contract', "the P&L unit label — $141 without a unit reads as the total at 100x the size"),
+    (r'at your ', "the at-size line (per-contract x liquidity-capped contract count)"),
+    (r'real-fill basis', "the at-size real-fill figure where Exp 022 measured one"),
 ]
 
 # (regex, why it must be gone)
