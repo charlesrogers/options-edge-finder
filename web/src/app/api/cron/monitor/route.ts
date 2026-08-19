@@ -3,6 +3,7 @@ import { getSupabase } from '@/lib/supabase'
 import { assessPosition } from '@/lib/copilot'
 import { parseTradeRow, tradeLabel, TradeRowError } from '@/lib/trade-row'
 import { getStockPrice, getStockInfo, getOptionChain } from '@/lib/yf-proxy'
+import { timingSafeEqual } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -53,9 +54,18 @@ export async function GET(request: Request) {
   if (!CRON_SECRET) {
     return NextResponse.json({ error: 'CRON_SECRET unset — refusing to serve' }, { status: 500 })
   }
-  const url = new URL(request.url)
-  const secret = url.searchParams.get('secret') || request.headers.get('authorization')?.replace('Bearer ', '')
-  if (secret !== CRON_SECRET) {
+  /*
+   * Bearer header ONLY. The `?secret=` form used to be accepted here, which put
+   * the secret into Traefik access logs, container logs, browser history and the
+   * Referer of any outbound link — a credential that leaks by being used. No
+   * consumer used it (verified across the GitHub workflows, the Hetzner cron
+   * scripts, the Uptime Kuma monitor and the Cloudflare worker: all send the
+   * header), so removing it costs nothing.
+   *
+   * Constant-time compare, so the secret cannot be recovered a byte at a time.
+   */
+  const secret = request.headers.get('authorization')?.replace('Bearer ', '') ?? ''
+  if (!timingSafeEqual(secret, CRON_SECRET)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 

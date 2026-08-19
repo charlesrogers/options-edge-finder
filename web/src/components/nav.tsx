@@ -20,6 +20,15 @@ export function Nav() {
 
   useEffect(() => setMounted(true), [])
 
+  // The login page is the one screen you reach without a session; showing it a
+  // nav bar full of links that all bounce back to /login is just noise.
+  if (pathname === '/login') return null
+
+  async function signOut() {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    window.location.assign('/login')
+  }
+
   return (
     <nav className="sticky top-0 z-50 border-b bg-white/80 dark:bg-neutral-900/80 backdrop-blur-lg">
       <div className="max-w-7xl mx-auto px-6 flex items-center h-14">
@@ -103,10 +112,13 @@ export function Nav() {
             </button>
           )}
 
-          {/* User avatar */}
-          <div className="h-7 w-7 rounded-full bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center">
-            <span className="text-[11px] font-semibold text-white">CR</span>
-          </div>
+          {/* Sign out */}
+          <button
+            onClick={signOut}
+            className="px-2.5 py-1.5 text-[12px] font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          >
+            Sign out
+          </button>
         </div>
       </div>
     </nav>

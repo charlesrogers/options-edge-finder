@@ -10,15 +10,12 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ARG CACHEBUST=1
-# NEXT_PUBLIC_* is inlined into the client bundle at build time, so it must be
-# present here — runtime Coolify env only reaches server code. Without these,
-# browser components (trade-history, sell-recommendations) resolve them to
-# undefined and throw. These values are public by definition; never add a
-# non-NEXT_PUBLIC secret as a build arg — it would be baked into image layers.
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+# No Supabase build args any more. Nothing in the browser talks to Supabase —
+# the two client components that reference it import row TYPES, which are erased
+# at compile time — so the anon key no longer needs to be inlined into the
+# bundle, and the service-role key must never be: build args are baked into
+# image layers and readable by anyone who pulls the image. The server reads
+# SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY from Coolify runtime env instead.
 RUN npm run build
 
 FROM base AS runner

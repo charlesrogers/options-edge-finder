@@ -15,6 +15,6 @@ jobs:
       - name: Run H01-H04 through testing gate
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           REQUIRE_SUPABASE: "1"
         run: python3 run_gate_h01_h04.py

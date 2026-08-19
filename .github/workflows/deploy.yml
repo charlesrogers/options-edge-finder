@@ -26,9 +26,6 @@ jobs:
           tags: |
             ghcr.io/charlesrogers/options-edge-finder:latest
             ghcr.io/charlesrogers/options-edge-finder:${{ github.sha }}
-          build-args: |
-            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_KEY }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Deploy
@@ -38,20 +35,50 @@ jobs:
 
       # A 200 on the homepage proves nothing — Next.js error boundaries return 200,
       # and /api/positions served {"error":"Unauthorized"} for ~4 months undetected.
-      # Verify the real authenticated DB path instead.
+      #
+      # /api/positions is now behind the session gate, so "200" is no longer the
+      # healthy answer for it — 401 is, and a 200 would mean the gate is OFF.
+      # Two assertions, because each catches what the other cannot:
+      #   1. /api/cron/health, bearer-authenticated, returns a body with "checks".
+      #      That proves the container is up AND the service-role DB path works.
+      #      Its HTTP code may legitimately be 503 (a stale heartbeat is a real
+      #      alert, not a broken deploy), so assert on the body, not the code.
+      #   2. /api/positions returns 401 unauthenticated. That proves the auth
+      #      middleware is live in the image we just shipped.
       - name: Verify deploy is healthy
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          for i in $(seq 1 20); do
+          if [ -z "$CRON_SECRET" ]; then echo "::error::CRON_SECRET unset"; exit 1; fi
+          # BOTH conditions must hold in the SAME poll iteration, and neither may
+          # exit the loop early. At t=10s Coolify is still pulling the image, so
+          # the OLD container answers: it already serves a "checks" body, and it
+          # has no auth gate, so a structure that asserts the gate the first time
+          # the health body appears fails every deploy against the previous
+          # container. Asking for both together means the loop simply waits until
+          # the new image is the one replying.
+          for i in $(seq 1 30); do
             sleep 10
-            CODE=$(curl -s -o /tmp/body -w '%{http_code}' https://options.imprevista.com/api/positions || true)
-            if [ "$CODE" = "200" ]; then
-              echo "Healthy after $((i*10))s: /api/positions -> 200"
-              cat /tmp/body | head -c 200; echo
+            CODE=$(curl -s -o /tmp/body -w '%{http_code}' --max-time 30 \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              https://options.imprevista.com/api/cron/health || true)
+            GATE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
+              https://options.imprevista.com/api/positions || true)
+
+            HEALTHY=no; grep -q '"checks"' /tmp/body 2>/dev/null && HEALTHY=yes
+
+            if [ "$HEALTHY" = "yes" ] && [ "$GATE" = "401" ]; then
+              echo "Healthy after $((i*10))s"
+              echo "  /api/cron/health  -> $CODE with a checks body (service-role DB path works)"
+              echo "  /api/positions    -> 401 unauthenticated (auth gate is live in THIS image)"
+              head -c 300 /tmp/body; echo
               exit 0
             fi
-            echo "attempt $i: /api/positions -> $CODE $(head -c 120 /tmp/body 2>/dev/null)"
+            echo "attempt $i: health=$CODE(body:$HEALTHY) gate=$GATE"
           done
-          echo "::error::Deploy unhealthy — /api/positions never returned 200"
+          echo "::error::Deploy unhealthy after 300s."
+          echo "::error::health body present=$HEALTHY, unauthenticated /api/positions=$GATE (want 401)."
+          echo "::error::A 200 on /api/positions means the auth gate is NOT running — treat as a live data leak."
           exit 1
 
       - name: Alert Discord on failure
