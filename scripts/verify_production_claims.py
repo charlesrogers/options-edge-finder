@@ -55,7 +55,7 @@ REQUIRED = [
 
 # (regex, why it must be gone)
 FORBIDDEN = [
-    (r'expired worthless', "misdescribes wins — most exits are early buybacks, not expiry"),
+    (r'of simulated trades expired worthless|trades where the option expired worthless', "misdescribes cc_sim wins — Exp 022 ran the copilot policy, wins include early buybacks. (Paper-trade pages legitimately say 'expired worthless': that scorer IS hold-to-expiry.)"),
     (r'expectedPnl:\s*351\b', "AAPL's fossil P&L ($351)"),
     (r'expectedPnl:\s*822\b', "DIS's fossil P&L ($822)"),
     (r'expectedPnl:\s*447\b', "TMUS's fossil P&L ($447)"),
