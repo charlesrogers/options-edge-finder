@@ -760,3 +760,9 @@ withheld and why. A published claim may sit below the best available measurement
 **Why it's wrong:** Two independent safety nets failed the same way — both trusted state they didn't control. A shared working tree is not yours between two commands; a verification check that has never been seen to fail proves nothing.
 **Rule:** (1) Commits for any change go through an ISOLATED git worktree (`git worktree add <tmp> origin/main`), never the shared checkout, and `git show HEAD --stat` must list every intended file before pushing. (2) Every new acceptance check gets a demonstrated RED baseline against the current live target before it is trusted — a check born green is presumed vacuous.
 **Category:** mistake
+
+### 2026-08-19 — One stale heartbeat produced an alert per minute for hours
+**What went wrong:** The health route both reported AND alerted (Discord post on every failing evaluation); Uptime Kuma polls it every 60s; and only the GHA Python monitor wrote heartbeats while the server chain fired every 15 min uncounted. GHA's cron drifted (one run all morning), the 35-min freshness check tripped on a system that was actually monitoring, and the route's self-alerting turned Kuma's polls into a message a minute.
+**Why it's wrong:** Two layering errors: (1) a health endpoint that alerts converts every poller into an alerter — reporting and alerting must be separated, with alerting owned by callers that have cadence/state-change semantics; (2) freshness checks must credit every monitoring chain that actually runs, or they measure the flakiest scheduler instead of coverage.
+**Rule:** Health endpoints report status codes only; alerting lives in the scheduled callers (dedup by cadence) and state-change monitors. Every independent monitoring chain writes its own heartbeat to the shared store, and freshness reads the freshest across chains. Never build a per-evaluation alert into anything a 60s poller will hit.
+**Category:** mistake
