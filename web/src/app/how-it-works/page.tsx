@@ -1,6 +1,10 @@
 import { TICKER_STRATEGIES, TIER_CONFIG, DEFAULT_IV_THRESHOLD } from '@/lib/strategies'
 import { ASSIGNMENT_TABLE_N } from '@/lib/assignment-table'
-import { AssignmentTable } from './assignment-table'
+import { AssignmentHeatmap } from './assignment-heatmap'
+import { ExitCostChart } from './exit-cost-chart'
+import { GraveyardScorecard } from './graveyard-scorecard'
+import { LiveStatus } from './live-status'
+import { ReliabilityChains } from './reliability-chains'
 
 /*
  * ── What this page is ──────────────────────────────────────────────────────
@@ -21,11 +25,12 @@ import { AssignmentTable } from './assignment-table'
  *     product's whole correction programme exists to kill.
  *
  * ── Checkpoint status ──────────────────────────────────────────────────────
- * CHECKPOINT 1 (this pass): content and information architecture, static.
- * CHECKPOINT 2: the assignment heatmap, the close-now chart, the reliability
- *   diagram, the LIVE status widget and the LIVE graveyard counts. Every
- *   placeholder for those is marked `CHECKPOINT 2` inline and renders an
- *   honest "not wired yet" state rather than a plausible fake.
+ * CHECKPOINT 1: content and information architecture, static.
+ * CHECKPOINT 2 (this pass): the assignment heatmap and the exit-cost chart
+ *   (dataviz skill; palettes validated in both modes, see globals.css), the
+ *   reliability lanes rebuilt on facts verified against the live server, and
+ *   the two LIVE widgets — heartbeat status and the graveyard scorecard —
+ *   reading /api/status and /api/graveyard. No placeholder remains.
  * CHECKPOINT 3: polish.
  */
 
@@ -89,9 +94,10 @@ const TIER_FALLBACK_BADGE =
 
 /*
  * The ladder, transcribed from position_monitor.assess_position() in priority
- * order. CHECKPOINT 2 should consider generating this the way the probability
- * table is generated — the trigger conditions are executable code and this is
- * a second copy of them. Flagged, not silently accepted.
+ * order. This is a second copy of executable trigger conditions and should be
+ * generated the way the probability table is — the drift test that guards
+ * assignment-table.ts has no counterpart here. Carried into checkpoint 3 as
+ * known debt rather than silently accepted.
  */
 const LADDER = [
   {
@@ -136,13 +142,6 @@ const LADDER = [
   },
 ]
 
-/* Exp 006, Monte Carlo tail table at 14 DTE (480,000 paths). Per share. */
-const TAIL_RISK = [
-  { position: '3% OTM', closeNow: 3.75, waitP99: 34.44 },
-  { position: '1% OTM', closeNow: 5.87, waitP99: 40.51 },
-  { position: 'At the money', closeNow: 7.17, waitP99: 43.54 },
-  { position: '1% ITM', closeNow: 8.62, waitP99: 46.58 },
-]
 
 export default function HowItWorksPage() {
   return (
@@ -186,7 +185,7 @@ export default function HowItWorksPage() {
           </p>
         </div>
 
-        <AssignmentTable />
+        <AssignmentHeatmap />
 
         <div className="rounded-xl border bg-card shadow-sm shadow-black/[0.04] overflow-hidden">
           {LADDER.map((l) => (
@@ -229,52 +228,7 @@ export default function HowItWorksPage() {
           </p>
         </div>
 
-        <div className="rounded-xl border bg-card shadow-sm shadow-black/[0.04] overflow-hidden">
-          <div className="px-5 pt-4 pb-3 border-b">
-            <p className="text-[14px] font-semibold text-foreground">
-              The tail is the argument
-            </p>
-            <p className="text-[12px] text-muted-foreground mt-0.5 leading-relaxed">
-              Buyback cost per share at 14 days to expiry: closing now, versus the 99th
-              percentile of waiting. 480,000 simulated paths (Experiment 006). The averages
-              favour closing by $8&ndash;21/share; the tail is where it stops being a preference.
-            </p>
-          </div>
-          <div className="grid grid-cols-4 border-b bg-muted/40">
-            {['Position', 'Close now', 'Wait (99th pctl)', 'Difference'].map((h, i) => (
-              <div
-                key={h}
-                className={`px-4 py-2 text-[11px] font-semibold text-muted-foreground ${i === 0 ? '' : 'text-right'}`}
-              >
-                {h}
-              </div>
-            ))}
-          </div>
-          {TAIL_RISK.map((r) => (
-            <div key={r.position} className="grid grid-cols-4 border-b last:border-b-0">
-              <div className="px-4 py-2.5 text-[12px] font-medium text-foreground">
-                {r.position}
-              </div>
-              <div className="px-4 py-2.5 text-[12px] text-right tabular-nums text-foreground">
-                ${r.closeNow.toFixed(2)}
-              </div>
-              <div className="px-4 py-2.5 text-[12px] text-right tabular-nums text-foreground">
-                ${r.waitP99.toFixed(2)}
-              </div>
-              <div className="px-4 py-2.5 text-[12px] text-right tabular-nums font-semibold text-red-600 dark:text-red-400">
-                ${(r.waitP99 - r.closeNow).toFixed(2)}
-              </div>
-            </div>
-          ))}
-          <div className="px-5 py-3 border-t bg-muted/20">
-            <p className="text-[11px] text-muted-foreground leading-relaxed">
-              At 8,000 shares, a $30/share tail is $240,000. You are not buying back to make
-              money on the buyback. You are buying out of the tail.
-            </p>
-          </div>
-        </div>
-
-        {/* CHECKPOINT 2: this table becomes a chart (dataviz skill first). */}
+        <ExitCostChart sharesPerTicker={SHARES_PER_TICKER} />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-xl border bg-card shadow-sm shadow-black/[0.04] px-5 py-4">
@@ -427,7 +381,8 @@ export default function HowItWorksPage() {
               {DEFAULT_IV_THRESHOLD}. Experiment 023 put that rule on trial per ticker on holdout
               data. It beat no gate for AAPL, DIS and KKR; DIS earned its own threshold of 75 and
               is the only ticker that moved. On TMUS the gate{' '}
-              <span className="font-medium text-foreground">failed</span> &mdash; it blocks 109
+              <span className="font-medium text-foreground">failed</span>{' '}
+              &mdash; it blocks 109
               entries averaging +$48 and keeps the losers &mdash; and it stays live there only
               because loosening a restriction needs its own experiment. It is the first
               pre-registered clause in this programme to pass anything.
@@ -466,18 +421,7 @@ export default function HowItWorksPage() {
           </p>
         </div>
 
-        {/* CHECKPOINT 2: live counts from signal_graveyard via the API. */}
-        <div className="rounded-xl border border-dashed bg-muted/20 px-5 py-4">
-          <p className="text-[12px] font-semibold text-muted-foreground">
-            CHECKPOINT 2 — graveyard scorecard
-          </p>
-          <p className="mt-1 text-[11px] text-muted-foreground/70 leading-relaxed">
-            N hypotheses registered · M failed · K deployed, read live from{' '}
-            <code className="text-[10px]">signal_graveyard</code>. Deliberately left blank rather
-            than filled with a plausible constant: a hardcoded count that looks live is the
-            precise defect this page is about.
-          </p>
-        </div>
+        <GraveyardScorecard />
 
         <div className="rounded-xl border bg-card shadow-sm shadow-black/[0.04] overflow-hidden">
           <div className="px-5 pt-4 pb-3 border-b">
@@ -545,75 +489,46 @@ export default function HowItWorksPage() {
           </p>
         </div>
 
-        <div className="rounded-xl border bg-card shadow-sm shadow-black/[0.04] overflow-hidden">
-          {[
-            {
-              layer: 'Layer 1 — the monitor',
-              what: 'GitHub Actions runs the Python assessment engine every 15 minutes through market hours, sends the Pushover alert, and writes a heartbeat.',
-              fail: 'If it stops, the heartbeat goes stale and the health endpoint returns 503.',
-              state: 'live' as const,
-            },
-            {
-              layer: 'Layer 2 — the inner watchdog',
-              what: 'A cron on a Hetzner server polls the health endpoint every 30 minutes during market hours and twice overnight, and pages Discord and Pushover on a bad response or a timeout.',
-              fail: 'It alerts on its own failure. Different provider from layer 1, so a GitHub outage cannot silence both.',
-              state: 'live' as const,
-            },
-            {
-              layer: 'Layer 3 — the outer watchdog',
-              what: 'A Cloudflare Worker polls the same endpoint every 30 minutes from a third provider, one that GitHub cannot disable.',
-              fail: 'Nothing watches the watcher — this is accepted residual risk, covered by a monthly fire drill.',
-              state: 'not-deployed' as const,
-            },
-          ].map((l) => (
-            <div key={l.layer} className="border-b last:border-b-0 px-5 py-4">
-              <div className="flex items-center gap-2">
-                <p className="text-[13px] font-semibold text-foreground">{l.layer}</p>
-                {l.state === 'not-deployed' && (
-                  <span className="inline-flex items-center rounded-4xl px-2 py-0.5 text-[10px] font-medium ring-1 ring-inset bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 ring-amber-600/20">
-                    Not deployed yet
-                  </span>
-                )}
-              </div>
-              <p className="mt-1.5 text-[12px] text-muted-foreground leading-relaxed">{l.what}</p>
-              <p className="mt-1 text-[11px] text-muted-foreground/70 leading-relaxed">
-                <span className="font-medium">How you would know it died:</span> {l.fail}
-              </p>
-            </div>
-          ))}
-        </div>
+        <ReliabilityChains />
+
+        <LiveStatus />
 
         <div className="rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50/50 dark:bg-amber-500/5 px-5 py-4">
           <p className="text-[13px] font-semibold text-amber-800 dark:text-amber-300">
-            Stated plainly: two of the three layers are not fully in place
+            Stated plainly: what is still missing
           </p>
           <div className="mt-2 space-y-2 text-[12px] text-amber-800/80 dark:text-amber-300/80 leading-relaxed">
             <p>
-              The Cloudflare outer loop is written but not deployed &mdash; it needs a login and
-              three secrets. And a server-side 15-minute monitor line was found to have never once
-              executed: it guarded on a Docker-network hostname that cannot resolve from the host,
-              so the shell short-circuited every run for months. An auditor reading the crontab
-              saw monitoring coverage that did not exist, which is worse than seeing none.
+              <span className="font-semibold">No alert reaches a phone.</span>{' '}
+              Every channel above
+              posts to Discord. Pushover &mdash; the push that repeats until acknowledged, which is
+              the only kind of alert that survives a Saturday &mdash; has never been configured, so
+              every route that tries it logs{' '}
+              <code className="text-[11px]">ALERT UNDELIVERED</code> and moves on. Until it is set
+              up, the tool is only as fast as the reader checking Discord.
             </p>
             <p>
-              It is commented out rather than quietly repaired, because the route it called has no
-              Pushover credential and would have delivered nothing.
+              <span className="font-semibold">The two engines have never been diffed.</span>{' '}
+              The two
+              assessment chains run different code &mdash; a TypeScript engine and a Python one
+              &mdash; against the same positions, on purpose. Nothing currently proves they return
+              the same alert level for the same position. A parity harness is specified
+              (tasks/engine-parity-spec.md) and not yet built; until it is, the second chain is
+              redundancy against silence, not against a wrong verdict.
+            </p>
+            <p>
+              <span className="font-semibold">The site has no login.</span> Positions and holdings
+              are served without authentication and the database has no row-level security. That
+              is a specified, unbuilt piece of work, not an oversight discovered here.
+            </p>
+            <p>
+              <span className="font-semibold">The outer watchdog is untested in anger.</span>{' '}
+              It is
+              deployed and answering, but the monthly trip-test that would prove it still pages
+              &mdash; break the health endpoint on purpose, confirm the alert arrives &mdash; is
+              not on a schedule. An untripped dead-man&rsquo;s switch is an assumption.
             </p>
           </div>
-        </div>
-
-        {/* CHECKPOINT 2: live heartbeat/capture-age widget. */}
-        <div className="rounded-xl border border-dashed bg-muted/20 px-5 py-4">
-          <p className="text-[12px] font-semibold text-muted-foreground">
-            CHECKPOINT 2 — live status widget
-          </p>
-          <p className="mt-1 text-[11px] text-muted-foreground/70 leading-relaxed">
-            Monitor heartbeat age, last chain-capture age, health state, with timestamps — the
-            page proving the system is awake as you read it. Blocked on one design question:{' '}
-            <code className="text-[10px]">/api/cron/health</code> requires a bearer token today,
-            so this needs a public read-only projection of the heartbeat rather than exposing the
-            authenticated route. Flagged for the security session.
-          </p>
         </div>
       </section>
 
@@ -779,7 +694,8 @@ export default function HowItWorksPage() {
               the same generated file.
             </p>
             <p>
-              <span className="font-medium text-foreground">The strike rules.</span> Experiment
+              <span className="font-medium text-foreground">The strike rules.</span>{' '}
+              Experiment
               014, walk-forward: trained on the first 67% of history, tested on the last 33%,
               verified to be outside the bug&rsquo;s blast radius. When 3% out proved too
               aggressive for TMUS, that test caught it and the strike moved to 15%.
@@ -792,7 +708,8 @@ export default function HowItWorksPage() {
               the median of 25 staggered chains.
             </p>
             <p>
-              <span className="font-medium text-foreground">Repricing coverage.</span> A simulated
+              <span className="font-medium text-foreground">Repricing coverage.</span>{' '}
+              A simulated
               exit is only as good as the quote behind it. Where no real print existed the engine
               carried the last price forward, so each ticker carries the share of exits that
               repriced against a real quote &mdash; 97% for AAPL, 56% for TMUS, 36% for KKR.

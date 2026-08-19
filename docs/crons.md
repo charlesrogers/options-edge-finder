@@ -12,7 +12,7 @@ written down what "alive" looks like.
 **Rule: three consecutive failures of any job below is an incident, not noise.
 A job with no failure-detection path does not ship.**
 
-Last verified: **2026-08-18**.
+Last verified: **2026-08-19** (Hetzner and Cloudflare sections re-verified against the live server; see the correction note at the end).
 
 ---
 
@@ -54,16 +54,16 @@ schedules are off and check `gh workflow list --all`.
 
 | Schedule (UTC) | Command | What it does | How you'd know it died |
 |---|---|---|---|
-| `*/30 13-21 * * 1-5` | `/usr/local/bin/options-health-check.sh` | Inner loop: curls `/api/cron/health`, alerts Discord + Pushover on non-200 or timeout | It alerts on its own failure. Silence for a full market day with no Cloudflare alert either means all three layers are down — the case the monthly drill exists to catch |
+| `*/15 13-21 * * 1-5` | `/usr/local/bin/options-monitor.sh` | **Chain 1, safety-critical.** Calls `/api/cron/monitor` (TypeScript engine) with a Bearer token, then writes its own `role=chain1` heartbeat and verifies the write by reading the response back | `/var/log/options-monitor.log` records every run. On a non-200 it posts to Discord; on a heartbeat that does not persist it logs `HEARTBEAT WRITE FAILED`. Its silence also shows up as heartbeat staleness in `/api/cron/health` |
+| `*/30 13-21 * * 1-5` | `/usr/local/bin/options-health-check.sh` | Inner loop: curls `/api/cron/health`, alerts Discord + Pushover on non-200 or timeout | It alerts on its own failure. Silence for a full market day with no Cloudflare alert either means all layers are down — the case the monthly drill exists to catch |
 | `20 1,7 * * *` | same | Off-hours baseline | as above |
-| *(disabled)* | position monitor | See below | — |
 
 `/var/log/options-copilot.log` records every run, including
 `ALERT UNDELIVERED` lines when a channel is unconfigured.
 
-### The disabled position-monitor line
+### The position-monitor line: previously dead, enabled 2026-08-18
 
-It read:
+Until 2026-08-18 this entry read:
 
 ```
 */15 13-21 * * 1-5 root curl -sf "http://supabase-kong:8000" >/dev/null 2>&1 \
@@ -75,10 +75,20 @@ exits **6** (could not resolve host), so the `&&` short-circuited every time. It
 had never once called the monitor. An auditor reading the crontab saw 15-minute
 monitoring coverage that did not exist, which is worse than seeing nothing.
 
-It is commented out rather than repaired, because the route it calls has no
-`PUSHOVER_TOKEN` in Coolify and would deliver nothing. **To enable the real
-thing**, fill in `/etc/options-copilot.env` and install
-`/usr/local/bin/options-monitor.sh` (see `deploy/hetzner/README.md`).
+**It is now live.** The guard is gone, credentials moved to
+`/etc/options-copilot.env` (mode 600), and the line runs
+`/usr/local/bin/options-monitor.sh`. It was enabled at roughly 17:00 UTC on
+2026-08-18 and `/var/log/options-monitor.log` shows the 15-minute cadence from
+that point on. This file described it as disabled for nine hours after it
+started firing — which is why /how-it-works reads chain liveness from
+`/api/status` at render time rather than from prose in a document.
+
+**What it still cannot do:** `/api/cron/monitor` delivers position alerts
+through Pushover only, and no `PUSHOVER_TOKEN` exists in Coolify, so an
+EMERGENCY raised by this chain is logged `NOT DELIVERED` and reaches nobody.
+Chain 2 (GitHub Actions) covers the same positions and does deliver, via
+Discord. Until Pushover is configured, chain 1's value is coverage plus a
+verified heartbeat, not delivery.
 
 ### Other apps sharing this file
 
@@ -93,10 +103,15 @@ Discord on failure once `DISCORD_WEBHOOK` is set in the respective env file.
 
 | Worker | Schedule (UTC) | What it does | How you'd know it died |
 |---|---|---|---|
-| `yfinance-proxy` | `*/30 * * * *` | Outer loop: polls `/api/cron/health`, pushes to Charles's phone on non-200 or timeout | **Nothing watches this.** Accepted residual risk — all three layers would have to fail silently at once. The monthly drill in `docs/fire-drill.md` is the mitigation |
+| `yfinance-proxy` | `*/30 * * * *` | Outer loop: polls `/api/cron/health` with `HEALTH_CRON_SECRET`, alerts on non-200 or timeout — Discord, with Pushover attempted first | **Nothing watches this.** Accepted residual risk — every layer would have to fail silently at once. The monthly drill in `docs/fire-drill.md` is the mitigation, and it is not yet on a schedule |
 
-**Not deployed yet.** Code is in `yfinance-proxy/`; deploying needs a Cloudflare
-login and three secrets. See `deploy/hetzner/README.md`.
+**Deployed.** Version `554a37ca`, with the Discord fallback and its secrets set.
+`https://yfinance-proxy.charlesrogers.workers.dev/health` answers 200. This file
+said "not deployed yet" after it had shipped; that claim is retired.
+
+**It is a consumer of `CRON_SECRET`.** The worker holds the value as
+`HEALTH_CRON_SECRET` and it must be rotated with every other consumer — see the
+enumeration rule below.
 
 ---
 
@@ -128,3 +143,28 @@ blind spot that has already burned this stack. Not yet changed.
   providers that would both alert for one event. Hetzner now runs every 30 min
   during market hours plus `20 1,7`; the `0 */6` slot belongs to GitHub Actions
   alone.
+
+
+---
+
+## Correction note — 2026-08-19
+
+Two entries in this file were wrong at the same time, in the same direction:
+both understated what was running. The position-monitor line was described as
+disabled for nine hours after it was enabled, and the Cloudflare worker was
+described as undeployed after it had shipped. Nobody was misled by a lie about
+uptime; they were misled by a document that had stopped tracking the system.
+
+Two consequences, both acted on:
+
+1. **/how-it-works no longer sources liveness from prose.** It reads
+   `/api/status` at render time, which reads the same `monitor_heartbeats` table
+   and applies the same staleness constant as `/api/cron/health`. A claim that
+   can rot within the hour is not written down; it is queried.
+2. **`CRON_SECRET` has six consumers, not four.** Coolify env, GitHub secrets,
+   `/etc/options-copilot.env` (used by BOTH `options-monitor.sh` and
+   `options-health-check.sh`), the Cloudflare worker's `HEALTH_CRON_SECRET`, and
+   the Uptime Kuma monitor's auth header. A rotation on 2026-08-19 that reached
+   the consumers before the container produced 401s on chain 1 within one
+   15-minute tick — the drift class CLAUDE.md already warns about, observed
+   again. Enumerate all six, every time.
