@@ -46,6 +46,17 @@ jobs:
       - name: Auth primitives
         run: node --experimental-strip-types web/scripts/check_auth.mjs
 
+      # The two pure-TS modules behind the /positions staleness banner and the
+      # /how-it-works live widgets. Both only tell the truth in states you
+      # cannot produce by looking at the page — a stale chain, a failed run, an
+      # unrecognised graveyard status — so they are exercised against fixtures.
+      # Neither was running in CI before, which is the same "a check nobody
+      # runs" shape as a red cron. Placed after Set up Node, which they need.
+      - name: Pure-logic fixtures (freshness, live evidence)
+        run: |
+          node --experimental-strip-types scripts/check_freshness_fixture.mjs
+          node --experimental-strip-types scripts/check_live_evidence_fixture.mjs
+
       # The NYSE session list is generated from `exchange_calendars`, not
       # maintained by hand (spec A6). If the library revises a holiday or the
       # committed range runs short, this fails here rather than silently

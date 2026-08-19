@@ -30,7 +30,7 @@ CHUNK_RE = re.compile(r'/_next/static/chunks/[A-Za-z0-9~_.\-]+\.js')
 # `\s*` tolerates whether the minifier kept the space after the colon.
 #
 # (regex, why it must be there)
-REQUIRED = [
+SELL_REQUIRED = [
     (r'expectedPnl:\s*141\b', "AAPL's corrected expected P&L ($141)"),
     (r'expectedWinRate:\s*91\b', "AAPL's corrected win rate (91%)"),
     (r'expectedPnl:\s*267\b', "DIS's corrected expected P&L ($267)"),
@@ -54,7 +54,7 @@ REQUIRED = [
 ]
 
 # (regex, why it must be gone)
-FORBIDDEN = [
+SELL_FORBIDDEN = [
     (r'of simulated trades expired worthless|trades where the option expired worthless', "misdescribes cc_sim wins — Exp 022 ran the copilot policy, wins include early buybacks. (Paper-trade pages legitimately say 'expired worthless': that scorer IS hold-to-expiry.)"),
     (r'expectedPnl:\s*351\b', "AAPL's fossil P&L ($351)"),
     (r'expectedPnl:\s*822\b', "DIS's fossil P&L ($822)"),
@@ -65,6 +65,42 @@ FORBIDDEN = [
     (r'204% P&L', "the invalidated Exp 009 headline"),
     (r'never loses', "AAPL's 'never loses' note"),
     (r'Experiment 009', "the Exp 009 attribution on the IV caption"),
+]
+
+
+# ── /how-it-works ─────────────────────────────────────────────────────────────
+#
+# This page argues that the system reports its own failures. That argument dies
+# the moment the page serves a claim the rest of the site has already retired,
+# which it did: the Win Rates metric card read "simulated, hold-to-expiry
+# (Exp 022)" while the prose directly beneath it explained that the definition
+# was corrected. Removing it from the source is not enough — the fossil bug is
+# always about what the browser receives, so the phrase is asserted absent here.
+
+HOW_REQUIRED = [
+    (r'/api/status', "the live status widget's public endpoint reaches the browser"),
+    (r'/api/graveyard', "the graveyard scorecard's public endpoint reaches the browser"),
+    (r'Chain 1', "the reliability lanes render (chain 1 is the server cron)"),
+    (r'ALERT UNDELIVERED|delivered nowhere',
+     "the Pushover delivery gap is stated on the page, not only in the docs"),
+]
+
+HOW_FORBIDDEN = [
+    (r'simulated, hold-to-expiry \(Exp 022\)',
+     "the retired win-rate definition — Exp 022 ran the copilot's own exits, "
+     "early buybacks included, so 'hold-to-expiry' describes a policy the "
+     "measurement did not use"),
+    (r'At 8,000 shares',
+     "the 8,000-share tail figure — every other number on the page is stated at "
+     "the 10,000-share book, and the dollars are now derived from it"),
+    (r'CHECKPOINT 2', "a checkpoint placeholder shipped to production"),
+    (r'Not deployed yet',
+     "the stale 'Cloudflare worker not deployed' badge — it shipped at 554a37ca"),
+]
+
+PAGES = [
+    ("/sell", SELL_REQUIRED, SELL_FORBIDDEN),
+    ("/how-it-works", HOW_REQUIRED, HOW_FORBIDDEN),
 ]
 
 
@@ -91,25 +127,27 @@ def main() -> int:
     ap.add_argument("--base", default=DEFAULT_BASE)
     args = ap.parse_args()
 
-    print(f"Fetching {args.base}/sell and its chunks...")
-    blob = gather(args.base, "/sell")
-    print(f"  {len(blob):,} bytes of HTML + JS\n")
-
     failures = []
 
-    print("REQUIRED — the corrected values must be present:")
-    for pattern, why in REQUIRED:
-        ok = re.search(pattern, blob) is not None
-        print(f"  [{'OK ' if ok else 'MISS'}] {pattern:34} {why}")
-        if not ok:
-            failures.append(f"missing /{pattern}/ ({why})")
+    for path, required, forbidden in PAGES:
+        print(f"Fetching {args.base}{path} and its chunks...")
+        blob = gather(args.base, path)
+        print(f"  {len(blob):,} bytes of HTML + JS\n")
 
-    print("\nFORBIDDEN — the fossil values must be gone:")
-    for pattern, why in FORBIDDEN:
-        hit = re.search(pattern, blob)
-        print(f"  [{'OK ' if not hit else 'FAIL'}] {pattern:34} {why}")
-        if hit:
-            failures.append(f"still serving /{pattern}/ ({why})")
+        print(f"REQUIRED on {path} — the corrected values must be present:")
+        for pattern, why in required:
+            ok = re.search(pattern, blob) is not None
+            print(f"  [{'OK ' if ok else 'MISS'}] {pattern:34} {why}")
+            if not ok:
+                failures.append(f"{path}: missing /{pattern}/ ({why})")
+
+        print(f"\nFORBIDDEN on {path} — the fossil values must be gone:")
+        for pattern, why in forbidden:
+            hit = re.search(pattern, blob)
+            print(f"  [{'OK ' if not hit else 'FAIL'}] {pattern:34} {why}")
+            if hit:
+                failures.append(f"{path}: still serving /{pattern}/ ({why})")
+        print()
 
     print("\nSCORECARD — provenance split must be published:")
     try:

@@ -72,6 +72,33 @@
   --chart-3: oklch(0.65 0.18 45);
   --chart-4: oklch(0.55 0.22 25);
   --chart-5: oklch(0.50 0.15 300);
+
+  /*
+   * Sequential ramp for the /how-it-works assignment heatmap. Magnitude, so:
+   * one hue, monotone lightness, light -> dark. NOT the status colours — those
+   * stay reserved for the alert ladder's five levels.
+   *
+   * Validated with the dataviz skill's ordinal checks (monotone L, adjacent
+   * dL >= 0.06, lightest step >= 2:1 on the card surface, single hue) against
+   * the card surface #ffffff. sRGB equivalents that were validated:
+   *   #e6a49e #ea7d76 #e9504d #d9212d #bb061e
+   * Do not nudge a step by eye. Re-run:
+   *   node <dataviz>/scripts/validate_palette.js "<hexes>" --ordinal \
+   *        --mode light --surface "#ffffff"
+   *
+   * -fg is chosen by the fill's lightness so cell labels always clear contrast.
+   */
+  --risk-1: oklch(0.78 0.080 25);
+  --risk-2: oklch(0.71 0.135 25);
+  --risk-3: oklch(0.64 0.190 25);
+  --risk-4: oklch(0.57 0.215 25);
+  --risk-5: oklch(0.50 0.200 25);
+  --risk-1-fg: oklch(0.20 0.05 25);
+  --risk-2-fg: oklch(0.20 0.05 25);
+  --risk-3-fg: oklch(0.20 0.05 25);
+  --risk-4-fg: oklch(0.99 0 0);
+  --risk-5-fg: oklch(0.99 0 0);
+
   --radius: 0.5rem;
   --sidebar: oklch(0.985 0.002 250);
   --sidebar-foreground: oklch(0.16 0.02 260);
@@ -107,6 +134,24 @@
   --chart-3: oklch(0.70 0.18 45);
   --chart-4: oklch(0.65 0.20 22);
   --chart-5: oklch(0.60 0.15 300);
+
+  /*
+   * The dark ramp is selected, not flipped: the anchor moves to the dark end so
+   * low magnitude recedes into the surface in both modes. Validated the same
+   * way against the dark card surface #12151b. sRGB equivalents validated:
+   *   #901d27 #b7162d #d42e3d #e94f55 #fe6b6d
+   */
+  --risk-1: oklch(0.43 0.150 22);
+  --risk-2: oklch(0.50 0.190 22);
+  --risk-3: oklch(0.57 0.200 22);
+  --risk-4: oklch(0.64 0.190 22);
+  --risk-5: oklch(0.71 0.180 22);
+  --risk-1-fg: oklch(0.98 0 0);
+  --risk-2-fg: oklch(0.98 0 0);
+  --risk-3-fg: oklch(0.98 0 0);
+  --risk-4-fg: oklch(0.16 0.04 22);
+  --risk-5-fg: oklch(0.16 0.04 22);
+
   --sidebar: oklch(0.195 0.013 260);
   --sidebar-foreground: oklch(0.92 0.005 250);
   --sidebar-primary: oklch(0.62 0.19 265);

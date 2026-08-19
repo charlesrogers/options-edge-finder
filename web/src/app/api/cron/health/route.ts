@@ -2,14 +2,17 @@ import { NextResponse } from 'next/server'
 import { getSupabase } from '@/lib/supabase'
 import { calendarRange, isMarketOpen, tradingDaysSince } from '@/lib/market-calendar'
 import { timingSafeEqual } from '@/lib/auth'
+import { HEARTBEAT_STALE_MINUTES } from '@/lib/live-evidence'
 
 export const dynamic = 'force-dynamic'
 
 const CRON_SECRET = process.env.CRON_SECRET ?? ''
 // Webhook URLs are secrets — this repo is public, so it must never be inlined here.
 
-// One monitor cycle is 15 minutes. Two missed cycles is a real outage, not jitter.
-const HEARTBEAT_STALE_MINUTES = 35
+// HEARTBEAT_STALE_MINUTES lives in lib/live-evidence.ts because /api/status and
+// the /how-it-works widget publish the same judgement to the reader. A second
+// copy here would let the page call a monitor "live" that this endpoint is
+// already paging about.
 
 interface Check {
   name: string
