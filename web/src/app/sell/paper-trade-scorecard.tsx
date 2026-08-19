@@ -154,7 +154,7 @@ export function PaperTradeScorecard() {
             <div className="rounded-lg border bg-muted/30 px-4 py-3">
               <p className="text-[11px] text-muted-foreground leading-relaxed">
                 <span className="font-medium text-foreground">
-                  {synthetic.scored} scored trades ({synthetic.win_rate}% expired worthless,{' '}
+                  {synthetic.scored} scored trades ({synthetic.win_rate}% ended profitable,{' '}
                   {(synthetic.avg_pnl ?? 0) >= 0 ? '+' : ''}{synthetic.avg_pnl}% avg)
                 </span>{' '}
                 are synthetic: priced with Black-Scholes off stock history by the backfill

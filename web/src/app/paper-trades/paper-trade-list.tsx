@@ -150,7 +150,7 @@ export function PaperTradeList() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Paper Trade Analysis</h1>
           <p className="text-[13px] text-muted-foreground mt-1">
-            {stats.scored} scored / {stats.total} tracked · {stats.win_rate}% expired worthless
+            {stats.scored} scored / {stats.total} tracked · {stats.win_rate}% ended profitable
             {stats.since && ` · Since ${new Date(stats.since).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`}
           </p>
           <p className="text-[12px] text-muted-foreground/70 mt-0.5">
@@ -338,7 +338,20 @@ export function PaperTradeList() {
                       <>
                         <li className="text-[12px] text-muted-foreground flex items-start gap-1.5">
                           <span className="text-emerald-600 mt-0.5 shrink-0">+</span>
-                          <span>Option expired worthless — kept full ${trade.premium_at_rec.toFixed(2)}/share premium</span>
+                          {/*
+                            getStatus() calls a trade 'won' on pnl_pct > 0, which
+                            includes a call that expired slightly IN the money —
+                            the premium covered the intrinsic, so it profited
+                            without expiring worthless. Claiming "expired
+                            worthless — kept full premium" for those overstated
+                            both how it ended and how much was kept. The row
+                            carries expired_worthless, so branch on it.
+                          */}
+                          <span>
+                            {trade.expired_worthless
+                              ? `Option expired worthless — kept full $${trade.premium_at_rec.toFixed(2)}/share premium`
+                              : `Expired in the money, but the $${trade.premium_at_rec.toFixed(2)}/share premium more than covered assignment — kept $${(trade.premium_at_rec * ((trade.pnl_pct ?? 0) / 100)).toFixed(2)}/share`}
+                          </span>
                         </li>
                         <li className="text-[12px] text-muted-foreground flex items-start gap-1.5">
                           <span className="text-emerald-600 mt-0.5 shrink-0">+</span>
