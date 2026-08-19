@@ -393,7 +393,7 @@ function TickerCard({
                 />
               </div>
               <p className="text-[10px] text-muted-foreground/60 mt-1 tabular-nums">
-                {winRateNum}% of simulated trades expired worthless (you keep shares + premium)
+                {winRateNum}% of simulated cycles ended profitable — premium kept exceeded any buyback cost. A losing cycle means the copilot's buyback cost more than the premium collected (that is the insurance working, not a portfolio loss — stock P&L is not included in these figures).
               </p>
             </div>
           )}
