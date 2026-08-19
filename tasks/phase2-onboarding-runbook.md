@@ -4,9 +4,36 @@
 
 Most of this phase is Charles-led conversation, not code. The one farm-out build is Part D.
 
-## HARD GATE added 2026-08-18 — RLS before real positions
+## HARD GATE added 2026-08-18 — RLS before real positions — **CLOSED 2026-08-19 (PR #21)**
 
 Block A found RLS disabled on `trades`, `portfolio_holdings`, `paper_trades`, `option_chain_snapshots` — with the anon key shipped to the browser. **Anyone holding the public key can read or WRITE Dad's positions**: inject a fake trade, delete a real one, or blind the monitor. Zero rows today is the only reason this is a finding and not an incident. Blast radius of the fix is 91 tables across every app on the shared Supabase, so it gets its own scoped session with a security review (per global CLAUDE.md: RLS/auth changes trigger one) — never a side effect of another lane. **No real position is entered until RLS is enabled and write paths are service-role-only on those four tables.** This gate sits alongside (not instead of) the Phase 0 exit criteria.
+
+> **CLOSED 2026-08-19 — PR #21.** Both halves are done and demonstrated, not asserted.
+>
+> *Red baseline first.* Unauthenticated `GET /api/holdings` returned **200 with the
+> real holdings JSON**; `/positions`, `/sell`, `/paper-trades`, `/api/positions`,
+> `/api/copilot` and `/api/paper-trades` all served data the same way — over plain
+> HTTP as well as HTTPS. With the public anon key: `INSERT` into `trades` → **201**,
+> `DELETE` → **204**. The fake-trade and delete-a-real-one attacks were performed,
+> not theorised; the probe row was removed and its absence verified.
+>
+> *Green after.* Every page 307s to `/login`, every API 401s across GET/POST/PATCH/
+> DELETE, plain HTTP 308s to HTTPS, forged cookies are refused — 31/31 checks against
+> production. RLS is `t` on all six tables with **zero** grants remaining to
+> `anon`/`authenticated`/`PUBLIC`; the anon key now gets **401** on every read and
+> every write it previously succeeded at, while the service role round-trips
+> insert→read→delete cleanly. Exactly 6 of the instance's 93 tables changed.
+>
+> *Two carried risks, deliberately out of that session's scope.* (1) This app also
+> writes `predictions`, `iv_snapshots`, `overrides`, `signal_graveyard` and four
+> more tables that still carry full anon grants — those feed the recommendation
+> engine, so it is an **integrity** exposure on trade inputs and needs its own
+> scoped pass. (2) `CRON_SECRET` was a guessable literal committed in this **public**
+> repo; it is rotated, but DayScore's and PLY's secrets were exposed on the same
+> line and are **not**.
+>
+> Step 1 below still stands: Pushover remains unset, so the alert path Dad is being
+> onboarded onto still cannot deliver.
 
 ## Part A — Technical onboarding checklist (Charles + 15 min with Dad)
 
