@@ -315,7 +315,7 @@ function TickerCard({
             */}
             {strategy?.expectedPnl !== undefined && strategy.expectedPnl !== null && (
               <MetricCell
-                label="Expected P&L / yr"
+                label="Expected P&L / yr per contract"
                 value={money(strategy.expectedPnl)}
                 accent={TIER_VALUE_COLOR[tier]}
                 sub={
@@ -342,6 +342,25 @@ function TickerCard({
             />
             <MetricCell label="DTE Range" value={dteDisplay} />
           </div>
+          {/*
+            Per-contract x contract count, using the LIQUIDITY-CAPPED count —
+            KKR's $316/contract reads as the third-best ticker until the 7-contract
+            cap multiplies it down to ~$2.2K/yr. The at-size number is the one a
+            holder of these shares would actually earn, so it renders wherever the
+            per-contract number does. Real-fill basis shown when Exp 022 measured it.
+          */}
+          {strategy?.expectedPnl !== undefined && strategy.expectedPnl !== null && contracts > 0 && (
+            <p className="mt-2 text-[12px] text-muted-foreground tabular-nums">
+              &asymp; <span className="font-semibold text-foreground">{money(strategy.expectedPnl * contracts)}/yr</span>
+              {' '}at your {contracts} contract{contracts !== 1 ? 's' : ''}
+              {isCapped ? ' (liquidity-capped)' : ''}
+              {strategy.realFillPnl !== null && strategy.realFillPnl !== strategy.expectedPnl && (
+                <span className="text-orange-700/90 dark:text-orange-400/80">
+                  {' '}&middot; real-fill basis &asymp; {money(strategy.realFillPnl * contracts)}/yr
+                </span>
+              )}
+            </p>
+          )}
 
           {/*
             Where the headline number and the real-fill number disagree, both go
