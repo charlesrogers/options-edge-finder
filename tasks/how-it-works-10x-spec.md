@@ -10,6 +10,15 @@
 > 4. Checkpoint 2's deploy adds a red-baselined verifier check for the removed "simulated, hold-to-expiry (Exp 022)" phrasing.
 > 5. **MEDIUM fix authorized as a SEPARATE small PR** (isolated worktree, red-baselined): paper-trade "% expired worthless" labels mislabel win_rate (scorer's ITM branch yields positive-pnl wins with expired_worthless=False); correct the labels AND verify_production_claims.py's exemption whose premise was wrong. Correctness-review verdict on PRs #14/#15: PASS (recorded 2026-08-19).
 > 6. Process rules apply verbatim: isolated worktrees, red baselines, `git show HEAD --stat`, claims-inventory row in the same PR as any new claim, and checkpoint 2 returns to Charles for visual approval before checkpoint 3.
+>
+> ## STATUS 2026-08-19 (later) — Checkpoint 2 BUILT, awaiting Charles's visual approval.
+> PR #23 (`how-it-works-checkpoint-2`), rebased onto the auth+RLS merge. PR #22 carries binding 5 separately. Screenshot: `/Users/charlesrogers/Desktop/how-it-works-checkpoint2-light.png` (full page, current build). Dark mode verified in-browser (heatmap, tooltip, dumbbell) and by resolving the ramp tokens against the dark surface; a full-page dark capture was not produced — headless Chrome would not carry the next-themes localStorage through its redirect.
+>
+> Delivered: assignment heatmap and exit-cost dumbbell (dataviz skill; both palettes validated in BOTH modes, tokens + re-run command recorded in `globals.css`); `$240,000 @ 8,000 shares` replaced by a DERIVED `$306,900` at the page's own 10,000-share book, with the Exp 006 discrepancy footnoted; reliability lanes rebuilt on facts verified against the live server; `docs/crons.md` corrected on both stale claims plus a `CRON_SECRET`-has-six-consumers note; two LIVE widgets (`/api/status`, `/api/graveyard`) behind pure, fixture-tested logic in `web/src/lib/live-evidence.ts`; `HEARTBEAT_STALE_MINUTES` single-sourced with `/api/cron/health`.
+>
+> **Charles's rulings during checkpoint 2, now binding:** `/how-it-works`, `/api/status` and `/api/graveyard` are PUBLIC (in `proxy.ts`) — an evidence page that needs a login is a contradiction, since the audience includes Dad before he has one. Riders implemented: a fail-closed leak guard (`assertPublicSafe`, runtime + CI, red-baselined twice) and a 60s server-side cache.
+>
+> **Open for checkpoint 3:** the LADDER array in `page.tsx` is still a hand-transcribed second copy of `position_monitor.assess_position()` with no drift test — the assignment table has one, this does not. Also unresolved and NOT a page problem: `signal_graveyard` holds 13 rows while `register_hypotheses.py` registers H01–H16, so H05–H16 were never inserted. The scorecard reports the table honestly; someone should decide whether the table is wrong.
 
 
 **Executor:** Opus 5, fresh session, working dir `/Users/charlesrogers/Documents/options-tool`
