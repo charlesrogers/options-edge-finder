@@ -73,7 +73,7 @@ await check('a token signed with another secret is rejected', async () => {
 })
 
 await check('tampering with the payload invalidates the signature', async () => {
-  const t = await A.createSessionToken('dad', SECRET)
+  const t = await A.createSessionToken('bryan', SECRET)
   const [payload, sig] = t.split('.')
   // Re-encode the payload as charles, keep dad's signature.
   const forged = Buffer.from(JSON.stringify({ user: 'charles', exp: 4102444800 }))
@@ -114,7 +114,7 @@ const ENV = { AUTH_PASSWORD_CHARLES: 'charles-pw', AUTH_PASSWORD_DAD: 'dad-pw' }
 
 await check('the right password identifies the right person', () => {
   assert.equal(A.authenticate('charles-pw', ENV), 'charles')
-  assert.equal(A.authenticate('dad-pw', ENV), 'dad')
+  assert.equal(A.authenticate('dad-pw', ENV), 'bryan')
 })
 await check('a wrong password matches nobody', () => {
   assert.equal(A.authenticate('nope', ENV), null)

@@ -141,7 +141,7 @@ export function configuredUsers(env: Record<string, string | undefined>): Array<
   const out: Array<{ user: string; password: string }> = []
   for (const [name, key] of [
     ['charles', 'AUTH_PASSWORD_CHARLES'],
-    ['dad', 'AUTH_PASSWORD_DAD'],
+    ['bryan', 'AUTH_PASSWORD_DAD'],
   ] as const) {
     const password = env[key]
     if (password) out.push({ user: name, password })
