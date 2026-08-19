@@ -357,9 +357,10 @@ export default function HowItWorksPage() {
             </p>
             <p>
               <span className="font-medium text-foreground">Win rate</span> is the share of
-              simulated trades where the option expired worthless (shares and full premium kept).
-              It is measured hold-to-expiry, which is <span className="font-medium">not</span> how
-              the copilot trades &mdash; the copilot buys back early.
+              simulated cycles that ended profitable &mdash; premium kept exceeded any buyback
+              cost &mdash; under the production copilot policy (Exp 022 ran the copilot's own
+              exits, early buybacks included). A losing cycle means the buyback cost more than
+              the premium collected; stock P&amp;L is not part of these figures.
             </p>
           </div>
         </details>

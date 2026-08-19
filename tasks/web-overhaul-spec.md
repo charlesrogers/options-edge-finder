@@ -1,5 +1,18 @@
 # Web Overhaul Spec — options.imprevista.com must render the corrected world
 
+> ## STATUS 2026-08-19 — EXECUTED, plus follow-ups. Read before any re-run.
+> **§7.1 closed green** (PR #12, 25/25 against production, red-baseline demonstrated). Landed after: **PR #14** (P&L unit clarity — per-contract label + cap-aware at-size totals + real-fill basis, verifier-enforced), **PR #15** (win/loss caption: wins = cycles ended profitable under the copilot policy, loss defined on the card), and this PR (how-it-works win-rate definition corrected — it claimed hold-to-expiry while Exp 022 ran `policy=production copilot`; verifier's forbidden pattern narrowed so paper-trade pages' legitimate hold-to-expiry usage stays legal).
+>
+> **Open items a future session must NOT redo blindly:**
+> 1. **§7.5 residue → onboarding-day check.** /positions' timestamped verdicts + staleness banner are proven by fixture only (zero open trades have ever existed). On the day the first real position is entered: verify the live rendering. Mirrored in the Phase 2 runbook.
+> 2. **No authentication** — /positions and /api/holdings serve holdings to anyone with the URL. Assigned to the SECURITY SESSION (scope: app auth + RLS, one gated session, security review per global CLAUDE.md). Dad onboarding is gated on it. Not web-lane work.
+> 3. **The TS engine at /api/cron/monitor is NOT dead code — it is chain 1's alert engine** (the Hetzner cron curls it every 15 min). It can drift from position_monitor.py. Decision required (infra lane): either the route persists through the same assessment store with a golden-case parity suite against assess_position(), or chain 1 moves to invoking the Python monitor server-side. Until then, any threshold change must land in BOTH engines in the same PR.
+> 4. **Scorecard flip 2026-09-18** — first real-price paper-trade outcomes score then; the scorecard's "no real-price recommendation scored yet" framing flips to real stats. That flip gets its own red-baselined verification.
+> 5. **Correctness subagent review** of the P&L-display diffs (PRs #14/#15) was offered and not yet run — run it or record the skip.
+>
+> **Binding process rules for ANY executor of this spec (learned executing it — tasks/lessons.md 2026-08-18):** commits go through ISOLATED git worktrees, never the shared checkout, and `git show HEAD --stat` must list every intended file before push; every new acceptance check gets a demonstrated RED baseline against live production before it is trusted — a check born green is presumed vacuous. `docs/claims-inventory.md` gains a row for every new user-facing claim in the same PR that ships the claim.
+
+
 **Executor:** Opus 5, fresh session, working dir `/Users/charlesrogers/Documents/options-tool`
 **As of 2026-08-18.** Facts rot — §0 first, every claim below is a hypothesis to confirm.
 **Read first:** `tasks/lessons.md` (especially 2026-08-18 entries), `ticker_strategies.py` (the single source of truth — read it in FULL including every note), `tasks/roadmap.md`, `web/src/lib/strategies.ts`, `web/src/app/sell/`, `web/src/app/positions/`, `web/CLAUDE.md`

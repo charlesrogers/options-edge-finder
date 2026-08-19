@@ -124,3 +124,11 @@ Per spec §2.4 these are listed rather than applied:
    loosening change and needs its own pre-registered experiment.
 3. **AAPL's gate is unsettled**: Exp 023 found it wins per entry and loses per year (it
    removes 132 entries averaging +$17). No change made.
+
+## Added post-overhaul (2026-08-19)
+| Claim | Page | Source | Verdict |
+|---|---|---|---|
+| "Expected P&L / yr per contract" + "≈ $X/yr at your N contracts (liquidity-capped)" | /sell | Exp 022 per-contract figures × ticker_strategies max_contracts (Exp 021 cap) | KEEP — unit ambiguity fix, PR #14 |
+| "real-fill basis ≈ $X/yr" at size | /sell | Exp 022 real-fill split | KEEP — PR #14 |
+| "N% of simulated cycles ended profitable… buyback cost more than premium… stock P&L not included" | /sell | cc_sim win definition (pnl_per_share > 0, production copilot policy) | KEEP — replaces wrong "expired worthless", PR #15 |
+| "Win rate … under the production copilot policy (early buybacks included)" | /how-it-works | experiments/022 run.py line 191: policy=production copilot | KEEP — replaces wrong hold-to-expiry description, this PR |
