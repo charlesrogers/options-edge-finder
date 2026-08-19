@@ -32,7 +32,7 @@ jobs:
       - name: Score pending predictions
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           REQUIRE_SUPABASE: "1"
         run: python3 score_predictions.py
 

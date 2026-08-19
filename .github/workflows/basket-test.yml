@@ -31,7 +31,7 @@ jobs:
       - name: Run basket test
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           REQUIRE_SUPABASE: "1"
         run: |
           MODE="${{ github.event.inputs.mode || 'core' }}"

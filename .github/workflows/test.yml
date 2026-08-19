@@ -32,8 +32,19 @@ jobs:
           # columns the monitor reads still exist. Without credentials they skip,
           # which would make the check that matters most silently vacuous in CI.
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: python -m pytest tests/ -v
+
+      # Auth is the only thing standing between a stranger and a real portfolio's
+      # positions. These checks are pure (no network, no DB) and exercise the
+      # exact lib/auth.ts the middleware imports, via Node's type stripping.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Auth primitives
+        run: node --experimental-strip-types web/scripts/check_auth.mjs
 
       # The NYSE session list is generated from `exchange_calendars`, not
       # maintained by hand (spec A6). If the library revises a holiday or the
