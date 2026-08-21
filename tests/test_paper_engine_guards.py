@@ -332,3 +332,67 @@ def test_the_registration_script_refuses_a_non_supabase_backend():
     with open(path) as f:
         source = f.read()
     assert 'backend() != "supabase"' in source
+
+
+# ------------------------------------------------- store: review findings ---
+
+class _FakeResp:
+    def __init__(self, status_code=201, data=None):
+        self.status_code = status_code
+        self._data = [{"id": "x"}] if data is None else data
+        self.text = ""
+        self.content = b"[]"
+
+    def json(self):
+        return self._data
+
+
+def test_heartbeat_write_carries_no_unknown_column(monkeypatch):
+    """monitor_heartbeats (migration 003) has no engine_commit_sha column, so a
+    stamped heartbeat 400s on EVERY run — including the market-closed early
+    exit — and turns the failure alert into a 28x/hour Discord storm. The SHA
+    belongs in `detail`, which is jsonb and takes anything."""
+    from paper_engine import store
+    monkeypatch.setenv("SUPABASE_URL", "https://example.test")
+    monkeypatch.setenv("SUPABASE_KEY", "k")
+    captured = {}
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        captured["url"] = url
+        captured["body"] = json
+        return _FakeResp()
+
+    monkeypatch.setattr(store.requests, "post", fake_post)
+    store.write_heartbeat(ok=True, detail={"note": "test"})
+    assert "monitor_heartbeats" in captured["url"]
+    assert "engine_commit_sha" not in captured["body"], (
+        "heartbeat row contains a column migration 003 never created — "
+        "PostgREST rejects it (PGRST204) and every run fails")
+    assert captured["body"]["detail"]["engine_commit_sha"], (
+        "the engine SHA must still be recorded — in detail, where jsonb takes it")
+
+
+def test_heartbeat_table_is_under_the_schema_contract():
+    """The startup gate must be able to catch heartbeat-table drift BEFORE the
+    first write — the 400-on-every-heartbeat failure was invisible to the
+    contract precisely because monitor_heartbeats was not in it."""
+    assert "monitor_heartbeats" in config.SCHEMA_CONTRACT
+    assert "engine_commit_sha" not in config.SCHEMA_CONTRACT["monitor_heartbeats"]
+
+
+def test_confirmed_counter_refuses_to_swallow_a_write_failure():
+    """store.py's own docstring: a persistence failure is ALWAYS fatal. A
+    record() that returns None lets the caller emit the follow-up event for a
+    write that never happened — the ledger and the event log diverge, which is
+    the 2026-08-15 silent-outage shape with extra steps."""
+    from paper_engine import store
+    counter = store.ConfirmedCounter()
+
+    def failing_write():
+        raise store.StoreError("trades insert -> 403: RLS says no")
+
+    with pytest.raises(store.StoreError):
+        counter.record(failing_write)
+    assert counter.attempted == 1
+    assert counter.confirmed == 0
+    assert len(counter.failures) == 1

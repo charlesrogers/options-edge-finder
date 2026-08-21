@@ -178,4 +178,12 @@ SCHEMA_CONTRACT = {
         "cycle_seq", "dedup_key", "payload", "engine_commit_sha",
         "engine_version",
     ],
+    # Shared migration-003 table. Only the columns the engine actually writes —
+    # and deliberately NOT engine_commit_sha, which this table does not have
+    # (stamping it made every heartbeat 400 and every run fail).
+    "monitor_heartbeats": [
+        "id", "ran_at", "source", "role", "engine", "engine_version",
+        "positions_checked", "positions_unassessed", "alerts_fired",
+        "alerts_undelivered", "ok", "detail",
+    ],
 }
