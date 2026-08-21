@@ -4,6 +4,30 @@ Rules derived from mistakes in this project. Claude MUST review this file at the
 
 ---
 
+### 2026-08-20 — Split-adjusted closes against as-traded strikes produced $13,731/cycle at 99.7% retention
+
+**What went wrong:** deriving the paper engine's kill thresholds from `cc_sim` on the 2020 stress window, AAPL came back at **$13,731 per cycle, 99.7% retention, 100% repricing coverage**. It is an artefact: Databento option strikes are **as-traded**, while the stock closes `cc_sim` loads from the yfinance proxy are **split-adjusted**. AAPL split 4:1 on 2020-08-31 and GOOGL 20:1 in 2022, so across those windows the strike ladder sits 4.02x and 20.70x above spot. Every call is absurdly far OTM, nothing is ever breached, everything expires worthless, and the window reports a spectacular strategy. Nothing errored. Coverage was 100%, which made it look *more* trustworthy, not less. It was one run away from being the baseline that every kill threshold was calibrated against.
+
+**Why it's wrong:** two data sources with different corporate-action conventions were joined on price with no check that they agreed about what a dollar meant. Every downstream guard in the engine — real-fill coverage, staleness counting, the usable-number validator — passed, because each individual number was real. The corruption lived entirely in the *relationship* between two clean series, which is exactly the class of error that per-field validation cannot see. And the direction of the error flatters: a contaminated window looks like a triumph, so the instinct to double-check is at its weakest precisely when it is most needed.
+
+**Rule:** When joining two external series that can each be corporate-action-adjusted (option strikes vs stock closes, prices vs dividends, any pre/post-split pair), assert their *relationship* is sane before using them, not just each field. For option chains: check median(strike)/spot per day against a band derived from known-clean windows, and refuse the window with a stated reason if too many days fall outside. Derive the band from the clean data (here: clean windows spanned 0.98-1.23, so [0.70, 1.50] clears them and still catches a 2:1 split) — never pick it. Separately: **treat an unusually GOOD result as a bug report.** 99.7% retention on a crash window is not a finding, it is a symptom.
+
+**Category:** mistake (near-miss — caught by a sanity check before it reached a threshold)
+
+---
+
+### 2026-08-20 — A cache key that omitted `period` turned "could not evaluate" into "never traded"
+
+**What went wrong:** `cc_sim.load_stock(ticker, period='5y')` cached to `{ticker}_stock.parquet` — no period in the key. A caller asking for 10 years silently received whatever the first caller had cached, and the first caller is always the 5y default. The 5y window does not reach 2020, so the 2020 stress runs had option data but no same-day stock closes; IV rank was uncomputable, the production gate returned `no_iv_rank` for every day, and the window reported **zero trades**. Read at face value that says "the strategy never traded during the crash." What actually happened is "we could not evaluate the crash."
+
+**Why it's wrong:** the loader logged the problem accurately (`103 days without a same-day stock close`) and the run still exited 0 with an empty, plausible-looking result. A cache key that drops a parameter is a silent wrong-answer generator: the second caller gets data that is real, internally consistent, and answers a different question than the one asked.
+
+**Rule:** Every cache key must contain every parameter that changes the value — period, window, version, adjustment mode. And when a run produces an empty result, the report must distinguish "the condition never occurred" from "the condition could not be evaluated"; those are different facts and only one of them is evidence. A zero with an unmeasured denominator is not a zero.
+
+**Category:** anti-pattern
+
+---
+
 ### 2026-08-16 — A research import at module scope took down the safety-critical monitor
 
 **What went wrong:** shadow-mode instrumentation for H19 needed a BSM delta, so I added `import bsm` at module scope in `monitor_positions.py`. `bsm` imports `scipy`. `.github/workflows/position-monitor.yml` installs `requests numpy pandas supabase yfinance` — no scipy, and nothing pulls it in transitively. The import fails before `main()` runs, so the careful per-trade `try/except` inside the loop never engages. Every scheduled run — `*/15 13-21 * * 1-5`, ~26 a day — would have exited non-zero before evaluating a single position: no EMERGENCY, no CLOSE_NOW, no daily summary, for the user's father holding ~10,000 shares per ticker. `requirements.txt` has scipy, so it imported fine locally and in the test workflow; only the monitor's own install list was short. Caught by an independent correctness review, not by me, and not by CI.
