@@ -8,27 +8,18 @@ name: Paper Engine (forward validation, H40-H43)
 # The engine is calendar-aware: outside a session it writes a heartbeat noting
 # `market_closed` and exits fast, so the wide UTC cron range costs nothing.
 #
-# SCHEDULE DELIBERATELY OMITTED IN PR-1.
+# The schedule, enabled here in PR-2. PR-1 deliberately shipped this workflow
+# dispatch-only: its startup gate is red until H40-H43 are registered, and a
+# */15 job guaranteed to fail would have posted 28 Discord alerts an hour into a
+# channel that survives about two false alarms (docs/crons.md). By the time this
+# merges the gate is green, so the schedule can run.
 #
-# The spec puts the schedule in PR-1 on the grounds that the startup gate fails
-# while H40-H43 are unregistered, so merging is safe. The gate part is right —
-# it does fail, and that red state is its own baseline. But a */15 schedule that
-# is guaranteed to fail would post a Discord failure alert every fifteen minutes
-# for the whole window between merging PR-1 and completing the registration, and
-# an alert channel survives about two false alarms (docs/crons.md). Twenty-eight
-# an hour is how a channel gets muted, and a muted channel is how the next real
-# EMERGENCY goes unread.
-#
-# So: PR-1 ships dispatch-only. Run it by hand to SEE the gate red, register
-# H40-H43 via registry-sync.yml, run it again to see it green, and PR-2 adds
-# the `schedule:` block below. Restoring it is one commented line.
-#
-#  schedule:
-#    # Same 15-minute grid as the monitor. 13:00-21:00 UTC covers 9:30-16:00 ET
-#    # in both EST and EDT; GitHub cron does not observe DST, so the range is
-#    # wide and the engine decides for itself whether the market is open.
-#    - cron: '*/15 13-21 * * 1-5'
 on:
+  schedule:
+    # Same 15-minute grid as the monitor. 13:00-21:00 UTC covers 9:30-16:00 ET
+    # in both EST and EDT; GitHub cron does not observe DST, so the range is
+    # wide and the engine decides for itself whether the market is open.
+    - cron: '*/15 13-21 * * 1-5'
   workflow_dispatch:
 
 # One tick at a time. Two overlapping runs would both read "no position open"
@@ -63,8 +54,9 @@ jobs:
       - name: Import smoke test
         run: |
           python3 -c "
-          import paper_engine.config, paper_engine.store, paper_engine.preflight
-          import paper_engine.killswitch, cc_core, position_monitor, market_calendar
+          import paper_engine.engine, paper_engine.config, paper_engine.store
+          import paper_engine.preflight, paper_engine.quotes, paper_engine.killswitch
+          import paper_engine.accounting, cc_core, position_monitor, market_calendar
           print('imports OK')
           "
 
@@ -78,9 +70,14 @@ jobs:
           REQUIRE_SUPABASE: "1"
         run: python3 -m paper_engine.preflight
 
-      # PR-2 adds the "Run one tick" step here, and the schedule above. Until
-      # then this workflow only proves the gate: red before registration, green
-      # after. It cannot trade, because the engine is not in this PR.
+      - name: Run one tick
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          REQUIRE_SUPABASE: "1"
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: python3 -m paper_engine.engine
 
       # A cron with no failure alert is already dead; you just don't know the
       # date yet. The webhook is a secret — four repos had it in plaintext YAML,
