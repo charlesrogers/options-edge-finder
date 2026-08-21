@@ -292,3 +292,43 @@ def test_every_threshold_declares_whether_it_was_derived_or_chosen():
             assert cfg["kind"] in valid and cfg.get("derivation"), name
             checked += 1
     assert checked >= 10, f"vacuity: only {checked} thresholds inspected"
+
+
+def test_backend_reports_rather_than_raising_when_the_client_cannot_be_built(monkeypatch):
+    """A diagnostic that raises crashes the check that exists to catch it.
+
+    RED BASELINE: CI hit this for real — the test job has SUPABASE_URL and
+    SUPABASE_KEY but not the `supabase` package, so `db._get_supabase()` raised
+    ModuleNotFoundError out of `backend()` and took a passing test with it.
+    """
+    import db
+    import signal_registry
+
+    def boom():
+        raise ModuleNotFoundError("No module named 'supabase'")
+
+    monkeypatch.setattr(db, "_get_supabase", boom)
+    assert signal_registry.backend() == "unavailable:ModuleNotFoundError"
+
+
+def test_registry_sync_fails_the_job_on_any_non_supabase_backend():
+    """`backend()` returning a string is only useful if something acts on it.
+
+    The workflow greps its own log. Widening what `backend()` can return without
+    widening the grep would have created a state where the registry announces
+    'nothing was written' and the job reports success.
+    """
+    wf = os.path.join(ROOT, ".github", "workflows", "registry-sync.yml")
+    with open(wf) as f:
+        source = f.read()
+    for token in ["sqlite:", "unavailable:"]:
+        assert f'grep -q "{token}"' in source, (
+            f"registry-sync.yml does not fail on a '{token}' backend")
+
+
+def test_the_registration_script_refuses_a_non_supabase_backend():
+    """Belt and braces: the script checks too, so it is safe outside the workflow."""
+    path = os.path.join(ROOT, "experiments", "register_h40_h43.py")
+    with open(path) as f:
+        source = f.read()
+    assert 'backend() != "supabase"' in source
