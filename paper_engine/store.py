@@ -60,18 +60,26 @@ def _url(table):
     return f"{base}/rest/v1/{table}"
 
 
-def _stamp(row):
-    """Engine lineage on every row. A result whose engine SHA is unknown cannot
-    be reproduced or trusted (tasks/lessons.md 2026-08-17)."""
-    row.setdefault("engine_commit_sha", config.engine_commit_sha())
-    row.setdefault("engine_version", config.ENGINE_VERSION)
+def _stamp(row, table):
+    """Engine lineage on every row of the engine's OWN tables. A result whose
+    engine SHA is unknown cannot be reproduced or trusted (tasks/lessons.md
+    2026-08-17).
+
+    Shared tables (monitor_heartbeats, migration 003) do not have these columns,
+    and PostgREST rejects an unknown column outright — stamping them made every
+    heartbeat write 400, i.e. every run fail, including the market-closed early
+    exit. The SHA still travels with heartbeats, inside their jsonb `detail`.
+    """
+    if table in config.TABLES.values():
+        row.setdefault("engine_commit_sha", config.engine_commit_sha())
+        row.setdefault("engine_version", config.ENGINE_VERSION)
     return row
 
 
 def insert(table, row, verify=True):
     """Insert one row and confirm the database returned it."""
     resp = requests.post(_url(table), headers=_headers({"Prefer": "return=representation"}),
-                         json=_stamp(dict(row)), timeout=TIMEOUT)
+                         json=_stamp(dict(row), table), timeout=TIMEOUT)
     if resp.status_code not in (200, 201):
         raise StoreError(f"{table} insert -> {resp.status_code}: {resp.text[:400]}")
     if not verify:
@@ -91,7 +99,7 @@ def upsert(table, row, on_conflict, verify=True):
     resp = requests.post(
         f"{_url(table)}?on_conflict={on_conflict}",
         headers=_headers({"Prefer": "return=representation,resolution=merge-duplicates"}),
-        json=_stamp(dict(row)), timeout=TIMEOUT)
+        json=_stamp(dict(row), table), timeout=TIMEOUT)
     if resp.status_code not in (200, 201):
         raise StoreError(f"{table} upsert -> {resp.status_code}: {resp.text[:400]}")
     if not verify:
@@ -115,7 +123,7 @@ def insert_event(row):
     resp = requests.post(
         f"{_url(config.TABLES['events'])}?on_conflict=dedup_key",
         headers=_headers({"Prefer": "return=representation,resolution=ignore-duplicates"}),
-        json=_stamp(dict(row)), timeout=TIMEOUT)
+        json=_stamp(dict(row), config.TABLES["events"]), timeout=TIMEOUT)
     if resp.status_code not in (200, 201):
         raise StoreError(f"events insert -> {resp.status_code}: {resp.text[:400]}")
     return "inserted" if resp.json() else "duplicate"
@@ -197,7 +205,12 @@ def write_heartbeat(*, ok, detail, positions_checked=0, alerts_fired=0):
     be written by runs that failed too — otherwise "the engine is broken" and
     "the engine is fine and quiet" look identical. `ok=false` means the run
     completed but its output cannot be trusted.
+
+    The engine SHA rides in `detail` (jsonb): monitor_heartbeats is the shared
+    migration-003 table and has no engine_commit_sha column.
     """
+    detail = dict(detail)
+    detail.setdefault("engine_commit_sha", config.engine_commit_sha())
     return insert("monitor_heartbeats", {
         "source": config.HEARTBEAT_SOURCE,
         "role": config.HEARTBEAT_ROLE,
@@ -228,12 +241,16 @@ class ConfirmedCounter:
         self.failures = []
 
     def record(self, fn, *args, **kwargs):
+        """Run one write. A failure is recorded AND re-raised — this class's own
+        docstring says persistence failures are always fatal, and a swallowed
+        one lets the caller emit follow-up events for a write that never
+        happened, so the ledger and the event log diverge silently."""
         self.attempted += 1
         try:
             out = fn(*args, **kwargs)
         except StoreError as e:
             self.failures.append(str(e)[:300])
-            return None
+            raise
         self.confirmed += 1
         return out
 
