@@ -29,7 +29,17 @@ def backend():
     (tasks/lessons.md 2026-08-15). Every registry call announces the backend so
     'registered' can never mean 'wrote to a temp file on this laptop'.
     """
-    return "supabase" if db._get_supabase() is not None else f"sqlite:{db.SQLITE_PATH}"
+    try:
+        client = db._get_supabase()
+    except Exception as e:
+        # An uninstallable or unbuildable client IS "not supabase". Raising from
+        # a diagnostic is strictly worse than answering it: every caller of this
+        # function is asking so it can refuse to proceed, and
+        # `registry-sync.yml` greps the log for `sqlite:` to fail the job. A
+        # ModuleNotFoundError here would crash the check that exists to catch
+        # exactly this condition. (CI has the credentials but not the package.)
+        return f"unavailable:{type(e).__name__}"
+    return "supabase" if client is not None else f"sqlite:{db.SQLITE_PATH}"
 
 
 class AlreadyRegistered(RuntimeError):
