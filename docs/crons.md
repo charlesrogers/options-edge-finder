@@ -33,11 +33,17 @@ not observe DST, so the ET column shifts by an hour twice a year.
 | `monitoring.yml` | `0 2 * * 2-6` | 22:00 prev day | Daily data-quality monitoring | `if: failure()` → Discord |
 | `basket-test.yml` | `0 22 * * 0` | Sun 18:00 | Weekly basket test | `if: failure()` → Discord |
 | `deploy.yml` | on push to `main` | — | Builds image, pushes GHCR, triggers Coolify, verifies | `if: failure()` → Discord |
+| `paper-engine.yml` | `*/15 13-21 * * 1-5` | ~9:00–17:00 | **Research, not safety-critical.** One tick of the forward paper-trading engine (H40–H43): captures decision-moment quotes, executes T+15 fills, evaluates kill switches, writes a `role=paper-engine` heartbeat | `if: failure()` → Discord. Heartbeat staleness shows on `/paper-engine` (report-only — that page never alerts). Startup gate fails the job loudly if the pre-registration hash moved |
 | `test.yml` | on push / PR | — | pytest + NYSE calendar drift check | PR check |
 
 Manual-dispatch only, no schedule: `approval-gate`, `backfill-clv`,
 `backfill-paper-trades`, `force-score`, `generate-historical`, `investigate`,
-`run-gate`. A failure is visible to whoever ran it.
+`run-gate`, `registry-sync`. A failure is visible to whoever ran it.
+
+**`paper-engine.yml` is deliberately separate from `position-monitor.yml`.**
+Research-adjacent code never rides the safety-critical monitor's critical path —
+a scipy import at module scope took the monitor down on 2026-08-16. If the paper
+engine breaks, Dad's alerts are unaffected, and its Discord message says so.
 
 ### The standing GitHub risk
 

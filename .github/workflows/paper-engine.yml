@@ -1,0 +1,96 @@
+name: Paper Engine (forward validation, H40-H43)
+
+# A SEPARATE workflow from position-monitor.yml, deliberately. The monitor is
+# safety-critical and research-adjacent code must never ride its critical path —
+# a scipy import at module scope took the monitor down on 2026-08-16. If this
+# engine breaks, Dad's alerts keep working.
+#
+# The engine is calendar-aware: outside a session it writes a heartbeat noting
+# `market_closed` and exits fast, so the wide UTC cron range costs nothing.
+#
+# SCHEDULE DELIBERATELY OMITTED IN PR-1.
+#
+# The spec puts the schedule in PR-1 on the grounds that the startup gate fails
+# while H40-H43 are unregistered, so merging is safe. The gate part is right —
+# it does fail, and that red state is its own baseline. But a */15 schedule that
+# is guaranteed to fail would post a Discord failure alert every fifteen minutes
+# for the whole window between merging PR-1 and completing the registration, and
+# an alert channel survives about two false alarms (docs/crons.md). Twenty-eight
+# an hour is how a channel gets muted, and a muted channel is how the next real
+# EMERGENCY goes unread.
+#
+# So: PR-1 ships dispatch-only. Run it by hand to SEE the gate red, register
+# H40-H43 via registry-sync.yml, run it again to see it green, and PR-2 adds
+# the `schedule:` block below. Restoring it is one commented line.
+#
+#  schedule:
+#    # Same 15-minute grid as the monitor. 13:00-21:00 UTC covers 9:30-16:00 ET
+#    # in both EST and EDT; GitHub cron does not observe DST, so the range is
+#    # wide and the engine decides for itself whether the market is open.
+#    - cron: '*/15 13-21 * * 1-5'
+on:
+  workflow_dispatch:
+
+# One tick at a time. Two overlapping runs would both read "no position open"
+# and both open one; the unique key would catch it, but a failed insert is a
+# worse signal than a queued run.
+concurrency:
+  group: paper-engine
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      # Workflows do NOT read requirements.txt. Listing dependencies explicitly
+      # is what makes a missing one fail here, loudly, instead of halfway
+      # through a tick with a position half-opened.
+      - name: Install dependencies
+        run: pip install requests numpy pandas supabase
+
+      # Fails at the right place if a dependency or an import is missing,
+      # rather than inside the engine after it has already written rows.
+      - name: Import smoke test
+        run: |
+          python3 -c "
+          import paper_engine.config, paper_engine.store, paper_engine.preflight
+          import paper_engine.killswitch, cc_core, position_monitor, market_calendar
+          print('imports OK')
+          "
+
+      # The gate as its own step, so a red gate is legible in the run list
+      # without reading logs. Runs where credentials exist — not in
+      # credential-less CI, where a schema-contract check could never fail.
+      - name: Startup gate (pre-registration immutability + schema contract)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          REQUIRE_SUPABASE: "1"
+        run: python3 -m paper_engine.preflight
+
+      # PR-2 adds the "Run one tick" step here, and the schedule above. Until
+      # then this workflow only proves the gate: red before registration, green
+      # after. It cannot trade, because the engine is not in this PR.
+
+      # A cron with no failure alert is already dead; you just don't know the
+      # date yet. The webhook is a secret — four repos had it in plaintext YAML,
+      # two of them public, and this repo is public.
+      - name: Alert Discord on failure
+        if: failure()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then echo "DISCORD_WEBHOOK unset"; exit 0; fi
+          curl -s -H "Content-Type: application/json" -X POST -d @- "$DISCORD_WEBHOOK" <<EOF
+          {"embeds":[{"title":"🧪 options-edge-finder: Paper Engine FAILED","color":16711680,"fields":[{"name":"Run","value":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"},{"name":"Note","value":"Paper engine only — Dad's position monitor is a separate workflow and is unaffected."}],"footer":{"text":"scheduled job — 3+ consecutive failures is an incident"}}]}
+          EOF

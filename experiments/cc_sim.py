@@ -53,6 +53,10 @@ import numpy as np
 import pandas as pd
 
 from position_monitor import assess_position, lookup_itm_probability
+# The decision core lives in cc_core so the forward paper engine can share it
+# rather than reimplement it. See cc_core's docstring — pricing differs between
+# the two callers by design, deciding must not.
+import cc_core
 
 RAW_DIR = os.path.join(os.path.dirname(__file__), '..', 'data', 'databento', 'raw')
 CACHE_DIR = os.path.join(os.path.dirname(__file__), '_cache')
@@ -225,8 +229,17 @@ def load_dividends(ticker):
 
 
 def load_stock(ticker, period='5y'):
-    """Daily stock closes via the Cloudflare Worker proxy. Cached to parquet."""
-    cache = _cache_path(f'{ticker}_stock.parquet')
+    """Daily stock closes via the Cloudflare Worker proxy. Cached to parquet.
+
+    The cache key includes `period`. It did not until 2026-08-20, which meant a
+    caller asking for 10y silently received whatever the first caller had cached
+    — and the first caller is always the 5y default. That is how the 2020 stress
+    windows came back with "103 days without a same-day stock close": the option
+    data was there, the stock closes to compute IV rank against were not, so the
+    production gate rejected every single day and the window reported zero
+    trades rather than reporting that it could not be evaluated.
+    """
+    cache = _cache_path(f'{ticker}_stock_{period}.parquet')
     if os.path.exists(cache):
         df = pd.read_parquet(cache)
     else:
@@ -305,7 +318,7 @@ def compute_trend_features(stock):
     })
 
 
-def load_ticker(ticker, start=None, end=None, verbose=True):
+def load_ticker(ticker, start=None, end=None, verbose=True, stock_period='5y'):
     """Load everything for one ticker over [start, end]. Expensive; reuse it.
 
     The window is REQUIRED — see load_calls. Callers re-running a pre-2026-08-17
@@ -328,7 +341,10 @@ def load_ticker(ticker, start=None, end=None, verbose=True):
         print(f'  Loading {ticker} [{start} -> {end}]...', flush=True)
 
     calls = load_calls(ticker, start, end)
-    stock = load_stock(ticker)
+    # Stress windows predate the 5y default's reach; they must ask for more
+    # history or IV rank is uncomputable and the gate silently blocks the whole
+    # window. Default unchanged so every existing caller loads exactly as before.
+    stock = load_stock(ticker, period=stock_period)
     divs = sorted(load_dividends(ticker))
 
     by_date = {d: g for d, g in calls.groupby('date')}
@@ -412,7 +428,7 @@ class DayContext:
         return max(0.0, self.option_price - self.intrinsic)
 
 
-HOLD, CLOSE_SOON, CLOSE_NOW = 'HOLD', 'CLOSE_SOON', 'CLOSE_NOW'
+HOLD, CLOSE_SOON, CLOSE_NOW = cc_core.HOLD, cc_core.CLOSE_SOON, cc_core.CLOSE_NOW
 
 
 def baseline_policy(ctx):
@@ -571,39 +587,19 @@ def run_cohort(chain, entry_date, cfg, policy):
             expiration=expiration, price_is_stale=stale,
         )
 
-        # --- expiry settlement ---
-        if dte <= 0:
-            if day_spot > strike:
-                return settle(date, day_spot - strike, 'expiry_assigned',
-                              True, 'expiry', 'EXPIRY', day_spot), None
-            return settle(date, 0.0, 'expiry_worthless', False, '',
-                          'EXPIRY', day_spot), None
+        # --- expiry, copilot, CLOSE_SOON clock and rational exercise, in that
+        #     order, from the one shared definition (cc_core.decide) ---
+        decision, close_soon_armed_on = cc_core.decide(
+            ctx, cfg, policy, armed_on=close_soon_armed_on)
 
-        # --- the copilot gets to act first ---
-        action, verdict = policy(ctx)
-
-        if action == CLOSE_NOW:
-            return settle(date, px * (1 + cfg['slippage']), 'policy_close_now',
-                          False, '', verdict, day_spot, fill_is_stale=stale), None
-
-        if action == CLOSE_SOON:
-            if close_soon_armed_on is None:
-                close_soon_armed_on = date
-            if (date - close_soon_armed_on).days >= cfg['close_soon_days']:
-                return settle(date, px * (1 + cfg['slippage']),
-                              'policy_close_soon', False, '', verdict, day_spot,
-                              fill_is_stale=stale), None
-        elif not cfg['close_soon_sticky']:
-            close_soon_armed_on = None
-
-        # --- rational early exercise into the dividend (Natenberg Ch. 12) ---
-        # Checked after the policy, because the alert fires in the morning and
-        # exercise is decided at the close of the day before the ex-date.
-        if (days_to_exdiv is not None and days_to_exdiv <= 1
-                and ctx.is_itm and div_amt is not None
-                and ctx.extrinsic < div_amt):
-            return settle(date, ctx.intrinsic, 'early_exercise', True,
-                          'early_exdiv', verdict, day_spot), None
+        if decision.closes:
+            # A settlement is priced off the stock and is never a stale fill; a
+            # buyback inherits the staleness of the quote it was filled at.
+            fill_is_stale = stale if decision.priced_from == cc_core.OPTION_QUOTE else False
+            return settle(date, decision.settle_price, decision.kind,
+                          decision.assigned, decision.assignment_type,
+                          decision.verdict, day_spot,
+                          fill_is_stale=fill_is_stale), None
 
     # Ran out of option data before expiry.
     final_date = days[-1] if days else entry_date

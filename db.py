@@ -559,14 +559,44 @@ def record_surface(ticker, expiry, sabr_params, richest_strike=None, richest_vrp
 # SIGNAL GRAVEYARD — hypothesis tracking for Deflated Sharpe
 # ============================================================
 
-def register_hypothesis(signal_id, name, tier, hypothesis):
-    """Pre-register a hypothesis BEFORE testing. Returns True on success."""
+def get_hypothesis(signal_id):
+    """Read one graveyard row back, or None. Raises on a read failure.
+
+    Read-before-write is what makes pre-registration mean anything here: the
+    write below is an UPSERT, so without this a re-run with different
+    thresholds silently replaces the original and leaves no trace.
+    """
+    sb = _get_supabase()
+    if sb:
+        resp = sb.table("signal_graveyard").select("*").eq(
+            "signal_id", signal_id).execute()
+        rows = resp.data or []
+        return rows[0] if rows else None
+    conn = _get_sqlite()
+    cur = conn.execute("SELECT * FROM signal_graveyard WHERE signal_id = ?",
+                       (signal_id,))
+    row = cur.fetchone()
+    cols = [d[0] for d in cur.description] if cur.description else []
+    conn.close()
+    return dict(zip(cols, row)) if row else None
+
+
+def register_hypothesis(signal_id, name, tier, hypothesis, pass_thresholds=None):
+    """Pre-register a hypothesis BEFORE testing. Returns True on success.
+
+    `pass_thresholds` is a dict stored in the typed jsonb column added by
+    migration 005. It previously had nowhere to live and was folded into the
+    free-text hypothesis string, which meant the paper engine's startup gate
+    would have had to regex a SHA-256 out of prose to check it.
+    """
     today = datetime.now().strftime("%Y-%m-%d")
     row = {
         "signal_id": signal_id, "name": name, "tier": tier,
         "hypothesis": hypothesis, "pre_registered_date": today,
         "status": "untested", "layer_reached": 0,
     }
+    if pass_thresholds is not None:
+        row["pass_thresholds"] = pass_thresholds
     sb = _get_supabase()
     if sb:
         sb.table("signal_graveyard").upsert(row, on_conflict="signal_id").execute()
