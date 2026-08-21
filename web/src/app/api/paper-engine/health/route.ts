@@ -87,7 +87,7 @@ export async function GET() {
   try {
     const sb = getSupabase()
 
-    const [hb, trades, quotes, evals, events] = await Promise.all([
+    const [hb, trades, quotes, evals, events, killEvents] = await Promise.all([
       sb
         .from('monitor_heartbeats')
         .select('ran_at, ok, detail, engine_version')
@@ -126,9 +126,22 @@ export async function GET() {
         .select('event_ts, kind, severity, arm, ticker, cycle_seq, payload')
         .order('event_ts', { ascending: false })
         .limit(300),
+      // Kill-switch state is queried DIRECTLY, never filtered out of the
+      // shared event feed: kill transitions are rare by design, so a few busy
+      // weeks of fill events would evict them from a limit(300) window and the
+      // board would render "no kill-switch state" while a kill is TRIGGERED —
+      // the opposite of the truth, on the one surface built to show it
+      // (correctness review, 2026-08-21; same mechanism as
+      // killswitch.last_states() on the Python side).
+      sb
+        .from('paper_engine_events')
+        .select('event_ts, payload')
+        .eq('kind', 'kill_state_change')
+        .order('event_ts', { ascending: false })
+        .limit(500),
     ])
 
-    for (const r of [hb, trades, quotes, evals, events]) {
+    for (const r of [hb, trades, quotes, evals, events, killEvents]) {
       if (r.error) throw new Error(r.error.message)
     }
 
@@ -237,10 +250,15 @@ export async function GET() {
       }
     }
 
-    // Paired differences, matched on (ticker, cycle_seq) so the two arms are
-    // compared on the same entry rather than on two different market paths.
+    // Paired differences, matched on the SHARED ENTRY — (ticker, contract,
+    // entry decision time) — which is identical across arms by construction.
+    // cycle_seq is allocated per (arm, ticker) and desynchronizes as soon as
+    // arms exit at different times (A TP-exits and re-enters while B holds),
+    // so pairing on it would compare unrelated cycles from different market
+    // paths exactly when the arms start behaving differently — the one moment
+    // the pairing exists to measure (correctness review, 2026-08-21).
     function paired(a: string, b: string) {
-      const key = (t: Row) => `${t.ticker}#${t.cycle_seq}`
+      const key = (t: Row) => `${t.ticker}#${t.contract_symbol}#${t.entry_decision_ts}`
       const am = new Map(closed.filter((t) => t.arm === a).map((t) => [key(t), t]))
       const bm = new Map(closed.filter((t) => t.arm === b).map((t) => [key(t), t]))
       const deltas: { ticker: string; cycle: number; delta: number }[] = []
@@ -282,7 +300,7 @@ export async function GET() {
     }
 
     // ---------------------------------------------------------- band 3 -----
-    const killChanges = allEvents.filter((e) => e.kind === 'kill_state_change')
+    const killChanges = (killEvents.data ?? []) as unknown as Row[]
     const currentKills: Record<string, unknown> = {}
     for (const e of killChanges) {
       const p = (e.payload ?? {}) as Record<string, unknown>

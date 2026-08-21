@@ -32,12 +32,24 @@ import cc_core
 import market_calendar
 import ticker_strategies
 import yf_proxy
-from monitor_positions import epoch_to_date   # reuse, never re-implement
 from position_monitor import assess_position
 
 from . import accounting, config, killswitch, preflight, quotes, store
 
 OPEN_STATUSES = ("pending_entry", "open", "pending_exit")
+
+_DIVIDENDS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "dividends.json")
+_dividends_cache = None
+
+
+def _dividends_file():
+    global _dividends_cache
+    if _dividends_cache is None:
+        import json
+        with open(_DIVIDENDS_PATH) as f:
+            _dividends_cache = json.load(f)
+    return _dividends_cache
 
 
 class Tally:
@@ -61,6 +73,10 @@ class Tally:
         # gets a counter and a red threshold on the health page.
         self.assessed_without_ask = 0
         self.positions_unassessed = 0
+        self.dividend_unknown = 0
+        self.dividend_stale = 0
+        self.entries_cancelled = 0
+        self.stale_fallback_exits = 0
         self.entry_evals = 0
         self.entries_opened = 0
         self.fills_executed = 0
@@ -186,16 +202,16 @@ class PaperEngine:
         if not info:
             raise RuntimeError(f"{ticker}: stock info lookup returned nothing — "
                                f"cannot rule out an imminent ex-dividend")
-        ex_div = None
-        ts = info.get("exDividendDate")
-        if ts and isinstance(ts, (int, float)):
-            ex_div = epoch_to_date(ts)
-        earnings = None
+        # The deployed worker serves exDividendDate as an ISO STRING and
+        # earningsDate as a list of strings (probed live 2026-08-21). The old
+        # isinstance(int, float) guard parsed both to None on every lookup —
+        # the DTE-bug shape, on the ex-div path. parse_market_date accepts
+        # epoch, ISO string, and date, and validates all three.
+        ex_div = cc_core.parse_market_date(info.get("exDividendDate"))
         ets = info.get("earningsDate")
         if isinstance(ets, (list, tuple)):
             ets = ets[0] if ets else None
-        if ets and isinstance(ets, (int, float)):
-            earnings = epoch_to_date(ets)
+        earnings = cc_core.parse_market_date(ets)
         # A NaN dividend yield sails through a None-guard, so it is validated
         # rather than truth-tested (tasks/lessons.md 2026-08-16).
         raw_yield = info.get("dividendYield")
@@ -205,21 +221,142 @@ class PaperEngine:
     def dividend_amount(self, ticker):
         """The most recent ACTUAL dividend, never spot x dividendYield.
 
-        A yield-derived amount is a modelled number wearing a measurement's
-        clothes, and it is the input to the rational-exercise branch that
-        decides whether Dad's stock gets called away.
+        Read from the committed paper_engine/dividends.json, derived by
+        experiments/024_paper_engine/derive_dividends.py from real paid
+        dividends. There is no trustworthy LIVE source at run time: the
+        worker's /history endpoint requests no dividend events and its /info
+        drops dividendRate — the review found the previous implementation
+        reading a 'Dividends' column yf_proxy never returns, which made the
+        rational-early-exercise branch structurally unreachable and biased the
+        H41 (A-B) readout for the whole study.
+
+        Staleness is loud, not silent: past twice the ticker's own measured
+        payment interval, the amount is still used (it moves cents per
+        quarter) but the run notes it and counts it, so the health page shows
+        the file needs regenerating.
         """
-        try:
-            hist = yf_proxy.get_stock_history(ticker, period="1y")
-        except Exception:
+        divs = _dividends_file()
+        entry = (divs.get("tickers") or {}).get(ticker)
+        if not entry:
+            self.tally.dividend_unknown += 1
+            self.note(f"{ticker}: no entry in dividends.json — early-exercise "
+                      f"model cannot price the dividend")
             return None
-        if hist is None or hist.empty or "Dividends" not in hist.columns:
-            return None
-        paid = hist["Dividends"][hist["Dividends"] > 0]
-        if paid.empty:
-            return None
-        amt = float(paid.iloc[-1])
-        return amt if cc_core.is_usable_number(amt) else None
+        amt = entry.get("amount")
+        if not cc_core.is_usable_number(amt):
+            return None                       # non-payer: a legitimate None
+        last_paid = cc_core.parse_market_date(entry.get("last_paid"))
+        interval = entry.get("interval_days")
+        if last_paid and cc_core.is_usable_number(interval):
+            age = (self.tick_ts.date() - datetime.strptime(
+                last_paid, "%Y-%m-%d").date()).days
+            if age > 2 * float(interval):
+                self.tally.dividend_stale += 1
+                self.note(f"{ticker}: dividends.json is {age}d past the last "
+                          f"payment (interval {interval}d) — regenerate it")
+        return float(amt)
+
+    def is_settlement_tick(self, expiry_str):
+        """Expiry settlement books at the LAST tick of expiry day, or later.
+
+        cc_core's expiry branch fires from the first tick of expiry day
+        (dte == 0), but settling at 09:45 prices the settlement off a morning
+        spot hours before the contract expires — and a Friday-morning decision
+        filled Monday would price off the weekend gap instead. The simulator
+        settles at expiry-day close; the engine matches it: parity, not
+        preference.
+        """
+        exp = str(expiry_str)[:10]
+        if self.et_day > exp:
+            return True
+        if self.et_day < exp:
+            return False
+        et = self.tick_ts.astimezone(market_calendar.ET)
+        final_tick = (market_calendar.close_minutes_et(self.et_day)
+                      - config.TICK_GRID_MINUTES)
+        return et.hour * 60 + et.minute >= final_tick
+
+    def settle_position(self, trade, quote, decision, ctx, alert):
+        """Book an expiry/assignment settlement — mechanical, so it books at
+        the DECISION tick with the decision spot. The +15-minute latency rule
+        models Dad reacting to an alert; expiry does not wait for Dad.
+
+        A settlement's price is the spot, so it is only 'real' if the spot is
+        fresh. A carried-forward Friday spot pricing a Monday settlement was
+        exactly the kind of stale number the real-fill subset exists to
+        exclude — deferring on a stale spot keeps it out.
+        """
+        intrinsic_priced = decision.priced_from == cc_core.INTRINSIC
+        spot_fresh = quote.spot_usable and not quote.stale
+        if intrinsic_priced and not spot_fresh:
+            self.note(f"{trade['arm']}/{trade['ticker']} settlement deferred: "
+                      f"no fresh spot at {self.tick_ts.isoformat()}")
+            return False
+        price = (max(0.0, quote.spot - float(trade["strike"]))
+                 if intrinsic_priced else 0.0)
+        premium = float(trade["premium_per_share"])
+        contracts = trade["contracts"]
+        pnl = accounting.cycle_pnl(
+            premium_per_share=premium, buyback_per_share=price,
+            contracts=contracts,
+            entry_commission=float(trade.get("entry_commission") or 0),
+            exit_commission=0.0)
+        patch = {
+            "status": "closed",
+            "exit_decision_ts": self.tick_ts.isoformat(),
+            "exit_decision_spot": quote.spot,
+            "exit_fill_ts": self.tick_ts.isoformat(),
+            "exit_fill_spot": quote.spot,
+            "exit_fill_price": price,
+            "exit_latency_min": 0.0,
+            "exit_overnight_gap": False,
+            "exit_quote_stale": quote.stale,
+            "exit_commission": 0.0,
+            "exit_kind": decision.kind,
+            "exit_clause": alert.clause if alert else None,
+            "exit_verdict": decision.verdict,
+            "exit_priced_from": decision.priced_from,
+            "spread_cost_total": accounting.spread_cost_usd(
+                trade.get("entry_spread"), None, contracts),
+            "real_fill": spot_fresh if intrinsic_priced else True,
+            "assigned": decision.assigned,
+            "assignment_type": decision.assignment_type,
+            "assignment_modeled": True,
+            "assignment_inputs": store.json_safe({
+                "spot": quote.spot, "strike": float(trade["strike"]),
+                "dividend": getattr(ctx, "dividend", None) if ctx else None,
+                "days_to_exdiv": getattr(ctx, "days_to_exdiv", None) if ctx else None,
+                "extrinsic": getattr(ctx, "extrinsic", None) if ctx else None,
+                "spot_fresh": spot_fresh}),
+            "closed_at": self.tick_ts.isoformat(),
+            **pnl,
+        }
+        self.writes.record(store.update, config.TABLES["trades"], patch,
+                           id=trade["id"])
+        if decision.assigned:
+            self.tally.modeled_assignments += 1
+            self.event("modeled_assignment", trade["arm"], trade["ticker"],
+                       trade["cycle_seq"], severity="critical",
+                       payload={"assignment_type": decision.assignment_type,
+                                "spot": quote.spot,
+                                "strike": float(trade["strike"]),
+                                "modeled": True,
+                                "note": ("A paper position cannot be assigned. "
+                                         "This is a MODEL of assignment, from "
+                                         "cc_core's mechanics.")})
+            self.alerts.append(
+                f"MODELED ASSIGNMENT {trade['arm']}/{trade['ticker']} "
+                f"({decision.assignment_type}): spot {quote.spot} vs strike "
+                f"{trade['strike']}")
+        self.event("exit_filled", trade["arm"], trade["ticker"],
+                   trade["cycle_seq"],
+                   payload={"fill_price": price,
+                            "priced_from": decision.priced_from,
+                            "kind": decision.kind,
+                            "net_pnl": pnl["net_pnl"],
+                            "real_fill": patch["real_fill"]})
+        self.tally.fills_executed += 1
+        return True
 
     # --------------------------------------------------------------- fills --
     def fill_is_due(self, decision_ts):
@@ -241,6 +378,25 @@ class PaperEngine:
             return False
         price = accounting.sell_fill_price(quote)
         if price is None:
+            if self.crossed_session(decision_ts):
+                # Day-order realism: an entry that found no usable bid for the
+                # rest of its decision session expires. Without this, an
+                # unfillable order blocks its (arm, ticker) slot forever and
+                # the next daily evaluation can never enter.
+                self.writes.record(
+                    store.update, config.TABLES["trades"],
+                    {"status": "cancelled",
+                     "exit_kind": "entry_cancelled_no_fill",
+                     "closed_at": self.tick_ts.isoformat()},
+                    id=trade["id"])
+                self.event("entry_cancelled", trade["arm"], trade["ticker"],
+                           trade["cycle_seq"],
+                           payload={"reason": "no usable bid before the "
+                                              "decision session ended"})
+                self.tally.entries_cancelled += 1
+                self.note(f"{trade['arm']}/{trade['ticker']} entry cancelled: "
+                          f"day order, no usable bid")
+                return False
             # No usable bid at the fill tick. The order does not fill; it waits.
             # Silently pretending it filled at the last known bid would be the
             # carried-forward-fill bug in forward time.
@@ -274,35 +430,67 @@ class PaperEngine:
         return True
 
     def execute_exit_fill(self, trade, quote):
-        """Buy to close, at the ask — or settle, if nobody trades."""
+        """Buy to close, at the ask. Settlements never come here any more —
+        they book inline at the decision tick (`settle_position`)."""
         decision_ts = datetime.fromisoformat(
             trade["exit_decision_ts"].replace("Z", "+00:00"))
+
+        # A pending buyback that survives past expiry is no longer a buyback:
+        # the market for it is gone and the mechanics take over. ITM means the
+        # stock was called away; OTM means it expired worthless. Without this,
+        # a permanently no-ask contract (thin KKR) blocks its slot forever.
+        if self.is_settlement_tick(trade["expiry"]):
+            spot_fresh = quote.spot_usable and not quote.stale
+            itm = spot_fresh and quote.spot > float(trade["strike"])
+            decision = cc_core.Decision(
+                kind="expiry_assigned" if itm else "expiry_worthless",
+                verdict="EXPIRY", closes=True, assigned=itm,
+                assignment_type="expiry" if itm else "",
+                settle_price=(quote.spot - float(trade["strike"])) if itm else 0.0,
+                priced_from=cc_core.INTRINSIC if itm else cc_core.ZERO)
+            if not spot_fresh and quote.spot_usable:
+                # Stale spot: cannot tell ITM from OTM trustworthily — settle
+                # at intrinsic off the stale spot, flagged not-real.
+                itm_stale = quote.spot > float(trade["strike"])
+                decision = cc_core.Decision(
+                    kind="expiry_assigned" if itm_stale else "expiry_worthless",
+                    verdict="EXPIRY", closes=True, assigned=itm_stale,
+                    assignment_type="expiry" if itm_stale else "",
+                    settle_price=max(0.0, quote.spot - float(trade["strike"])),
+                    priced_from=cc_core.INTRINSIC if itm_stale else cc_core.ZERO)
+            return self.settle_position(trade, quote, decision, None, None)
+
         if not self.fill_is_due(decision_ts):
             return False
 
-        priced_from = trade.get("exit_priced_from")
         contracts = trade["contracts"]
-        exit_comm = 0.0
-        spread = None
+        used_fallback = False
 
-        if priced_from == cc_core.OPTION_QUOTE:
-            price = accounting.buy_fill_price(quote)
-            if price is None:
-                self.note(f"{trade['arm']}/{trade['ticker']} exit fill deferred: "
-                          f"no usable ask at {self.tick_ts.isoformat()}")
-                return False
-            exit_comm = accounting.commission(contracts)
-            spread = quote.spread
-        elif priced_from == cc_core.INTRINSIC:
-            # An assignment settles off the stock. Nobody trades, so there is
-            # no spread and no commission on this leg.
-            if not quote.spot_usable:
-                self.note(f"{trade['arm']}/{trade['ticker']} settlement deferred: "
-                          f"no usable spot")
-                return False
-            price = max(0.0, quote.spot - float(trade["strike"]))
-        else:                                    # ZERO — expired worthless
-            price = 0.0
+        price = accounting.buy_fill_price(quote)
+        if price is None and self.crossed_session(decision_ts):
+            # The decision session ended with no usable ask. Spec §5.4: after a
+            # session boundary the exit fills at the last recorded usable ask,
+            # flagged stale and excluded from the real-fill subset — an open
+            # risk position cannot wait forever on a quote that may never come
+            # back (the liquidity floor guarantees one usable ask exists: the
+            # entry required it).
+            rows = store.select_rows(
+                config.TABLES["quotes"],
+                f"contract_symbol=eq.{trade['contract_symbol']}"
+                f"&ask_usable=eq.true&order=tick_ts.desc&limit=1")
+            if rows and cc_core.is_usable_number(rows[0].get("ask")):
+                price = float(rows[0]["ask"])
+                used_fallback = True
+                self.tally.stale_fallback_exits += 1
+                self.note(f"{trade['arm']}/{trade['ticker']} exit filled at the "
+                          f"last recorded ask ({price}) after a session with no "
+                          f"usable quote — stale fill, excluded from real-fill")
+        if price is None:
+            self.note(f"{trade['arm']}/{trade['ticker']} exit fill deferred: "
+                      f"no usable ask at {self.tick_ts.isoformat()}")
+            return False
+        exit_comm = accounting.commission(contracts)
+        spread = quote.spread
 
         premium = float(trade["premium_per_share"])
         pnl = accounting.cycle_pnl(
@@ -311,10 +499,9 @@ class PaperEngine:
             entry_commission=float(trade.get("entry_commission") or 0),
             exit_commission=exit_comm)
 
-        # real_fill mirrors cc_sim's definition exactly: a settlement is always
-        # real (priced off the stock); a buyback is real only if the quote that
-        # filled it was not carried forward.
-        real_fill = (priced_from != cc_core.OPTION_QUOTE) or (not quote.stale)
+        # A buyback is real only if the quote that filled it was neither
+        # carried forward nor a post-session fallback.
+        real_fill = not (quote.stale or used_fallback)
 
         patch = {
             "status": "closed",
@@ -327,7 +514,7 @@ class PaperEngine:
                                if spread is not None else None,
             "exit_latency_min": self.realized_latency_min(decision_ts),
             "exit_overnight_gap": self.crossed_session(decision_ts),
-            "exit_quote_stale": quote.stale,
+            "exit_quote_stale": quote.stale or used_fallback,
             "exit_commission": exit_comm,
             "spread_cost_total": accounting.spread_cost_usd(
                 trade.get("entry_spread"), spread, contracts),
@@ -339,7 +526,8 @@ class PaperEngine:
                            id=trade["id"])
         self.event("exit_filled", trade["arm"], trade["ticker"],
                    trade["cycle_seq"],
-                   payload={"fill_price": price, "priced_from": priced_from,
+                   payload={"fill_price": price,
+                            "priced_from": cc_core.OPTION_QUOTE,
                             "clause": trade.get("exit_clause"),
                             "net_pnl": pnl["net_pnl"], "real_fill": real_fill,
                             "latency_min": patch["exit_latency_min"]})
@@ -420,26 +608,30 @@ class PaperEngine:
                 {"close_soon_armed_on": new_armed.isoformat() if new_armed else None},
                 id=trade["id"])
 
+        if decision.closes and not self.arm_acts_on(trade["arm"], decision,
+                                                    alert.clause):
+            # The arm ignores the copilot, but market mechanics — expiry and
+            # rational early exercise into the dividend — still apply.
+            # cc_core.decide returns at the CLOSE_NOW step before ever reaching
+            # its early-exercise branch, so a policy-ignoring arm must
+            # re-decide under a HOLD policy; without this, arm B could never be
+            # assigned early and the H41 (A-B) readout would be biased against
+            # the copilot for the whole study (correctness review, 2026-08-21).
+            decision, _ = cc_core.decide(
+                ctx, config.POLICY_CFG,
+                lambda _c: (cc_core.HOLD, alert.level), armed_on=None)
         if not decision.closes:
             return
-        if not self.arm_acts_on(trade["arm"], decision, alert.clause):
-            return
 
-        if decision.assigned:
-            self.tally.modeled_assignments += 1
-            self.event("modeled_assignment", trade["arm"], trade["ticker"],
-                       trade["cycle_seq"], severity="critical",
-                       payload={"assignment_type": decision.assignment_type,
-                                "spot": quote.spot, "strike": strike,
-                                "dividend": dividend, "ex_div": ex_div,
-                                "extrinsic": ctx.extrinsic,
-                                "modeled": True,
-                                "note": ("A paper position cannot be assigned. "
-                                         "This is a MODEL of assignment, from "
-                                         "cc_core's rational-exercise branch.")})
-            self.alerts.append(
-                f"MODELED ASSIGNMENT {trade['arm']}/{trade['ticker']} "
-                f"({decision.assignment_type}): spot {quote.spot} vs strike {strike}")
+        if decision.priced_from in (cc_core.INTRINSIC, cc_core.ZERO):
+            # Settlements are mechanical: they book at the decision tick, and
+            # expiry settlements wait for the day's FINAL tick so the spot that
+            # prices them is the one nearest actual expiry.
+            if decision.kind in ("expiry_assigned", "expiry_worthless") \
+                    and not self.is_settlement_tick(trade["expiry"]):
+                return
+            self.settle_position(trade, quote, decision, ctx, alert)
+            return
 
         patch = {
             "status": "pending_exit",
@@ -468,7 +660,7 @@ class PaperEngine:
         self.tally.exits_decided += 1
 
     # ---------------------------------------------------------- entry eval --
-    def evaluate_entry(self, ticker, open_by_arm):
+    def evaluate_entry(self, ticker, open_by_arm, halted_arms=frozenset()):
         """One ticker, one trading day. Contract selection runs BEFORE the gates."""
         strat = ticker_strategies.get_strategy(ticker) or {}
         otm = strat.get("otm_pct", 0.15)
@@ -520,15 +712,21 @@ class PaperEngine:
         liq_ok, liq_reason = quotes.liquidity_check(quote)
         row["liquidity_ok"], row["liquidity_reason"] = liq_ok, liq_reason
 
-        iv_rank, iv_source, iv_detail = quotes.iv_rank_for(
-            ticker, quote.implied_volatility * 100
-            if quote.implied_volatility else None)
+        # The gate ranks the ATM IV, never the selected OTM contract's IV: the
+        # rank history is ATM history, and skew would shift every reading.
+        atm_iv_pct = (fetch.atm_iv * 100
+                      if cc_core.is_usable_number(fetch.atm_iv) else None)
+        iv_rank, iv_source, iv_detail = quotes.iv_rank_for(ticker, atm_iv_pct)
         row["iv_rank"] = iv_rank
-        row["iv_rank_source"] = f"{iv_source}: {iv_detail}"
+        row["iv_rank_source"] = f"{iv_source}: {iv_detail} (ATM IV)"
 
         for arm in config.ARM_ORDER:
             result = {"entered": False, "gate_passed": None, "reason": ""}
-            if arm in open_by_arm:
+            if arm in halted_arms:
+                # The pre-registration's words, enforced: "entries halt in the
+                # affected arm/ticker" when a strategy kill is TRIGGERED.
+                result["reason"] = "strategy kill TRIGGERED — entries halted"
+            elif arm in open_by_arm:
                 result["reason"] = "position already open"
             elif not liq_ok:
                 # The floor is shared: a quote missing for one arm is missing
@@ -579,9 +777,16 @@ class PaperEngine:
 
     # -------------------------------------------------------------- events --
     def event(self, kind, arm=None, ticker=None, cycle_seq=None,
-              severity="info", payload=None):
+              severity="info", payload=None, dedup_extra=None):
+        """`dedup_extra` distinguishes events that share (kind, arm, ticker,
+        cycle, tick): without it, every scope-None kill switch transitioning at
+        the same tick collided on one dedup_key and all but the first were
+        silently dropped — so a dropped switch re-announced itself every tick,
+        the exact alert-per-tick failure the dedup exists to prevent."""
         key_parts = [kind, arm or "-", ticker or "-", str(cycle_seq or "-"),
                      self.tick_ts.isoformat()]
+        if dedup_extra:
+            key_parts.append(str(dedup_extra))
         return self.writes.record(store.insert_event, {
             "event_ts": self.tick_ts.isoformat(), "trading_day": self.et_day,
             "kind": kind, "severity": severity, "arm": arm, "ticker": ticker,
@@ -653,21 +858,35 @@ class PaperEngine:
                 captured[t["contract_symbol"]] = q
             self.tick_position(t, q, ex_div, earnings, dividend)
 
-        # 7: entry evaluation, once per ticker per day.
-        if self.is_entry_eval_tick():
-            done = self.already_evaluated_today()
-            open_arms = {}
-            for t in self.load_trades():
-                open_arms.setdefault(t["ticker"], set()).add(t["arm"])
-            for ticker in self.universe:
-                if ticker in done:
-                    continue
-                self.evaluate_entry(ticker, open_arms.get(ticker, set()))
-
-        # 8: kill switches — evaluate, alert only on a state change.
+        # 7: kill switches — evaluated BEFORE entries so a TRIGGERED switch
+        #    actually stops them. A switch computed after the entries it was
+        #    supposed to prevent is decoration, not a switch. Alerting stays
+        #    transition-only.
         kills = killswitch.evaluate(self.tick_ts, self.tally)
         for k in killswitch.transitions(kills, self):
             self.alerts.append(k)
+        pause_all, halted_by_ticker, halted_global = killswitch.entry_halts(kills)
+
+        # 8: entry evaluation, once per ticker per day.
+        if self.is_entry_eval_tick():
+            if pause_all:
+                # The paused period must contain no evidence, so it contains no
+                # entries — and no evaluation rows built from data the same
+                # integrity failure has already impeached.
+                self.note("entries paused: an ENGINE INTEGRITY kill is "
+                          "TRIGGERED — no entry evaluation this tick")
+            else:
+                done = self.already_evaluated_today()
+                open_arms = {}
+                for t in self.load_trades():
+                    open_arms.setdefault(t["ticker"], set()).add(t["arm"])
+                for ticker in self.universe:
+                    if ticker in done:
+                        continue
+                    self.evaluate_entry(
+                        ticker, open_arms.get(ticker, set()),
+                        halted_arms=(halted_by_ticker.get(ticker, set())
+                                     | halted_global))
 
         # 9: heartbeat. A run that attempted writes and confirmed none is the
         #    shape of a silent outage and must not exit 0.

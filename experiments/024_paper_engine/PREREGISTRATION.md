@@ -140,6 +140,15 @@ so that no rule can be satisfied by three lucky cycles).
   cycles ≥ floor AND the 90% CI of per-cycle (A−D) excludes 0; sign gives
   direction.
 
+**Pairing key, pinned:** a "paired cycle" matches two arms' trades on the
+**shared entry** — `(ticker, contract_symbol, entry_decision_ts)` — which is
+identical across arms by construction. Never on `cycle_seq`, which is allocated
+per (arm, ticker) and desynchronizes the moment arms exit at different times;
+pairing on it compares unrelated cycles from different market paths exactly
+when the arms diverge, which is the one moment pairing exists to measure. (The
+first implementation made this mistake; a correctness review caught it on
+2026-08-21, before registration.)
+
 Rules are registered **per ticker**. Pooling across tickers is the wrong
 estimator here and is reported as secondary only: the per-ticker A−B means have
 opposite signs (TMUS −$64, AAPL −$41, KKR +$50, DIS +$271), so pooling cancels
@@ -245,6 +254,35 @@ graveyard for all four **including the inconclusives**. Reported per ticker, as
 ranges across sub-windows, real-fill and all-fill side by side, with §2's
 caveats attached verbatim. A pass is *evidence for* Dad's onboarding decision —
 Charles's call, per the Phase-2 runbook — never an automatic promotion.
+
+---
+
+## 6a. Concurrent live trading — registered before it happens
+
+The milestones grade **this study**, not permission to trade. Real trading may
+begin whenever Charles and Dad decide (the Phase-2 runbook owns that call), and
+the study remains valid while it happens, because the arms trade on captured
+quotes and their own rules — nothing an arm does depends on what Dad does.
+Registered now so none of this is improvised later:
+
+- **The kill board is the live turn-it-off signal.** Arm A runs the production
+  rules on real quotes at Dad's size; if a strategy kill TRIGGERS on arm A
+  while Dad trades the same rules, that is the pre-registered signal to stop
+  real trading and convene the review — from day one, not day 180.
+- **Execution audit.** While Dad trades, his actual fills can be compared
+  against arm A's conservative fills (sell-at-bid, buy-at-ask, +15 min) on the
+  same days. Arm A's fills are a floor by construction; Dad filling
+  consistently WORSE than the floor is an execution problem the study must
+  hear about. (A read-only "arm R" join of real `trades` rows into the health
+  page is a follow-up, not part of this registration.)
+- **Reflexivity caveat, KKR.** Dad's real orders at 7 contracts against a
+  3-contract median daily volume can move the very quotes the engine captures.
+  On thin names, forward results collected while Dad trades the same strike
+  are partially reflexive and are flagged as such in every readout. Liquid
+  names (AAPL, GOOGL, TMUS, DIS) are unaffected at his size.
+- **No loosening either way.** Early live P&L — good or bad — changes no
+  production parameter and no registered threshold; the walk-forward +
+  approval-gate pipeline still owns every parameter change.
 
 ---
 

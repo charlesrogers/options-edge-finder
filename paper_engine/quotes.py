@@ -105,6 +105,12 @@ class ChainFetch:
     calls: object = None
     detail: str = ""
     quotes: dict = field(default_factory=dict)   # contract_symbol -> Quote
+    # The AT-THE-MONEY row's IV, for the entry gate. The production Sell
+    # surface ranks the ATM IV against ATM-IV history; gating on the selected
+    # 15%-OTM contract's IV would feed a skew-shifted number into a rank built
+    # from ATM history — arm A would not be "the product as shipped"
+    # (correctness review, 2026-08-21).
+    atm_iv: Optional[float] = None
 
     @property
     def ok(self):
@@ -214,6 +220,10 @@ def fetch_chain(ticker, tick_ts, otm_pct, min_dte, max_dte, target_dte=30):
         out.status = NO_STRIKE
         out.detail = "no usable strike in chain"
         return out
+
+    atm_row = pick_strike(calls, spot, 0.0)
+    if atm_row is not None:
+        out.atm_iv = _f(atm_row.get("impliedVolatility"))
 
     out.quotes[str(row.get("contractSymbol"))] = Quote(
         contract_symbol=str(row.get("contractSymbol")),

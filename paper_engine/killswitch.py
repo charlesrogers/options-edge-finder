@@ -234,6 +234,33 @@ def _key(switch):
     return f"{switch['kind']}:{switch['name']}:{switch.get('scope') or '-'}"
 
 
+def entry_halts(evaluation):
+    """What a TRIGGERED switch actually stops, made consultable.
+
+    Returns (pause_all, per_ticker_arms, global_arms):
+      * pause_all — any INTEGRITY switch TRIGGERED: NO entry evaluation at all.
+        The paused period contains no evidence, so it must contain no entries.
+      * per_ticker_arms — {ticker: {arm, ...}} halted by a scoped STRATEGY kill.
+      * global_arms — arms halted by an unscoped STRATEGY kill (the EMERGENCY
+        cluster has no ticker scope).
+
+    Every strategy switch measures arm A, so strategy halts apply to arm A —
+    the pre-registration's words are "entries halt in the affected arm/ticker".
+    A switch that is computed but never consulted is not a switch (correctness
+    review, 2026-08-21: kills were evaluated AFTER entries and enforced never).
+    """
+    pause_all = any(s["state"] == TRIGGERED and s["kind"] == INTEGRITY
+                    for s in evaluation["switches"])
+    per_ticker, global_arms = {}, set()
+    for s in evaluation["switches"]:
+        if s["state"] == TRIGGERED and s["kind"] == STRATEGY:
+            if s.get("scope"):
+                per_ticker.setdefault(s["scope"], set()).add("A")
+            else:
+                global_arms.add("A")
+    return pause_all, per_ticker, global_arms
+
+
 def last_states():
     """The most recent recorded state of every switch."""
     rows = store.select_rows(
@@ -267,6 +294,7 @@ def transitions(evaluation, engine):
         engine.event("kill_state_change",
                      ticker=s.get("scope"),
                      severity="critical" if s["state"] == TRIGGERED else "info",
+                     dedup_extra=k,
                      payload={"key": k, "state": s["state"],
                               "previous": previous.get(k),
                               "value": s["value"], "threshold": s["threshold"],

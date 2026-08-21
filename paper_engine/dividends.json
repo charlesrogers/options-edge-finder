@@ -1,0 +1,31 @@
+{
+  "generated_on": "2026-08-21",
+  "source": "yfinance Ticker().dividends \u2014 actual paid dividends, most recent first; derived by this script, never typed in",
+  "tickers": {
+    "AAPL": {
+      "amount": 0.27,
+      "last_paid": "2026-08-10",
+      "interval_days": 91
+    },
+    "DIS": {
+      "amount": 0.75,
+      "last_paid": "2026-06-30",
+      "interval_days": 197
+    },
+    "GOOGL": {
+      "amount": 0.22,
+      "last_paid": "2026-06-08",
+      "interval_days": 91
+    },
+    "KKR": {
+      "amount": 0.195,
+      "last_paid": "2026-08-10",
+      "interval_days": 87
+    },
+    "TMUS": {
+      "amount": 1.02,
+      "last_paid": "2026-05-29",
+      "interval_days": 91
+    }
+  }
+}
