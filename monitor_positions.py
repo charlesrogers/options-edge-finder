@@ -34,6 +34,7 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+import cc_core   # stdlib-only; safe on the monitor's critical import path
 import yf_proxy
 from position_monitor import assess_position
 from trade_schema import parse_trade_row, TradeRowError
@@ -555,18 +556,23 @@ def _run(stats):
                 print("EX-DIV LOOKUP RETURNED NOTHING — position unassessed")
                 raise Unassessable("ex-div lookup returned no data")
 
-            ex_div_str = None
-            earn_str = None
+            # The deployed worker returns exDividendDate as a STRING
+            # ('2026-08-10') and earningsDate as a list of strings; the old
+            # isinstance(int, float) guard parsed both to None on every lookup,
+            # which made EMERGENCY and every ex-div/earnings clause silently
+            # unreachable against the live proxy (probed 2026-08-21).
+            # upcoming_market_date accepts epoch, ISO string, and date, AND
+            # drops PAST dates: Yahoo serves the most recent (usually past)
+            # ex-date, and a past date would clamp to days_to_exdiv=0 in
+            # assess_position and fire a false EMERGENCY on every ITM payer.
             div_yield = info.get("dividendYield")   # H19 shadow mode input
-            ex_div_ts = info.get("exDividendDate")
-            if ex_div_ts and isinstance(ex_div_ts, (int, float)):
-                ex_div_str = epoch_to_date(ex_div_ts)
+            today_et = now.strftime("%Y-%m-%d")
+            ex_div_str = cc_core.upcoming_market_date(
+                info.get("exDividendDate"), today_et)
             earn_ts = info.get("earningsDate")
-            if earn_ts:
-                if isinstance(earn_ts, (list, tuple)):
-                    earn_ts = earn_ts[0] if earn_ts else None
-                if isinstance(earn_ts, (int, float)):
-                    earn_str = epoch_to_date(earn_ts)
+            if isinstance(earn_ts, (list, tuple)):
+                earn_ts = earn_ts[0] if earn_ts else None
+            earn_str = cc_core.upcoming_market_date(earn_ts, today_et)
 
             # Run copilot — the LIVE path, unchanged from before shadow mode.
             alert = assess_position(

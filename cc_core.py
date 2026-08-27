@@ -209,3 +209,69 @@ def is_usable_date(value):
         except ValueError:
             return False
     return hasattr(value, 'year') and hasattr(value, 'month') and hasattr(value, 'day')
+
+
+def parse_market_date(value):
+    """Normalize an externally-sourced date to 'YYYY-MM-DD', or None.
+
+    Accepts the THREE shapes Yahoo has actually served: a UTC-midnight epoch
+    (int/float seconds), an ISO 'YYYY-MM-DD' string, and a date/datetime.
+    Anything else — NaN, empty, malformed — returns None.
+
+    Why this exists: the deployed Cloudflare worker returns
+    `exDividendDate: calendarEvents.exDividendDate?.fmt` — a STRING — while
+    both the live monitor and the paper engine guarded with
+    `isinstance(ts, (int, float))`. A string date therefore parsed to None on
+    every lookup, which made the EMERGENCY clause and every ex-div rule
+    silently unreachable against the live proxy: the DTE-bug shape
+    (tasks/lessons.md 2026-08-16) on the $400K alert path. Probed live
+    2026-08-21: AAPL /info returned exDividendDate '2026-08-10' (str) and
+    earningsDate as a list of strings.
+
+    Epochs are interpreted as UTC — a naive fromtimestamp() renders them in the
+    host's local timezone and shifts the date back a day on any US box, a
+    one-day error against a three-day EMERGENCY window.
+    """
+    from datetime import datetime as _dt, timezone as _tz
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        if value != value or value in (float('inf'), float('-inf')) or value <= 0:
+            return None
+        try:
+            return _dt.fromtimestamp(value, tz=_tz.utc).strftime('%Y-%m-%d')
+        except (OverflowError, OSError, ValueError):
+            return None
+    if isinstance(value, str):
+        s = value.strip()[:10]
+        try:
+            _dt.strptime(s, '%Y-%m-%d')
+            return s
+        except ValueError:
+            return None
+    if hasattr(value, 'year') and hasattr(value, 'month') and hasattr(value, 'day'):
+        return f'{value.year:04d}-{value.month:02d}-{value.day:02d}'
+    return None
+
+
+def upcoming_market_date(value, as_of):
+    """`parse_market_date`, then None unless the date is `as_of` or later.
+
+    Yahoo's calendarEvents serves the MOST RECENT ex-dividend date, which is in
+    the PAST for most of each payment cycle (probed 2026-08-21: AAPL served
+    '2026-08-10' eleven days after it). Downstream, position_monitor computes
+    `max(0, (ex_div - today).days)`, so a past date clamps to days_to_exdiv=0
+    and an ITM covered call on any dividend payer fires a false EMERGENCY every
+    15 minutes until Yahoo rolls the date. A past event date carries no forward
+    risk; it must parse to None, in the same place the shape is normalized.
+
+    `as_of` is a date, datetime, or 'YYYY-MM-DD' string. Today (== as_of) is
+    kept — conservative on the ex-date itself.
+    """
+    s = parse_market_date(value)
+    if s is None:
+        return None
+    a = parse_market_date(as_of)
+    if a is None:
+        return None
+    return s if s >= a else None

@@ -76,3 +76,15 @@ Use only audited numbers (`results/013_paper_trade_audit.md`). The frame that ha
 ## Exit criteria for Phase 2
 
 Dad has: received and acknowledged a drill alert, entered real positions, sold ≥ 1 call from a tool recommendation, acted on ≥ 1 real alert, and seen the collar menu. Weekly check-in cadence agreed.
+
+**Relationship to the forward paper engine (Exp 024, H40–H43).** Onboarding is
+NOT gated on the paper engine, and the paper engine does not promote anything.
+Its day-30 / day-90 / day-180 milestones (counted from the first paper trade,
+per `experiments/024_paper_engine/PREREGISTRATION.md` §6) run in parallel and
+produce *evidence for* the Part C expectations conversation — nothing more. A
+day-180 pass is Charles's input, never an automatic go; a kill switch tripping
+halts a paper arm and sends a message, and never edits `ticker_strategies.py`.
+Before quoting any paper-engine number to Dad, read §4's reachability table:
+nothing in that study is statistically gradeable at day 180, and the honest
+framing at every milestone before then is "process-faithful and honestly
+measured", not "it works".

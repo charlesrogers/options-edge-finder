@@ -70,9 +70,13 @@ async function build() {
     // 60 rows covers well over a day of both chains at 15-minute cadence, so
     // the "chain 2 has not run since yesterday" case is still visible here
     // rather than being cut off by the limit and read as "never".
+    // Filter to the monitor's own roles: the paper engine writes ~26 rows/day
+    // to this table under role 'paper-engine' and would evict the monitor's
+    // rows from this window, shrinking the visible history it exists to show.
     const { data, error } = await sb
       .from('monitor_heartbeats')
       .select('ran_at, ok, source, role, engine')
+      .in('role', [...ROLES, 'fallback'])
       .order('ran_at', { ascending: false })
       .limit(60)
     if (error) throw new Error(error.message)

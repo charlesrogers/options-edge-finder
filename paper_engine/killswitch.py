@@ -48,9 +48,16 @@ def thresholds():
     return _cache
 
 
-def _switch(name, kind, state, value, threshold, detail, scope=None):
+def _switch(name, kind, state, value, threshold, detail, scope=None,
+            halts=True):
+    """`halts=False` marks a warn-only switch: it renders on the board and
+    alerts on transition, but never pauses entries. Without the flag, the
+    stale-quotes warning — whose own detail says "this warns, it does not
+    halt" — was pausing every ticker's entries for a whole day on one proxy
+    blip (correctness review, 2026-08-27)."""
     return {"name": name, "kind": kind, "state": state, "value": value,
-            "threshold": threshold, "detail": detail, "scope": scope}
+            "threshold": threshold, "detail": detail, "scope": scope,
+            "halts": halts}
 
 
 # ------------------------------------------------------------- integrity ----
@@ -86,7 +93,8 @@ def integrity_switches(tick_ts, tally):
         TRIGGERED if tally.quotes_stale >= stale_threshold else ARMED,
         tally.quotes_stale, stale_threshold,
         "carried-forward quotes this tick. A data problem, not a strategy "
-        "problem — this warns, it does not halt."))
+        "problem — this warns, it does not halt.",
+        halts=False))
 
     return out
 
@@ -226,12 +234,41 @@ def evaluate(tick_ts, tally):
         "switches": switches,
         "triggered": [s for s in switches if s["state"] == TRIGGERED],
         "entries_paused": any(
-            s["state"] == TRIGGERED and s["kind"] == INTEGRITY for s in switches),
+            s["state"] == TRIGGERED and s["kind"] == INTEGRITY
+            and s.get("halts", True) for s in switches),
     }
 
 
 def _key(switch):
     return f"{switch['kind']}:{switch['name']}:{switch.get('scope') or '-'}"
+
+
+def entry_halts(evaluation):
+    """What a TRIGGERED switch actually stops, made consultable.
+
+    Returns (pause_all, per_ticker_arms, global_arms):
+      * pause_all — any INTEGRITY switch TRIGGERED: NO entry evaluation at all.
+        The paused period contains no evidence, so it must contain no entries.
+      * per_ticker_arms — {ticker: {arm, ...}} halted by a scoped STRATEGY kill.
+      * global_arms — arms halted by an unscoped STRATEGY kill (the EMERGENCY
+        cluster has no ticker scope).
+
+    Every strategy switch measures arm A, so strategy halts apply to arm A —
+    the pre-registration's words are "entries halt in the affected arm/ticker".
+    A switch that is computed but never consulted is not a switch (correctness
+    review, 2026-08-21: kills were evaluated AFTER entries and enforced never).
+    """
+    pause_all = any(s["state"] == TRIGGERED and s["kind"] == INTEGRITY
+                    and s.get("halts", True)
+                    for s in evaluation["switches"])
+    per_ticker, global_arms = {}, set()
+    for s in evaluation["switches"]:
+        if s["state"] == TRIGGERED and s["kind"] == STRATEGY:
+            if s.get("scope"):
+                per_ticker.setdefault(s["scope"], set()).add("A")
+            else:
+                global_arms.add("A")
+    return pause_all, per_ticker, global_arms
 
 
 def last_states():
@@ -267,6 +304,7 @@ def transitions(evaluation, engine):
         engine.event("kill_state_change",
                      ticker=s.get("scope"),
                      severity="critical" if s["state"] == TRIGGERED else "info",
+                     dedup_extra=k,
                      payload={"key": k, "state": s["state"],
                               "previous": previous.get(k),
                               "value": s["value"], "threshold": s["threshold"],
