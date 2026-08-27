@@ -1,10 +1,11 @@
 -- 005 — Paper-trading engine: forward validation with pre-registered arms.
 --
--- STATUS: NOT YET APPLIED. Update this line to `STATUS: APPLIED <date>` after
--- running it, and only after the read-back at the bottom returns the expected
--- row. A migration file that says APPLIED without a verified read-back is the
--- same class of claim as a write helper returning the attempted count
--- (tasks/lessons.md 2026-08-15).
+-- STATUS: APPLIED 2026-08-27. Read-back verified: all four paper_engine_*
+-- tables exist with relrowsecurity = t, row counts 0, and the engine's
+-- startup schema-contract check passed against them on run 33105432828.
+-- (Rule: a migration file that says APPLIED without a verified read-back is
+-- the same class of claim as a write helper returning the attempted count —
+-- tasks/lessons.md 2026-08-15.)
 --
 -- Apply with:
 --   ssh root@95.216.205.160 \

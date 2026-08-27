@@ -442,3 +442,22 @@ def test_a_stale_entry_fill_never_grades_as_a_real_fill(monkeypatch):
     assert eng.execute_exit_fill(t, q) is True
     closed = [u for u in st.updates if u[1].get("status") == "closed"][0][1]
     assert closed["real_fill"] is False
+
+
+def test_query_timestamps_are_url_safe(monkeypatch):
+    """isoformat()'s '+00:00' URL-decodes to a space inside a PostgREST query
+    and 400s the filter — this killed the first live tick at the
+    EMERGENCY-cluster kill query."""
+    ts = utc(2026, 8, 27, 18, 52)
+    assert "+" in ts.isoformat()                       # the premise
+    assert store.ts_param(ts) == "2026-08-27T18:52:00Z"
+
+    # And the one query that embeds a full timestamp actually uses it.
+    captured = []
+    monkeypatch.setattr(store, "select_rows",
+                        lambda table, q="": captured.append(q) or [])
+    killswitch.strategy_switches(ts)
+    ts_queries = [q for q in captured if "event_ts=gte." in q]
+    assert ts_queries, "the EMERGENCY-cluster query no longer runs?"
+    assert all("+" not in q for q in ts_queries), \
+        "a '+' in a query string reaches PostgREST as a space"

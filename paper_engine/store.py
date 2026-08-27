@@ -268,6 +268,21 @@ class ConfirmedCounter:
         return f"{self.confirmed}/{self.attempted} writes confirmed"
 
 
+def ts_param(dt):
+    """A timestamp formatted for a PostgREST QUERY STRING: UTC, second
+    precision, 'Z' suffix.
+
+    `datetime.isoformat()` ends in '+00:00', and a '+' inside a URL query
+    decodes as a SPACE — PostgREST then rejects the filter with a 400
+    ('invalid input syntax for type timestamp'). That took down the first
+    live tick, at the EMERGENCY-cluster kill query. 'Z' is URL-safe and
+    PostgREST parses it; every timestamp embedded in a query goes through
+    here.
+    """
+    from datetime import timezone as _tz
+    return dt.astimezone(_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def json_safe(obj):
     """Round-trip through JSON so a NaN can never reach Supabase as a literal."""
     def _clean(o):

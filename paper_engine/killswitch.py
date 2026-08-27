@@ -169,7 +169,9 @@ def strategy_switches(tick_ts):
     # 4. EMERGENCY cluster in the trailing 30 days.
     ec = t["emergency_cluster_30d"]
     if ec.get("armed"):
-        since = (tick_ts - timedelta(days=30)).isoformat()
+        # ts_param, not isoformat(): '+00:00' URL-decodes to a space and
+        # PostgREST 400s the filter — this exact line failed the first live tick.
+        since = store.ts_param(tick_ts - timedelta(days=30))
         rows = store.select_rows(
             config.TABLES["events"],
             f"kind=eq.exit_pending&event_ts=gte.{since}&select=payload")
