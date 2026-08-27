@@ -29,13 +29,33 @@ def backend():
     (tasks/lessons.md 2026-08-15). Every registry call announces the backend so
     'registered' can never mean 'wrote to a temp file on this laptop'.
     """
-    return "supabase" if db._get_supabase() is not None else f"sqlite:{db.SQLITE_PATH}"
+    try:
+        client = db._get_supabase()
+    except Exception as e:
+        # An uninstallable or unbuildable client IS "not supabase". Raising from
+        # a diagnostic is strictly worse than answering it: every caller of this
+        # function is asking so it can refuse to proceed, and
+        # `registry-sync.yml` greps the log for `sqlite:` to fail the job. A
+        # ModuleNotFoundError here would crash the check that exists to catch
+        # exactly this condition. (CI has the credentials but not the package.)
+        return f"unavailable:{type(e).__name__}"
+    return "supabase" if client is not None else f"sqlite:{db.SQLITE_PATH}"
+
+
+class AlreadyRegistered(RuntimeError):
+    """A pre-registration exists and does not match what is being registered.
+
+    `db.register_hypothesis` UPSERTs on `signal_id`, so before this guard a
+    re-run with different thresholds silently replaced the original and left no
+    record that it had ever said anything else. Pre-registration that can be
+    edited after the fact is not pre-registration; it is note-taking.
+    """
 
 
 def pre_register(signal_id, name, tier, hypothesis,
                  filter_desc=None, trade_direction=None,
                  primary_metric="Realized VRP", pass_thresholds=None,
-                 fail_criteria=None):
+                 fail_criteria=None, allow_overwrite=False):
     """
     Pre-register a hypothesis BEFORE any data analysis.
 
@@ -67,7 +87,38 @@ def pre_register(signal_id, name, tier, hypothesis,
     if parts:
         full_hypothesis += "\n" + "\n".join(parts)
 
-    db.register_hypothesis(signal_id, name, tier, full_hypothesis)
+    # Read before write. Re-registering the IDENTICAL content is a harmless
+    # no-op (scripts get re-run); re-registering DIFFERENT content is refused.
+    existing = db.get_hypothesis(signal_id)
+    if existing and not allow_overwrite:
+        differs = []
+        if (existing.get("hypothesis") or "") != full_hypothesis:
+            differs.append("hypothesis")
+        if pass_thresholds is not None:
+            stored = existing.get("pass_thresholds")
+            if isinstance(stored, str):
+                import json as _json
+                try:
+                    stored = _json.loads(stored)
+                except ValueError:
+                    pass
+            if stored != pass_thresholds:
+                differs.append("pass_thresholds")
+        if differs:
+            raise AlreadyRegistered(
+                f"{signal_id} is already pre-registered (on "
+                f"{existing.get('pre_registered_date')}) and differs in: "
+                f"{', '.join(differs)}. Refusing to overwrite it. A hypothesis "
+                f"whose success criteria can be edited after registration is "
+                f"not pre-registered. Register a NEW signal_id with a new start "
+                f"date and report the two separately."
+            )
+        print(f"[registry] {signal_id} already registered with identical "
+              f"content — no-op -> {backend()}")
+        return True
+
+    db.register_hypothesis(signal_id, name, tier, full_hypothesis,
+                           pass_thresholds=pass_thresholds)
     print(f"[registry] Pre-registered {signal_id}: {name} (Tier {tier}) "
           f"-> {backend()}")
     return True

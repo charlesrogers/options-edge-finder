@@ -36,9 +36,17 @@ jobs:
             *) echo "Refusing to run '${{ inputs.script }}' — registry scripts only."; exit 1 ;;
           esac
           python3 "${{ inputs.script }}" 2>&1 | tee run.log
-          # The registry announces its backend on every call. If it fell back to SQLite the
-          # write is not durable and this job must fail rather than report success.
+          # The registry announces its backend on every call. Anything other than
+          # `supabase` means the write is not durable and this job must fail rather
+          # than report success.
+          #   sqlite:      credentials missing or rejected -> gitignored local file
+          #   unavailable: the client could not even be built (e.g. the `supabase`
+          #                package is not installed) -> nothing was written at all
           if grep -q "sqlite:" run.log; then
             echo "::error::Registry fell back to SQLite — Supabase credentials missing or rejected."
+            exit 1
+          fi
+          if grep -q "unavailable:" run.log; then
+            echo "::error::Registry backend unavailable — the Supabase client could not be built. Nothing was written."
             exit 1
           fi

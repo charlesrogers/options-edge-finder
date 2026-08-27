@@ -1,0 +1,43 @@
+{
+  "sha256": "9664dd71ba77b78d71add0a0ae4a1abadc652eaea3aafd2986e4ae25539df254",
+  "cases": [
+    {
+      "ticker": "AAPL",
+      "start": "2025-01-02",
+      "end": "2025-06-30",
+      "cfg": {
+        "otm_pct": 0.15,
+        "min_dte": 20,
+        "max_dte": 45
+      },
+      "gate": "iv50"
+    },
+    {
+      "ticker": "AAPL",
+      "start": "2025-01-02",
+      "end": "2025-06-30",
+      "cfg": {
+        "otm_pct": 0.15,
+        "min_dte": 20,
+        "max_dte": 45
+      },
+      "gate": "none"
+    }
+  ],
+  "summary": [
+    {
+      "ticker": "AAPL",
+      "gate": "iv50",
+      "n_trades": 17,
+      "net_pnl": -546.26,
+      "retention_pct": -28.4
+    },
+    {
+      "ticker": "AAPL",
+      "gate": "none",
+      "n_trades": 49,
+      "net_pnl": 463.63,
+      "retention_pct": 15.0
+    }
+  ]
+}

@@ -1,0 +1,536 @@
+{
+  "cycle_expectations": {
+    "note": "Pooled counts cover only ['AAPL', 'DIS', 'KKR', 'TMUS']. GOOGL has no usable backtest reference, so it contributes cycles the engine will observe but no floor it can be graded against. Its forward numbers are reported and explicitly excluded from every pre-registered verdict.",
+    "per_ticker": {
+      "AAPL": {
+        "cycles_per_year_median": 12.0,
+        "cycles_per_year_range": [
+          10.0,
+          14.0
+        ],
+        "derivation": "12.0 completed cycles/year on the median sequential chain (25 staggered starts, real-fill subset, 2025-03-21..2026-03-20); day-N expectation = 12.0 * N/365",
+        "expected_by_day_180": 5.9,
+        "expected_by_day_30": 1.0,
+        "expected_by_day_90": 3.0,
+        "hold_time_median_days": 21.0,
+        "hold_time_p90_days": 28.0,
+        "kind": "derived"
+      },
+      "DIS": {
+        "cycles_per_year_median": 4.0,
+        "cycles_per_year_range": [
+          2.0,
+          7.0
+        ],
+        "derivation": "4.0 completed cycles/year on the median sequential chain (25 staggered starts, real-fill subset, 2025-03-21..2026-03-20); day-N expectation = 4.0 * N/365",
+        "expected_by_day_180": 2.0,
+        "expected_by_day_30": 0.3,
+        "expected_by_day_90": 1.0,
+        "hold_time_median_days": 19.0,
+        "hold_time_p90_days": 28.0,
+        "kind": "derived"
+      },
+      "KKR": {
+        "cycles_per_year_median": 16.7,
+        "cycles_per_year_range": [
+          15.7,
+          17.7
+        ],
+        "derivation": "16.7 completed cycles/year on the median sequential chain (25 staggered starts, real-fill subset, 2023-03-21..2026-03-20); day-N expectation = 16.7 * N/365",
+        "expected_by_day_180": 8.2,
+        "expected_by_day_30": 1.4,
+        "expected_by_day_90": 4.1,
+        "hold_time_median_days": 22.0,
+        "hold_time_p90_days": 31.0,
+        "kind": "derived"
+      },
+      "TMUS": {
+        "cycles_per_year_median": 13.0,
+        "cycles_per_year_range": [
+          10.0,
+          14.0
+        ],
+        "derivation": "13.0 completed cycles/year on the median sequential chain (25 staggered starts, real-fill subset, 2025-03-21..2026-03-20); day-N expectation = 13.0 * N/365",
+        "expected_by_day_180": 6.4,
+        "expected_by_day_30": 1.1,
+        "expected_by_day_90": 3.2,
+        "hold_time_median_days": 25.0,
+        "hold_time_p90_days": 31.0,
+        "kind": "derived"
+      }
+    },
+    "pooled": {
+      "day_180": 22.5,
+      "day_30": 3.8,
+      "day_90": 11.3
+    },
+    "tickers_without_a_reference": [
+      "GOOGL"
+    ]
+  },
+  "generated_from": {
+    "engine_sha": "b3f55bdceffbcf846641e679847049837dfb85c2",
+    "engine_worktree_dirty": true,
+    "reference": "experiments/024_paper_engine/reference.json",
+    "reference_generated_at": "2026-08-21T04:30:21.768502+00:00"
+  },
+  "kills": {
+    "engine_integrity": {
+      "assessed_without_ask_pct": {
+        "derivation": "ARBITRARY. assess_position defaults premium_captured_pct to 0 when the ask is missing, which silently disables TP-75 and TP-50. Above this share of ticks, the take-profit rungs are effectively off and no exit result means anything.",
+        "kind": "arbitrary",
+        "threshold": 5.0
+      },
+      "consecutive_stale_ticks_warning": {
+        "derivation": "ARBITRARY starting value, from spec \u00a75.4. A data problem, not a strategy problem \u2014 it warns, it does not kill.",
+        "kind": "arbitrary",
+        "threshold": 3
+      },
+      "heartbeat_stale_sessions": {
+        "derivation": "ARBITRARY. One closed session with no heartbeat during market hours. Calendar-aware via market_calendar, so a Friday-afternoon run is not stale all weekend.",
+        "kind": "arbitrary",
+        "threshold": 1
+      },
+      "quote_coverage_pct_trailing_5_sessions": {
+        "derivation": "ARBITRARY starting value. No forward observation of quote coverage exists yet \u2014 the backtest's repricing coverage (36-99% across tickers) measures a different thing (Databento prints, not live bid/ask). Re-derive from the first two weeks of observed coverage at the day-30 integrity checkpoint.",
+        "kind": "arbitrary",
+        "threshold": 80.0
+      }
+    },
+    "strategy": {
+      "consecutive_losses": {
+        "AAPL": {
+          "M": 3,
+          "armed": true,
+          "derivation": "q = 1 - 90.9/100 = 0.091; N = 5.9 cycles expected by day 180; family alpha 0.05 split across 4 tickers = 0.0125 each; smallest M with (N-M+1)*q^M < alpha and N >= M is M=3.",
+          "expected_cycles_by_day_180": 5.9,
+          "kind": "derived",
+          "loss_rate_q": 0.091,
+          "per_ticker_alpha": 0.0125,
+          "reference_win_rate_pct": 90.9,
+          "steps": [
+            "M=2: (5.9 - 2 + 1) x 0.091^2 = 0.0406",
+            "M=3: (5.9 - 3 + 1) x 0.091^3 = 0.0029"
+          ]
+        },
+        "DIS": {
+          "M": null,
+          "armed": false,
+          "derivation": "reference per-cycle win rate is 100.0% \u2014 a loss rate of zero gives no binomial to solve. This kill cannot be calibrated for DIS and stays DISARMED until the engine has observed its own loss rate. Reporting a threshold here would be an invented number.",
+          "kind": "mechanical",
+          "reference_win_rate_pct": 100.0
+        },
+        "KKR": {
+          "M": 5,
+          "armed": true,
+          "derivation": "q = 1 - 71.0/100 = 0.29; N = 8.2 cycles expected by day 180; family alpha 0.05 split across 4 tickers = 0.0125 each; smallest M with (N-M+1)*q^M < alpha and N >= M is M=5.",
+          "expected_cycles_by_day_180": 8.2,
+          "kind": "derived",
+          "loss_rate_q": 0.29,
+          "per_ticker_alpha": 0.0125,
+          "reference_win_rate_pct": 71.0,
+          "steps": [
+            "M=2: (8.2 - 2 + 1) x 0.29^2 = 0.6055",
+            "M=3: (8.2 - 3 + 1) x 0.29^3 = 0.1512",
+            "M=4: (8.2 - 4 + 1) x 0.29^4 = 0.0368",
+            "M=5: (8.2 - 5 + 1) x 0.29^5 = 0.0086"
+          ]
+        },
+        "TMUS": {
+          "M": 3,
+          "armed": true,
+          "derivation": "q = 1 - 88.9/100 = 0.111; N = 6.4 cycles expected by day 180; family alpha 0.05 split across 4 tickers = 0.0125 each; smallest M with (N-M+1)*q^M < alpha and N >= M is M=3.",
+          "expected_cycles_by_day_180": 6.4,
+          "kind": "derived",
+          "loss_rate_q": 0.111,
+          "per_ticker_alpha": 0.0125,
+          "reference_win_rate_pct": 88.9,
+          "steps": [
+            "M=2: (6.4 - 2 + 1) x 0.111^2 = 0.0665",
+            "M=3: (6.4 - 3 + 1) x 0.111^3 = 0.0060"
+          ]
+        }
+      },
+      "drawdown": {
+        "friction_model": {
+          "derivation": "from scripts/probe_quotes.py, 2026-08-20: AAPL spread $0.03, KKR $0.40 at the production strike. Half a spread each way = one full spread per cycle, x100 shares, plus $1.30 round-trip commission ($0.65/contract/side, itself an assumption). Two observations on one day \u2014 indicative, not a distribution.",
+          "kind": "derived",
+          "per_cycle_usd_per_contract": {
+            "AAPL": 4.3,
+            "KKR": 41.3
+          },
+          "typical_per_cycle_usd": 22.8
+        },
+        "per_ticker": {
+          "AAPL": {
+            "derivation": "worst 30-day realised option-leg drawdown across 25 staggered sequential chains, real-fill subset = $970.7. Forward friction over 30 days = $4.3/cycle x 0.99 cycles = $4.26. Threshold = ($970.7 + $4.26) x 1.5 = $1462.44. The two components are measured; the 1.5x is an ARBITRARY starting value covering small-sample noise, to be revisited at day 90 against observed variance.",
+            "kind": "derived_with_arbitrary_multiplier",
+            "modelled_30d_friction_usd": 4.26,
+            "reference_median_30d_drawdown_usd": 167.3,
+            "reference_worst_30d_drawdown_usd": 970.7,
+            "safety_factor": 1.5,
+            "threshold_usd_per_contract": 1462.44
+          },
+          "DIS": {
+            "derivation": "worst 30-day realised option-leg drawdown across 25 staggered sequential chains, real-fill subset = $748.0. Forward friction over 30 days = $22.8/cycle x 0.33 cycles = $7.52. Threshold = ($748.0 + $7.52) x 1.5 = $1133.28. The two components are measured; the 1.5x is an ARBITRARY starting value covering small-sample noise, to be revisited at day 90 against observed variance.",
+            "kind": "derived_with_arbitrary_multiplier",
+            "modelled_30d_friction_usd": 7.52,
+            "reference_median_30d_drawdown_usd": 0.0,
+            "reference_worst_30d_drawdown_usd": 748.0,
+            "safety_factor": 1.5,
+            "threshold_usd_per_contract": 1133.28
+          },
+          "KKR": {
+            "derivation": "worst 30-day realised option-leg drawdown across 25 staggered sequential chains, real-fill subset = $373.8. Forward friction over 30 days = $41.3/cycle x 1.37 cycles = $56.58. Threshold = ($373.8 + $56.58) x 1.5 = $645.57. The two components are measured; the 1.5x is an ARBITRARY starting value covering small-sample noise, to be revisited at day 90 against observed variance.",
+            "kind": "derived_with_arbitrary_multiplier",
+            "modelled_30d_friction_usd": 56.58,
+            "reference_median_30d_drawdown_usd": 373.8,
+            "reference_worst_30d_drawdown_usd": 373.8,
+            "safety_factor": 1.5,
+            "threshold_usd_per_contract": 645.57
+          },
+          "TMUS": {
+            "derivation": "worst 30-day realised option-leg drawdown across 25 staggered sequential chains, real-fill subset = $765.3. Forward friction over 30 days = $22.8/cycle x 1.07 cycles = $24.4. Threshold = ($765.3 + $24.4) x 1.5 = $1184.55. The two components are measured; the 1.5x is an ARBITRARY starting value covering small-sample noise, to be revisited at day 90 against observed variance.",
+            "kind": "derived_with_arbitrary_multiplier",
+            "modelled_30d_friction_usd": 24.4,
+            "reference_median_30d_drawdown_usd": 765.3,
+            "reference_worst_30d_drawdown_usd": 765.3,
+            "safety_factor": 1.5,
+            "threshold_usd_per_contract": 1184.55
+          }
+        }
+      },
+      "emergency_cluster_30d": {
+        "E": 2,
+        "alpha": 0.05,
+        "armed": true,
+        "derivation": "reference EMERGENCY fires per 30 days per open position, summed across the 4 tickers with a reference = lambda 0.031. Smallest E with Poisson tail P(X>=E) < 0.05 is E=2. The reference rate is near zero because the recent window contained no crash \u2014 which is exactly why a cluster means we are living the untested case.",
+        "derived_E": 1,
+        "floor_reason": "floored at 2: E=1 would fire on a single EMERGENCY, which is the copilot doing its job, not a regime change. The floor of 2 is an ARBITRARY minimum; the Poisson maths above it is derived.",
+        "kind": "derived_with_arbitrary_floor",
+        "per_ticker_rate_per_30d": {
+          "AAPL": 0.0,
+          "DIS": 0.0,
+          "KKR": 0.031,
+          "TMUS": 0.0
+        },
+        "portfolio_lambda_per_30d": 0.031,
+        "steps": [
+          "E=1: P(X>=1) = 0.03052"
+        ]
+      },
+      "modeled_assignment_in_arm_A": {
+        "derivation": "Any modeled assignment in arm A halts that ticker. No calibration: arm A's entire purpose is that this never happens, and the reference shows zero across every usable window. MUST be reported with the reachability disclosure \u2014 the reference recorded only 8 approaches to the assignment branch (all KKR) across 8,458 observations, so a forward zero may mean the state was never reached, not that the constraint held.",
+        "kind": "mechanical",
+        "reference_approaches": {
+          "AAPL": 0,
+          "DIS": 0,
+          "KKR": 8,
+          "TMUS": 0
+        },
+        "threshold": 1
+      }
+    }
+  },
+  "standard": "real-fill subset is the result; all-fill reported beside it",
+  "verdict_rules": {
+    "H40": {
+      "floor_derivation": "n >= (1.645 * sd / |mean|)^2 on the reference per-cycle real-fill option-leg P&L, floored at the minimum of 10. These floors are large \u2014 TMUS's mean per cycle is $1.50 against a $121 standard deviation, so its absolute P&L question needs ~58,000 cycles. That is not a defect in the rule; it is the measurement telling us that TMUS's edge, if any, is far smaller than its noise.",
+      "metric": "net option-leg P&L per completed cycle, real-fill subset, per ticker",
+      "pooled_expected_by_day_180": 22.5,
+      "question": "Does the full strategy net positive per ticker after real friction?",
+      "registered_floors_per_ticker": {
+        "AAPL": {
+          "expected_by_day_180": 5.9,
+          "floor": 794,
+          "per_cycle_mean": 7.84,
+          "per_cycle_sd": 134.19,
+          "power_sketch": 793.3
+        },
+        "DIS": {
+          "expected_by_day_180": 2.0,
+          "floor": 23,
+          "per_cycle_mean": 74.65,
+          "per_cycle_sd": 213.58,
+          "power_sketch": 22.1
+        },
+        "KKR": {
+          "expected_by_day_180": 8.2,
+          "floor": 360,
+          "per_cycle_mean": -15.8,
+          "per_cycle_sd": 182.05,
+          "power_sketch": 359.4
+        },
+        "TMUS": {
+          "expected_by_day_180": 6.4,
+          "floor": 58101,
+          "per_cycle_mean": 1.5,
+          "per_cycle_sd": 219.58,
+          "power_sketch": 58100.6
+        }
+      },
+      "rule": "H40 PASSES for a ticker iff completed real-fill cycles >= that ticker's floor AND the 90% bootstrap CI (10,000 resamples of per-cycle net P&L) excludes 0 above it. FAILS iff the CI excludes 0 below it. Otherwise INCONCLUSIVE \u2014 which is a verdict, not a deferral."
+    },
+    "H41": {
+      "floor_derivation": "max(minimum 10, power sketch 270.0)",
+      "floor_pooled_cycles": 270,
+      "mandatory_caveat": "Arm B's option-leg P&L is not comparable to arm A's without its assignment count. In the reference, arm A took ZERO assignments in every window while arm B took 10-102. Being called away is the tax event the copilot exists to prevent, and option-leg P&L cannot see it. Any A-B readout that omits both arms' assignment counts is a misreport.",
+      "metric": "paired per-cycle difference in net option-leg P&L, A minus B",
+      "pooled_floor_secondary_only": 270,
+      "question": "What do the copilot's exits actually cost? (A - B)",
+      "reachability_pooled": {
+        "expected_by_day_180": 22.5,
+        "expected_days_to_floor": 2160,
+        "floor": 270,
+        "pre_committed_outcome_if_unreachable": "INCONCLUSIVE \u2014 reported as 'not enough cycles', with the point estimate and CI shown and explicitly labelled under-powered. It is not upgraded to a verdict by loosening the rule.",
+        "reachable_by_day_180": false
+      },
+      "reference_power_sketch_pooled": 270.0,
+      "registered_floors_per_ticker": {
+        "AAPL": {
+          "expected_by_day_180": 5.9,
+          "expected_days_to_floor": 1281,
+          "floor": 42,
+          "power_sketch": 41.2,
+          "reachable_by_day_180": false
+        },
+        "DIS": {
+          "expected_by_day_180": 2.0,
+          "expected_days_to_floor": 1260,
+          "floor": 14,
+          "power_sketch": 13.7,
+          "reachable_by_day_180": false
+        },
+        "KKR": {
+          "expected_by_day_180": 8.2,
+          "expected_days_to_floor": 2612,
+          "floor": 119,
+          "power_sketch": 118.3,
+          "reachable_by_day_180": false
+        },
+        "TMUS": {
+          "expected_by_day_180": 6.4,
+          "expected_days_to_floor": 703,
+          "floor": 25,
+          "power_sketch": 24.3,
+          "reachable_by_day_180": false
+        }
+      },
+      "rule": "H41 concludes 'the copilot adds value' iff pooled paired cycles >= the floor AND the 90% bootstrap CI of per-cycle (A - B) excludes 0 in A's favour; 'the copilot is net-negative on the option leg' iff it excludes 0 against A."
+    },
+    "H42": {
+      "accrual_caveat": "The floor counts BLOCKED ENTRIES, not cycles. The reference counts them in cohort mode (every day is evaluated); the engine evaluates a ticker only while it is flat, so the forward accrual rate for blocked entries is NOT derivable from this reference and must be measured at day 30 before anyone estimates a date for this verdict.",
+      "floor_blocked_entries": 469,
+      "floor_derivation": "max(minimum 10, power sketch 468.4)",
+      "method_note": "NOT a paired comparison. On days both arms enter, the trades are identical, so a paired delta is exactly 0 and measures nothing. The gate's whole effect is the set it blocks \u2014 the method Exp 023 used to find the gate blocks TMUS winners.",
+      "metric": "mean net option-leg P&L of the entries the gate BLOCKS (arm C entered, arm A did not)",
+      "pooled_floor_secondary_only": 469,
+      "question": "Is the IV gate worth anything forward? (A vs C)",
+      "reachability_pooled": {
+        "expected_by_day_180": 22.5,
+        "expected_days_to_floor": 3752,
+        "floor": 469,
+        "pre_committed_outcome_if_unreachable": "INCONCLUSIVE \u2014 reported as 'not enough cycles', with the point estimate and CI shown and explicitly labelled under-powered. It is not upgraded to a verdict by loosening the rule.",
+        "reachable_by_day_180": false
+      },
+      "reference_power_sketch_pooled": 468.4,
+      "registered_floors_per_ticker": {
+        "AAPL": {
+          "expected_by_day_180": 5.9,
+          "expected_days_to_floor": 1861,
+          "floor": 61,
+          "power_sketch": 60.1,
+          "reachable_by_day_180": false
+        },
+        "DIS": {
+          "expected_by_day_180": 2.0,
+          "expected_days_to_floor": 37350,
+          "floor": 415,
+          "power_sketch": 414.1,
+          "reachable_by_day_180": false
+        },
+        "KKR": {
+          "expected_by_day_180": 8.2,
+          "expected_days_to_floor": 11020,
+          "floor": 502,
+          "power_sketch": 501.6,
+          "reachable_by_day_180": false
+        },
+        "TMUS": {
+          "expected_by_day_180": 6.4,
+          "expected_days_to_floor": 281,
+          "floor": 10,
+          "power_sketch": 7.6,
+          "reachable_by_day_180": false
+        }
+      },
+      "rule": "H42 concludes 'the IV gate destroys value' iff blocked entries >= the floor AND the 90% bootstrap CI of their per-cycle net P&L excludes 0 above it; 'the gate protects' iff it excludes 0 below it."
+    },
+    "H43": {
+      "floor_derivation": "max(minimum 10, power sketch 326.9)",
+      "floor_pooled_cycles": 327,
+      "metric": "paired per-cycle difference in net option-leg P&L, A minus D",
+      "pooled_floor_secondary_only": 327,
+      "question": "How much of A's exit cost is defensive vs profit-taking? (A - D)",
+      "reachability_pooled": {
+        "expected_by_day_180": 22.5,
+        "expected_days_to_floor": 2616,
+        "floor": 327,
+        "pre_committed_outcome_if_unreachable": "INCONCLUSIVE \u2014 reported as 'not enough cycles', with the point estimate and CI shown and explicitly labelled under-powered. It is not upgraded to a verdict by loosening the rule.",
+        "reachable_by_day_180": false
+      },
+      "reference_power_sketch_pooled": 326.9,
+      "registered_floors_per_ticker": {
+        "AAPL": {
+          "expected_by_day_180": 5.9,
+          "expected_days_to_floor": 1525,
+          "floor": 50,
+          "power_sketch": 49.2,
+          "reachable_by_day_180": false
+        },
+        "DIS": {
+          "expected_by_day_180": 2.0,
+          "expected_days_to_floor": 1350,
+          "floor": 15,
+          "power_sketch": 14.2,
+          "reachable_by_day_180": false
+        },
+        "KKR": {
+          "expected_by_day_180": 8.2,
+          "expected_days_to_floor": 5663,
+          "floor": 258,
+          "power_sketch": 257.6,
+          "reachable_by_day_180": false
+        },
+        "TMUS": {
+          "expected_by_day_180": 6.4,
+          "expected_days_to_floor": 3178,
+          "floor": 113,
+          "power_sketch": 112.9,
+          "reachable_by_day_180": false
+        }
+      },
+      "rule": "H43 concludes 'the defensive clauses carry the exit cost' iff pooled paired cycles >= the floor AND the 90% bootstrap CI of per-cycle (A - D) excludes 0. Sign gives the direction."
+    },
+    "_power": {
+      "A_minus_B": {
+        "caveat": "normal approximation on overlapping, autocorrelated cohorts \u2014 an order of magnitude, not a promise",
+        "cycles_for_90pct_ci_to_exclude_zero": 270.0,
+        "derivable": true,
+        "label": "A-B",
+        "n_pooled_samples": 630,
+        "pooled_mean_usd_per_cycle": 33.28,
+        "pooled_sd": 332.5
+      },
+      "A_minus_D": {
+        "caveat": "normal approximation on overlapping, autocorrelated cohorts \u2014 an order of magnitude, not a promise",
+        "cycles_for_90pct_ci_to_exclude_zero": 326.9,
+        "derivable": true,
+        "label": "A-D",
+        "n_pooled_samples": 630,
+        "pooled_mean_usd_per_cycle": 27.0,
+        "pooled_sd": 296.8
+      },
+      "H40_per_ticker": {
+        "AAPL": {
+          "caveat": "normal approximation on overlapping, autocorrelated cohorts \u2014 an order of magnitude, not a promise",
+          "cycles_for_90pct_ci_to_exclude_zero": 793.3,
+          "derivable": true,
+          "label": "H40 AAPL",
+          "n_pooled_samples": 89,
+          "pooled_mean_usd_per_cycle": 7.84,
+          "pooled_sd": 134.19
+        },
+        "DIS": {
+          "caveat": "normal approximation on overlapping, autocorrelated cohorts \u2014 an order of magnitude, not a promise",
+          "cycles_for_90pct_ci_to_exclude_zero": 22.1,
+          "derivable": true,
+          "label": "H40 DIS",
+          "n_pooled_samples": 37,
+          "pooled_mean_usd_per_cycle": 74.65,
+          "pooled_sd": 213.58
+        },
+        "KKR": {
+          "caveat": "normal approximation on overlapping, autocorrelated cohorts \u2014 an order of magnitude, not a promise",
+          "cycles_for_90pct_ci_to_exclude_zero": 359.4,
+          "derivable": true,
+          "label": "H40 KKR",
+          "n_pooled_samples": 256,
+          "pooled_mean_usd_per_cycle": -15.8,
+          "pooled_sd": 182.05
+        },
+        "TMUS": {
+          "caveat": "normal approximation on overlapping, autocorrelated cohorts \u2014 an order of magnitude, not a promise",
+          "cycles_for_90pct_ci_to_exclude_zero": 58100.6,
+          "derivable": true,
+          "label": "H40 TMUS",
+          "n_pooled_samples": 89,
+          "pooled_mean_usd_per_cycle": 1.5,
+          "pooled_sd": 219.58
+        }
+      },
+      "finding": "Two things, both pre-registered rather than discovered at review time. (1) The spec's premise HOLDS, per ticker: the paired arm differences need far fewer cycles than the absolute P&L question \u2014 AAPL 41 vs 793, TMUS 24 vs 58,101, KKR 118 vs 359, DIS 14 vs 22. Pairing cancels the regime noise exactly as claimed. (2) Pooling ACROSS tickers is the wrong estimator for the paired questions and must not be used as the primary rule: the per-ticker means have opposite signs (A-B: TMUS -64, AAPL -41, KKR +50, DIS +271), so they cancel and the pooled requirement (270) is worse than every per-ticker one. The registered rules are therefore per-ticker; pooled figures are reported as secondary and never as the verdict. (3) The blunt consequence: NOTHING here is gradeable at day 180. The cheapest question is DIS A-B at 14 cycles against 2.0 expected; the cheapest that accrues quickly is TMUS A-B at 24 against 6.4. Day 180 is an interim readout with point estimates and honest CIs, not a verdict.",
+      "iv_gate": {
+        "caveat": "normal approximation on overlapping, autocorrelated cohorts \u2014 an order of magnitude, not a promise",
+        "cycles_for_90pct_ci_to_exclude_zero": 468.4,
+        "derivable": true,
+        "label": "IV gate blocked set",
+        "n_pooled_samples": 794,
+        "pooled_mean_usd_per_cycle": 9.34,
+        "pooled_sd": 122.85
+      },
+      "per_ticker": {
+        "AAPL": {
+          "A_minus_B": 41.2,
+          "A_minus_D": 49.2,
+          "iv_gate": 60.1
+        },
+        "DIS": {
+          "A_minus_B": 13.7,
+          "A_minus_D": 14.2,
+          "iv_gate": 414.1
+        },
+        "KKR": {
+          "A_minus_B": 118.3,
+          "A_minus_D": 257.6,
+          "iv_gate": 501.6
+        },
+        "TMUS": {
+          "A_minus_B": 24.3,
+          "A_minus_D": 112.9,
+          "iv_gate": 7.6
+        }
+      },
+      "reachability_summary": {
+        "AAPL": {
+          "A_minus_B_cycles_needed": 41.2,
+          "A_minus_D_cycles_needed": 49.2,
+          "H40_cycles_needed": 793.3,
+          "expected_cycles_by_day_180": 5.9,
+          "iv_gate_cycles_needed": 60.1
+        },
+        "DIS": {
+          "A_minus_B_cycles_needed": 13.7,
+          "A_minus_D_cycles_needed": 14.2,
+          "H40_cycles_needed": 22.1,
+          "expected_cycles_by_day_180": 2.0,
+          "iv_gate_cycles_needed": 414.1
+        },
+        "KKR": {
+          "A_minus_B_cycles_needed": 118.3,
+          "A_minus_D_cycles_needed": 257.6,
+          "H40_cycles_needed": 359.4,
+          "expected_cycles_by_day_180": 8.2,
+          "iv_gate_cycles_needed": 501.6
+        },
+        "TMUS": {
+          "A_minus_B_cycles_needed": 24.3,
+          "A_minus_D_cycles_needed": 112.9,
+          "H40_cycles_needed": 58100.6,
+          "expected_cycles_by_day_180": 6.4,
+          "iv_gate_cycles_needed": 7.6
+        }
+      }
+    }
+  }
+}

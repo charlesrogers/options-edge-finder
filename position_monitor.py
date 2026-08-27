@@ -24,6 +24,12 @@ from datetime import datetime as _datetime, date as _date
 from dataclasses import dataclass
 from typing import Optional
 
+# Stdlib-only module (dataclasses + typing). Importing it here cannot drag a
+# research dependency onto the safety-critical monitor's path — the failure
+# mode tasks/lessons.md records for 2026-08-16, when a scipy import at module
+# scope took the monitor down.
+import cc_core
+
 
 # ============================================================
 # ITM PROBABILITY TABLE (from Study A, 145,099 observations)
@@ -148,6 +154,13 @@ class PositionAlert:
     net_pnl: Optional[float]  # if closed now
     reason: str
     action: str
+    # Machine-readable id of the ladder rung that fired. `level` is too coarse
+    # (five CLOSE_NOW clauses share one level) and `reason` is formatted prose,
+    # so neither can support a reachability audit. A clause that never fires
+    # across hundreds of observations is presumed unwired, not unlucky
+    # (tasks/lessons.md 2026-08-16) — that audit needs a stable key, and this is
+    # it. Defaulted so no existing caller has to change.
+    clause: str = "unclassified"
 
 
 def assess_position(ticker, strike, expiry, sold_price, contracts,
@@ -209,6 +222,7 @@ def assess_position(ticker, strike, expiry, sold_price, contracts,
     # EMERGENCY: ITM + ex-div within 3 days
     if is_itm and days_to_exdiv is not None and days_to_exdiv <= 3:
         return PositionAlert(
+            clause="emergency_itm_exdiv_3d",
             level="EMERGENCY", ticker=ticker, strike=strike, expiry=str(expiry)[:10],
             sold_price=sold_price, current_stock=current_stock,
             current_option=current_option_ask, dte=dte,
@@ -226,6 +240,7 @@ def assess_position(ticker, strike, expiry, sold_price, contracts,
     # CLOSE_NOW: ITM by any amount
     if is_itm:
         return PositionAlert(
+            clause="close_now_itm",
             level="CLOSE_NOW", ticker=ticker, strike=strike, expiry=str(expiry)[:10],
             sold_price=sold_price, current_stock=current_stock,
             current_option=current_option_ask, dte=dte,
@@ -243,6 +258,7 @@ def assess_position(ticker, strike, expiry, sold_price, contracts,
     # CLOSE_NOW: Within 1% + ex-div within 5 days
     if pct_from_strike < 1 and days_to_exdiv is not None and days_to_exdiv <= 5:
         return PositionAlert(
+            clause="close_now_near_strike_exdiv_5d",
             level="CLOSE_NOW", ticker=ticker, strike=strike, expiry=str(expiry)[:10],
             sold_price=sold_price, current_stock=current_stock,
             current_option=current_option_ask, dte=dte,
@@ -259,6 +275,7 @@ def assess_position(ticker, strike, expiry, sold_price, contracts,
     # CLOSE_NOW: DTE < 3 AND within 3% of strike
     if dte < 3 and pct_from_strike < 3:
         return PositionAlert(
+            clause="close_now_dte_lt3_within_3pct",
             level="CLOSE_NOW", ticker=ticker, strike=strike, expiry=str(expiry)[:10],
             sold_price=sold_price, current_stock=current_stock,
             current_option=current_option_ask, dte=dte,
@@ -276,6 +293,7 @@ def assess_position(ticker, strike, expiry, sold_price, contracts,
     # CLOSE_NOW: Within 2% + earnings within 2 days
     if pct_from_strike < 2 and days_to_earnings is not None and days_to_earnings <= 2:
         return PositionAlert(
+            clause="close_now_within_2pct_earnings_2d",
             level="CLOSE_NOW", ticker=ticker, strike=strike, expiry=str(expiry)[:10],
             sold_price=sold_price, current_stock=current_stock,
             current_option=current_option_ask, dte=dte,
@@ -293,6 +311,7 @@ def assess_position(ticker, strike, expiry, sold_price, contracts,
     # CLOSE_SOON: Within 2% of strike with 7+ DTE
     if pct_from_strike < 2 and dte >= 7:
         return PositionAlert(
+            clause="close_soon_within_2pct_dte_ge7",
             level="CLOSE_SOON", ticker=ticker, strike=strike, expiry=str(expiry)[:10],
             sold_price=sold_price, current_stock=current_stock,
             current_option=current_option_ask, dte=dte,
@@ -312,6 +331,7 @@ def assess_position(ticker, strike, expiry, sold_price, contracts,
     # (Study A, 145K obs). 5% was causing 39% false alarm rate in simulator.
     if pct_from_strike < 3 and dte < 7:
         return PositionAlert(
+            clause="close_soon_gamma_within_3pct_dte_lt7",
             level="CLOSE_SOON", ticker=ticker, strike=strike, expiry=str(expiry)[:10],
             sold_price=sold_price, current_stock=current_stock,
             current_option=current_option_ask, dte=dte,
@@ -328,6 +348,7 @@ def assess_position(ticker, strike, expiry, sold_price, contracts,
     # CLOSE_SOON: 75%+ premium captured
     if premium_captured_pct >= 75:
         return PositionAlert(
+            clause="close_soon_tp75",
             level="CLOSE_SOON", ticker=ticker, strike=strike, expiry=str(expiry)[:10],
             sold_price=sold_price, current_stock=current_stock,
             current_option=current_option_ask, dte=dte,
@@ -345,6 +366,7 @@ def assess_position(ticker, strike, expiry, sold_price, contracts,
     # CLOSE_SOON: Ex-div 3-5 days + within 5%
     if days_to_exdiv is not None and days_to_exdiv <= 5 and pct_from_strike < 5:
         return PositionAlert(
+            clause="close_soon_exdiv_3to5d_within_5pct",
             level="CLOSE_SOON", ticker=ticker, strike=strike, expiry=str(expiry)[:10],
             sold_price=sold_price, current_stock=current_stock,
             current_option=current_option_ask, dte=dte,
@@ -361,6 +383,7 @@ def assess_position(ticker, strike, expiry, sold_price, contracts,
     # WATCH: 2-5% from strike with 14+ DTE
     if pct_from_strike < 5 and dte >= 14:
         return PositionAlert(
+            clause="watch_2to5pct_dte_ge14",
             level="WATCH", ticker=ticker, strike=strike, expiry=str(expiry)[:10],
             sold_price=sold_price, current_stock=current_stock,
             current_option=current_option_ask, dte=dte,
@@ -378,6 +401,7 @@ def assess_position(ticker, strike, expiry, sold_price, contracts,
     # WATCH: 2-5% from strike with 7-14 DTE
     if pct_from_strike < 5 and dte >= 7:
         return PositionAlert(
+            clause="watch_2to5pct_dte_7to14",
             level="WATCH", ticker=ticker, strike=strike, expiry=str(expiry)[:10],
             sold_price=sold_price, current_stock=current_stock,
             current_option=current_option_ask, dte=dte,
@@ -394,6 +418,7 @@ def assess_position(ticker, strike, expiry, sold_price, contracts,
     # WATCH: Ex-div 5-10 days + within 5%
     if days_to_exdiv is not None and days_to_exdiv <= 10 and pct_from_strike < 5:
         return PositionAlert(
+            clause="watch_exdiv_5to10d_within_5pct",
             level="WATCH", ticker=ticker, strike=strike, expiry=str(expiry)[:10],
             sold_price=sold_price, current_stock=current_stock,
             current_option=current_option_ask, dte=dte,
@@ -410,6 +435,7 @@ def assess_position(ticker, strike, expiry, sold_price, contracts,
     # WATCH: 50%+ premium captured + within 5%
     if premium_captured_pct >= 50 and pct_from_strike < 5:
         return PositionAlert(
+            clause="watch_tp50_within_5pct",
             level="WATCH", ticker=ticker, strike=strike, expiry=str(expiry)[:10],
             sold_price=sold_price, current_stock=current_stock,
             current_option=current_option_ask, dte=dte,
@@ -425,6 +451,7 @@ def assess_position(ticker, strike, expiry, sold_price, contracts,
 
     # SAFE: Everything else
     return PositionAlert(
+        clause="safe_default",
         level="SAFE", ticker=ticker, strike=strike, expiry=str(expiry)[:10],
         sold_price=sold_price, current_stock=current_stock,
         current_option=current_option_ask, dte=dte,
@@ -456,24 +483,11 @@ RATIONAL_EXERCISE_DELTA = 0.95
 RATIONAL_EXERCISE_MARGIN = 1.5   # arbitrary safety margin — TUNE UPWARD ONLY
 
 
-def _is_usable_number(value, allow_zero=False):
-    """True only for a real, finite, non-negative number.
-
-    Rejects None, NaN, inf, non-numerics and (unless allow_zero) zero. Used by
-    the fail-safe guards, where "we do not have this input" must be
-    indistinguishable from "we have a nonsense value for this input".
-    """
-    if value is None or isinstance(value, bool):
-        return False
-    try:
-        v = float(value)
-    except (TypeError, ValueError):
-        return False
-    if v != v or v in (float('inf'), float('-inf')):   # NaN / inf
-        return False
-    if v < 0:
-        return False
-    return True if allow_zero else v > 0
+# Promoted to cc_core so the monitor, the simulator and the paper engine all
+# validate externally-sourced numbers the same way (paper-engine spec §5.5).
+# Kept as a module-level name here because the fail-safe guards below and the
+# existing tests both reference it.
+_is_usable_number = cc_core.is_usable_number
 
 
 def rational_exercise_emergency(strike, current_stock, current_option_ask,
