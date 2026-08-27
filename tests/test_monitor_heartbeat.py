@@ -28,6 +28,19 @@ from monitor_positions import MonitorError
 
 @pytest.fixture
 def wired(monkeypatch):
+    # Pin the wall clock OUTSIDE the 15:00-16:59 ET daily-summary window
+    # (monitor_positions.py:672). main() reads datetime.now(tz=ET) directly, so
+    # without this every test in this file grows an extra pushover when CI
+    # happens to run between 3 and 5 PM ET — which is exactly how these tests
+    # first failed, on a YAML-only PR at 15:00:05 ET on 2026-08-27.
+    from datetime import datetime as _real_dt
+
+    class _PinnedDatetime(_real_dt):
+        @classmethod
+        def now(cls, tz=None):
+            return _real_dt(2026, 8, 27, 14, 0, tzinfo=monitor_positions.ET)
+
+    monkeypatch.setattr(monitor_positions, "datetime", _PinnedDatetime)
     monkeypatch.setattr(monitor_positions, "SUPABASE_URL", "https://db.example.com")
     monkeypatch.setattr(monitor_positions, "SUPABASE_KEY", "key")
     monkeypatch.setattr(monitor_positions, "PUSHOVER_TOKEN", "t")
@@ -196,3 +209,21 @@ def test_suppressed_alerts_are_recorded_not_discarded(wired, beats, monkeypatch)
     monkeypatch.setattr(monitor_positions, "primary_is_alive", lambda: True)
     monitor_positions.main()
     assert beats[0]["detail"]["alerts_suppressed"], "suppressed alerts vanished from the record"
+
+
+def test_daily_summary_fires_inside_its_window(wired, beats, monkeypatch):
+    """The clock-pinning in the `wired` fixture must not quietly bury the
+    summary feature: repin INSIDE the window and assert the summary sends.
+    This is the red-baseline for the fixture's pin — remove the pin and the
+    other tests in this file fail between 15:00 and 16:59 ET."""
+    from datetime import datetime as _real_dt
+
+    class _InWindow(_real_dt):
+        @classmethod
+        def now(cls, tz=None):
+            return _real_dt(2026, 8, 27, 15, 30, tzinfo=monitor_positions.ET)
+
+    monkeypatch.setattr(monitor_positions, "datetime", _InWindow)
+    monitor_positions.main()
+    assert any("Summary" in kw.get("title", "") for kw in wired), \
+        "no daily summary inside the 15:00-16:59 ET window"
