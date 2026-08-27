@@ -8,22 +8,20 @@ name: Paper Engine (forward validation, H40-H43)
 # The engine is calendar-aware: outside a session it writes a heartbeat noting
 # `market_closed` and exits fast, so the wide UTC cron range costs nothing.
 #
-# STILL dispatch-only. The startup gate hashes the live PREREGISTRATION.md
-# against the H40-H43 graveyard rows, and this PR edits that document — so on
-# merge the gate is necessarily red (rows missing, or registered against the
-# older bytes). A */15 schedule enabled in the same PR would fail every run and
-# post 28 Discord alerts an hour into a channel that survives about two false
-# alarms (docs/crons.md). The schedule goes live in its own one-line commit
-# AFTER registry-sync has registered the merged document and one dispatched run
-# has come back green:
-#
-#   schedule:
-#     # Same 15-minute grid as the monitor. 13:00-21:00 UTC covers 9:30-16:00
-#     # ET in both EST and EDT; GitHub cron does not observe DST, so the range
-#     # is wide and the engine decides for itself whether the market is open.
-#     - cron: '*/15 13-21 * * 1-5'
-#
+# Schedule ENABLED 2026-08-27, deliberately in its own commit and only after
+# the §6.5 sequence completed on main: gate demonstrated RED (run 33105432828,
+# "pre-registration rows missing"), H40–H43 registered by registry-sync run
+# 33105529631 against the merged document (sha d9a981cc98ed…), and one
+# dispatched tick came back fully green (run 33106075074, 16/16 writes
+# confirmed). Enabling the cron in the same PR that edited the byte-hashed
+# PREREGISTRATION.md would have meant a guaranteed-red */15 job posting 28
+# Discord alerts an hour (docs/crons.md).
 on:
+  schedule:
+    # Same 15-minute grid as the monitor. 13:00-21:00 UTC covers 9:30-16:00 ET
+    # in both EST and EDT; GitHub cron does not observe DST, so the range is
+    # wide and the engine decides for itself whether the market is open.
+    - cron: '*/15 13-21 * * 1-5'
   workflow_dispatch:
 
 # One tick at a time. Two overlapping runs would both read "no position open"
