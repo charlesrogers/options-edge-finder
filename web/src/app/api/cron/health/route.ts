@@ -70,9 +70,15 @@ export async function GET(request: Request) {
   // render as "the monitor is fine".
   try {
     const sb = getSupabase()
+    // Filter to the POSITION MONITOR's own chains: the paper engine writes to
+    // this same table every 15 minutes under role 'paper-engine', and an
+    // unfiltered newest-row read would report a DEAD position monitor as
+    // healthy off the paper engine's heartbeat — the 4.5-month silent-outage
+    // class, on the $400K alert path (correctness review, 2026-08-27).
     const { data, error } = await sb
       .from('monitor_heartbeats')
       .select('ran_at, ok, source, role, positions_checked, positions_unassessed')
+      .in('role', ['chain1', 'primary', 'fallback'])
       .order('ran_at', { ascending: false })
       .limit(1)
     if (error) throw new Error(error.message)

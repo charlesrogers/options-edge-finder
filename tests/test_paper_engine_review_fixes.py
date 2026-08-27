@@ -266,15 +266,45 @@ def test_stock_dates_accepts_the_live_workers_string_dates(monkeypatch):
 
     import yf_proxy
     monkeypatch.setattr(yf_proxy, "get_stock_info", lambda t: {
-        "exDividendDate": "2026-08-10",
+        "exDividendDate": "2026-11-10",
         "earningsDate": ["2026-10-29"],
         "dividendYield": 0.0035,
     })
     eng = engine.PaperEngine(tick_ts=MIDDAY, universe=["T"])
     ex_div, earnings, div_yield = eng.stock_dates("T")
-    assert ex_div == "2026-08-10"
+    assert ex_div == "2026-11-10"
     assert earnings == "2026-10-29"
     assert div_yield == 0.0035
+
+
+def test_past_dates_from_yahoo_never_become_days_to_exdiv_zero(monkeypatch):
+    """Second-order bug in the string-date fix itself: Yahoo serves the MOST
+    RECENT (usually past) ex-date, and position_monitor clamps with
+    max(0, ...) — so a past date becomes days_to_exdiv=0 and an ITM covered
+    call on any payer fires a false EMERGENCY every 15 minutes. Past event
+    dates must parse to None."""
+    assert max(0, -11) == 0                        # the clamp — the premise
+
+    # Engine side: a past ex-div (AAPL's actual '2026-08-10' read later) is
+    # dropped at parse time.
+    import yf_proxy
+    monkeypatch.setattr(yf_proxy, "get_stock_info", lambda t: {
+        "exDividendDate": "2026-08-10",            # past relative to MIDDAY
+        "earningsDate": ["2026-07-29"],            # past too
+        "dividendYield": 0.0035,
+    })
+    eng = engine.PaperEngine(tick_ts=MIDDAY, universe=["T"])
+    ex_div, earnings, _ = eng.stock_dates("T")
+    assert ex_div is None
+    assert earnings is None
+
+    # And with a None ex-div, an ITM position cannot fire the ex-div EMERGENCY.
+    from position_monitor import assess_position
+    alert = assess_position(ticker="T", strike=110.0, expiry="2026-10-16",
+                            sold_price=2.0, contracts=7, current_stock=120.0,
+                            current_option_ask=10.1, ex_div_date=None,
+                            as_of=MIDDAY.date().isoformat())
+    assert alert.level != "EMERGENCY"
 
 
 def test_monitor_positions_uses_the_shared_date_parser():
@@ -283,7 +313,7 @@ def test_monitor_positions_uses_the_shared_date_parser():
     import inspect
     import monitor_positions
     src = inspect.getsource(monitor_positions)
-    assert "parse_market_date(info.get(\"exDividendDate\"))" in src
+    assert "upcoming_market_date(" in src
     assert 'isinstance(ex_div_ts, (int, float))' not in src
 
 
@@ -348,4 +378,67 @@ def test_past_expiry_settlement_off_a_stale_spot_is_never_a_real_fill(monkeypatc
     assert eng.execute_exit_fill(t, q) is True
     closed = [u for u in st.updates if u[1].get("status") == "closed"][0][1]
     assert closed["exit_kind"] == "expiry_assigned"
+    assert closed["real_fill"] is False
+
+
+def test_missing_quote_cannot_fabricate_an_early_exercise(monkeypatch):
+    """With no usable option quote, _Ctx falls back to option_price=0.0 and
+    extrinsic < dividend is unconditionally true — a data gap booked as a
+    modeled assignment in the control arm. The decision must defer."""
+    st = Store().install(monkeypatch)
+    eng = engine.PaperEngine(tick_ts=MIDDAY, universe=["T"])
+    q = fresh_quote(spot=120.0, bid=None, ask=None)   # contract went quoteless
+    eng.tick_position(trade_row("B", expiry="2026-10-16"), q,
+                      ex_div="2026-09-19", earnings=None, dividend=0.75)
+    assert not [u for u in st.updates if u[1].get("status") == "closed"], \
+        "booked an assignment off a fabricated 0.0 option price"
+    assert eng.tally.modeled_assignments == 0
+
+
+def test_late_settlement_is_never_a_real_fill(monkeypatch):
+    """A settlement booked after expiry day prices off a LATER session's spot;
+    a weekend gap can fabricate an assignment. Fresh Monday spot or not, a
+    late settlement stays out of the real-fill subset."""
+    st = Store().install(monkeypatch)
+    eng = engine.PaperEngine(tick_ts=utc(2026, 9, 21, 18, 0), universe=["T"])
+    t = trade_row("A", status="pending_exit",
+                  exit_decision_ts="2026-09-18T18:00:00+00:00",
+                  exit_priced_from=cc_core.OPTION_QUOTE, exit_clause="x")
+    q = fresh_quote(tick_ts=eng.tick_ts, ask=None, spot=113.0, stale=False)
+    assert eng.execute_exit_fill(t, q) is True
+    closed = [u for u in st.updates if u[1].get("status") == "closed"][0][1]
+    assert closed["exit_kind"] == "expiry_assigned"
+    assert closed["real_fill"] is False
+
+
+def test_warn_only_switches_do_not_pause_entries():
+    """The stale-quotes switch says 'this warns, it does not halt' — and it
+    was halting every ticker's entries for the day on one proxy blip."""
+    ev = {"switches": [
+        {"kind": killswitch.INTEGRITY, "state": killswitch.TRIGGERED,
+         "name": "stale_quotes_this_run", "scope": None, "halts": False},
+    ]}
+    pause_all, per_ticker, global_arms = killswitch.entry_halts(ev)
+    assert pause_all is False
+
+    ev["switches"].append(
+        {"kind": killswitch.INTEGRITY, "state": killswitch.TRIGGERED,
+         "name": "quote_coverage_5_sessions", "scope": None, "halts": True})
+    pause_all2, _, _ = killswitch.entry_halts(ev)
+    assert pause_all2 is True
+
+
+def test_a_stale_entry_fill_never_grades_as_a_real_fill(monkeypatch):
+    """Stricter than cc_sim's exit-only definition, disclosed in the
+    pre-registration: a cycle whose ENTRY filled on a carried-forward quote is
+    excluded from the real-fill subset even when its exit quote was real."""
+    st = Store().install(monkeypatch)
+    eng = engine.PaperEngine(tick_ts=utc(2026, 9, 10, 18, 0), universe=["T"])
+    t = trade_row("A", status="pending_exit", entry_quote_stale=True,
+                  exit_decision_ts="2026-09-10T17:30:00+00:00",
+                  exit_priced_from=cc_core.OPTION_QUOTE, exit_clause="x",
+                  expiry="2026-10-16")
+    q = fresh_quote(tick_ts=eng.tick_ts, ask=1.3, stale=False)
+    assert eng.execute_exit_fill(t, q) is True
+    closed = [u for u in st.updates if u[1].get("status") == "closed"][0][1]
     assert closed["real_fill"] is False

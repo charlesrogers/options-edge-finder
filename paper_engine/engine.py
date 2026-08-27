@@ -205,13 +205,16 @@ class PaperEngine:
         # The deployed worker serves exDividendDate as an ISO STRING and
         # earningsDate as a list of strings (probed live 2026-08-21). The old
         # isinstance(int, float) guard parsed both to None on every lookup —
-        # the DTE-bug shape, on the ex-div path. parse_market_date accepts
-        # epoch, ISO string, and date, and validates all three.
-        ex_div = cc_core.parse_market_date(info.get("exDividendDate"))
+        # the DTE-bug shape, on the ex-div path. upcoming_market_date accepts
+        # epoch, ISO string, and date, and drops PAST dates: Yahoo serves the
+        # most recent (usually past) ex-date, which would clamp to
+        # days_to_exdiv=0 and fabricate EMERGENCY verdicts on every ITM payer.
+        ex_div = cc_core.upcoming_market_date(info.get("exDividendDate"),
+                                              self.et_day)
         ets = info.get("earningsDate")
         if isinstance(ets, (list, tuple)):
             ets = ets[0] if ets else None
-        earnings = cc_core.parse_market_date(ets)
+        earnings = cc_core.upcoming_market_date(ets, self.et_day)
         # A NaN dividend yield sails through a None-guard, so it is validated
         # rather than truth-tested (tasks/lessons.md 2026-08-16).
         raw_yield = info.get("dividendYield")
@@ -295,6 +298,12 @@ class PaperEngine:
             self.note(f"{trade['arm']}/{trade['ticker']} settlement deferred: "
                       f"no fresh spot at {self.tick_ts.isoformat()}")
             return False
+        # A settlement booked AFTER expiry day (the final tick was missed —
+        # cron drift is documented here) prices off a LATER session's spot.
+        # A weekend gap can fabricate an assignment or erase a real one, so a
+        # late settlement is never a real fill even when its spot is fresh.
+        late = (decision.kind.startswith("expiry")
+                and self.et_day > str(trade["expiry"])[:10])
         price = (max(0.0, quote.spot - float(trade["strike"]))
                  if intrinsic_priced else 0.0)
         premium = float(trade["premium_per_share"])
@@ -323,9 +332,14 @@ class PaperEngine:
                 trade.get("entry_spread"), None, contracts),
             # A ZERO settlement whose ITM/OTM classification came off a stale
             # spot (past-expiry cleanup) is not a real fill either — the
-            # classification itself is the stale number.
-            "real_fill": (spot_fresh if (intrinsic_priced or allow_stale_spot)
-                          else True),
+            # classification itself is the stale number. Nor is a late
+            # settlement, nor a cycle whose ENTRY filled on a carried-forward
+            # quote (stricter than cc_sim's exit-only definition, disclosed in
+            # PREREGISTRATION §7 — restricting only shrinks the graded subset).
+            "real_fill": ((spot_fresh if (intrinsic_priced or allow_stale_spot)
+                           else True)
+                          and not late
+                          and not bool(trade.get("entry_quote_stale"))),
             "assigned": decision.assigned,
             "assignment_type": decision.assignment_type,
             "assignment_modeled": True,
@@ -508,8 +522,11 @@ class PaperEngine:
             exit_commission=exit_comm)
 
         # A buyback is real only if the quote that filled it was neither
-        # carried forward nor a post-session fallback.
-        real_fill = not (quote.stale or used_fallback)
+        # carried forward nor a post-session fallback — and the cycle's ENTRY
+        # filled on a real quote too (stricter than cc_sim's exit-only
+        # definition; restricting only shrinks the graded subset).
+        real_fill = not (quote.stale or used_fallback
+                         or bool(trade.get("entry_quote_stale")))
 
         patch = {
             "status": "closed",
@@ -629,6 +646,16 @@ class PaperEngine:
                 ctx, config.POLICY_CFG,
                 lambda _c: (cc_core.HOLD, alert.level), armed_on=None)
         if not decision.closes:
+            return
+
+        if decision.kind == "early_exercise" and mid is None:
+            # With no usable option quote, _Ctx's option_price falls back to
+            # 0.0 and extrinsic < dividend is unconditionally true — the
+            # "assignment" would be a data gap recorded as a market event,
+            # biasing H41 in the control arm. Defer until a quote exists.
+            self.note(f"{trade['arm']}/{trade['ticker']} early-exercise "
+                      f"decision needs an option price; no usable quote — "
+                      f"deferred")
             return
 
         if decision.priced_from in (cc_core.INTRINSIC, cc_core.ZERO):
@@ -754,10 +781,13 @@ class PaperEngine:
                 result["entered"] = True
             row["arm_results"][arm] = result
 
-        self.writes.record(store.upsert, config.TABLES["entry_evals"],
-                           store.json_safe(row), "ticker,trading_day")
-        self.tally.entry_evals += 1
-
+        # Trade rows FIRST, the eval row LAST: already_evaluated_today keys on
+        # the eval row, so writing it before the trades means a mid-loop
+        # StoreError (run exits on first failure) leaves some arms without a
+        # position while the ticker reads "evaluated" — the arms desync for
+        # the whole cycle and the cycle silently drops out of the paired
+        # readouts. With trades first, a crashed run re-evaluates next tick
+        # and the open_by_arm check skips the arms that already opened.
         contracts, _reason = config.contracts_for(ticker)
         for arm, result in row["arm_results"].items():
             if not result["entered"]:
@@ -782,6 +812,10 @@ class PaperEngine:
                                     "decision_ask": quote.ask,
                                     "iv_rank": iv_rank})
                 self.tally.entries_opened += 1
+
+        self.writes.record(store.upsert, config.TABLES["entry_evals"],
+                           store.json_safe(row), "ticker,trading_day")
+        self.tally.entry_evals += 1
 
     # -------------------------------------------------------------- events --
     def event(self, kind, arm=None, ticker=None, cycle_seq=None,

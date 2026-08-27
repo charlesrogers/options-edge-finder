@@ -561,13 +561,18 @@ def _run(stats):
             # isinstance(int, float) guard parsed both to None on every lookup,
             # which made EMERGENCY and every ex-div/earnings clause silently
             # unreachable against the live proxy (probed 2026-08-21).
-            # cc_core.parse_market_date accepts epoch, ISO string, and date.
+            # upcoming_market_date accepts epoch, ISO string, and date, AND
+            # drops PAST dates: Yahoo serves the most recent (usually past)
+            # ex-date, and a past date would clamp to days_to_exdiv=0 in
+            # assess_position and fire a false EMERGENCY on every ITM payer.
             div_yield = info.get("dividendYield")   # H19 shadow mode input
-            ex_div_str = cc_core.parse_market_date(info.get("exDividendDate"))
+            today_et = now.strftime("%Y-%m-%d")
+            ex_div_str = cc_core.upcoming_market_date(
+                info.get("exDividendDate"), today_et)
             earn_ts = info.get("earningsDate")
             if isinstance(earn_ts, (list, tuple)):
                 earn_ts = earn_ts[0] if earn_ts else None
-            earn_str = cc_core.parse_market_date(earn_ts)
+            earn_str = cc_core.upcoming_market_date(earn_ts, today_et)
 
             # Run copilot — the LIVE path, unchanged from before shadow mode.
             alert = assess_position(

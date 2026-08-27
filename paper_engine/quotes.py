@@ -341,14 +341,17 @@ def iv_rank_for(ticker, current_iv):
     """
     if not cc_core.is_usable_number(current_iv):
         return None, "unavailable", "no usable current IV"
+    db_error = None
     try:
         import db
         real_rank, _pctl, days = db.get_real_iv_rank(ticker, current_iv)
         if real_rank is not None and days >= 20:
             return float(real_rank), "real_iv", f"{days}d recorded IV history"
     except Exception as e:
-        # A failed lookup is not a rank of zero and is not silence.
-        return None, "error", f"get_real_iv_rank failed: {str(e)[:160]}"
+        # A failed lookup is not a rank of zero and is not silence — but it is
+        # also not a reason to skip the RV fallback, which is exactly the
+        # degraded-mode branch built for this case. Note it and fall through.
+        db_error = f"get_real_iv_rank failed: {str(e)[:120]}"
 
     try:
         import analytics
@@ -358,6 +361,12 @@ def iv_rank_for(ticker, current_iv):
         rank, _ = analytics.get_iv_rank_percentile(hist, current_iv)
         if rank is None:
             return None, "unavailable", "RV proxy returned no rank"
-        return float(rank), "rv_proxy", "realized-vol proxy (<20d recorded IV)"
+        detail = "realized-vol proxy (<20d recorded IV)"
+        if db_error:
+            detail += f"; {db_error}"
+        return float(rank), "rv_proxy", detail
     except Exception as e:
-        return None, "error", f"rv proxy failed: {str(e)[:160]}"
+        detail = f"rv proxy failed: {str(e)[:120]}"
+        if db_error:
+            detail = f"{db_error}; {detail}"
+        return None, "error", detail

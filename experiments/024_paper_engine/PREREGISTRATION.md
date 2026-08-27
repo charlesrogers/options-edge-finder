@@ -288,6 +288,14 @@ Registered now so none of this is improvised later:
 
 ## 7. Known limitations, registered up front
 
+- **The forward real-fill definition is STRICTER than the backtest's.** The
+  reference table's real-fill subset is cc_sim's: the *exit* was priced by a
+  real observation. The forward engine additionally excludes cycles whose
+  *entry* filled on a carried-forward quote, settlements booked after expiry
+  day (a later session's spot can fabricate or erase an assignment), and
+  post-session fallback exits. Restricting only shrinks the graded subset —
+  a forward real-fill number can be compared against the reference knowing
+  the forward bar is higher, never lower.
 - **Six months is one regime draw.** The 2020 stress windows remain the only
   crash evidence, they are real-fill-subset backtests rather than forward
   results, and two of the five tickers have no usable stress window at all.

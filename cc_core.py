@@ -252,3 +252,26 @@ def parse_market_date(value):
     if hasattr(value, 'year') and hasattr(value, 'month') and hasattr(value, 'day'):
         return f'{value.year:04d}-{value.month:02d}-{value.day:02d}'
     return None
+
+
+def upcoming_market_date(value, as_of):
+    """`parse_market_date`, then None unless the date is `as_of` or later.
+
+    Yahoo's calendarEvents serves the MOST RECENT ex-dividend date, which is in
+    the PAST for most of each payment cycle (probed 2026-08-21: AAPL served
+    '2026-08-10' eleven days after it). Downstream, position_monitor computes
+    `max(0, (ex_div - today).days)`, so a past date clamps to days_to_exdiv=0
+    and an ITM covered call on any dividend payer fires a false EMERGENCY every
+    15 minutes until Yahoo rolls the date. A past event date carries no forward
+    risk; it must parse to None, in the same place the shape is normalized.
+
+    `as_of` is a date, datetime, or 'YYYY-MM-DD' string. Today (== as_of) is
+    kept — conservative on the ex-date itself.
+    """
+    s = parse_market_date(value)
+    if s is None:
+        return None
+    a = parse_market_date(as_of)
+    if a is None:
+        return None
+    return s if s >= a else None
