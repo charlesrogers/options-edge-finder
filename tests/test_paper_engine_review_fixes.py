@@ -322,3 +322,30 @@ def test_chain_fetch_extracts_atm_iv_not_the_otm_contracts_iv(monkeypatch):
     assert selected.contract_symbol == "T_OTM"          # sells the OTM strike
     assert selected.implied_volatility == 0.40
     assert fetch.atm_iv == 0.25, "gate must rank the ATM IV, not the OTM skew"
+
+
+def test_past_expiry_settlement_never_books_worthless_without_a_spot(monkeypatch):
+    """With NO spot at all, ITM cannot be told from OTM — settling worthless
+    would book the full premium as kept on what might be a deep-ITM
+    assignment. The cleanup path must defer instead."""
+    st = Store().install(monkeypatch)
+    eng = engine.PaperEngine(tick_ts=utc(2026, 9, 21, 18, 0), universe=["T"])
+    t = trade_row("A", status="pending_exit",
+                  exit_decision_ts="2026-09-18T18:00:00+00:00",
+                  exit_priced_from=cc_core.OPTION_QUOTE, exit_clause="x")
+    q = fresh_quote(tick_ts=eng.tick_ts, ask=None, spot=None)
+    assert eng.execute_exit_fill(t, q) is False
+    assert not st.updates, "settled with no spot knowledge at all"
+
+
+def test_past_expiry_settlement_off_a_stale_spot_is_never_a_real_fill(monkeypatch):
+    st = Store().install(monkeypatch)
+    eng = engine.PaperEngine(tick_ts=utc(2026, 9, 21, 18, 0), universe=["T"])
+    t = trade_row("A", status="pending_exit",
+                  exit_decision_ts="2026-09-18T18:00:00+00:00",
+                  exit_priced_from=cc_core.OPTION_QUOTE, exit_clause="x")
+    q = fresh_quote(tick_ts=eng.tick_ts, ask=None, spot=120.0, stale=True)
+    assert eng.execute_exit_fill(t, q) is True
+    closed = [u for u in st.updates if u[1].get("status") == "closed"][0][1]
+    assert closed["exit_kind"] == "expiry_assigned"
+    assert closed["real_fill"] is False

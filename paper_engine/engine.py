@@ -276,7 +276,8 @@ class PaperEngine:
                       - config.TICK_GRID_MINUTES)
         return et.hour * 60 + et.minute >= final_tick
 
-    def settle_position(self, trade, quote, decision, ctx, alert):
+    def settle_position(self, trade, quote, decision, ctx, alert,
+                        allow_stale_spot=False):
         """Book an expiry/assignment settlement — mechanical, so it books at
         the DECISION tick with the decision spot. The +15-minute latency rule
         models Dad reacting to an alert; expiry does not wait for Dad.
@@ -284,11 +285,13 @@ class PaperEngine:
         A settlement's price is the spot, so it is only 'real' if the spot is
         fresh. A carried-forward Friday spot pricing a Monday settlement was
         exactly the kind of stale number the real-fill subset exists to
-        exclude — deferring on a stale spot keeps it out.
+        exclude — deferring on a stale spot keeps it out. `allow_stale_spot`
+        is for the past-expiry cleanup path only, where a position must not
+        block its slot forever; such a settlement is never a real fill.
         """
         intrinsic_priced = decision.priced_from == cc_core.INTRINSIC
         spot_fresh = quote.spot_usable and not quote.stale
-        if intrinsic_priced and not spot_fresh:
+        if intrinsic_priced and not spot_fresh and not allow_stale_spot:
             self.note(f"{trade['arm']}/{trade['ticker']} settlement deferred: "
                       f"no fresh spot at {self.tick_ts.isoformat()}")
             return False
@@ -318,7 +321,11 @@ class PaperEngine:
             "exit_priced_from": decision.priced_from,
             "spread_cost_total": accounting.spread_cost_usd(
                 trade.get("entry_spread"), None, contracts),
-            "real_fill": spot_fresh if intrinsic_priced else True,
+            # A ZERO settlement whose ITM/OTM classification came off a stale
+            # spot (past-expiry cleanup) is not a real fill either — the
+            # classification itself is the stale number.
+            "real_fill": (spot_fresh if (intrinsic_priced or allow_stale_spot)
+                          else True),
             "assigned": decision.assigned,
             "assignment_type": decision.assignment_type,
             "assignment_modeled": True,
@@ -440,25 +447,26 @@ class PaperEngine:
         # stock was called away; OTM means it expired worthless. Without this,
         # a permanently no-ask contract (thin KKR) blocks its slot forever.
         if self.is_settlement_tick(trade["expiry"]):
-            spot_fresh = quote.spot_usable and not quote.stale
-            itm = spot_fresh and quote.spot > float(trade["strike"])
+            if not quote.spot_usable:
+                # With NO spot, ITM cannot be told from OTM — settling
+                # worthless here would book the full premium as kept on what
+                # might be a deep-ITM assignment. Defer; the carry-forward
+                # path restores at least a stale spot next tick (an entry
+                # required one, so one exists).
+                self.note(f"{trade['arm']}/{trade['ticker']} past-expiry "
+                          f"settlement deferred: no spot at all")
+                return False
+            itm = quote.spot > float(trade["strike"])
             decision = cc_core.Decision(
                 kind="expiry_assigned" if itm else "expiry_worthless",
                 verdict="EXPIRY", closes=True, assigned=itm,
                 assignment_type="expiry" if itm else "",
-                settle_price=(quote.spot - float(trade["strike"])) if itm else 0.0,
+                settle_price=max(0.0, quote.spot - float(trade["strike"])),
                 priced_from=cc_core.INTRINSIC if itm else cc_core.ZERO)
-            if not spot_fresh and quote.spot_usable:
-                # Stale spot: cannot tell ITM from OTM trustworthily — settle
-                # at intrinsic off the stale spot, flagged not-real.
-                itm_stale = quote.spot > float(trade["strike"])
-                decision = cc_core.Decision(
-                    kind="expiry_assigned" if itm_stale else "expiry_worthless",
-                    verdict="EXPIRY", closes=True, assigned=itm_stale,
-                    assignment_type="expiry" if itm_stale else "",
-                    settle_price=max(0.0, quote.spot - float(trade["strike"])),
-                    priced_from=cc_core.INTRINSIC if itm_stale else cc_core.ZERO)
-            return self.settle_position(trade, quote, decision, None, None)
+            # A stale spot may settle this cleanup path — the position must
+            # not block its slot forever — but it can never be a real fill.
+            return self.settle_position(trade, quote, decision, None, None,
+                                        allow_stale_spot=True)
 
         if not self.fill_is_due(decision_ts):
             return False
